@@ -17,7 +17,7 @@ fi
 # 2. Start Node.js WhatsApp automation service in background
 if [ -d "whatsapp_service" ]; then
     echo "[*] Launching WhatsApp automation background service..."
-    (cd whatsapp_service && node server.js) &
+    (cd whatsapp_service && node dev-server.js) &
     WA_PID=$!
     echo "[✔] WhatsApp service started with PID $WA_PID"
 fi
