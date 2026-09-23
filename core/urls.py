@@ -26,6 +26,7 @@ urlpatterns = [
     path('courses/', views.courses_list, name='courses_list'),
     path('courses/create/', views.course_group_create, name='course_group_create'),
     path('courses/<int:group_id>/', views.group_detail, name='group_detail'),
+    path('courses/<int:group_id>/print-pdf/', views.group_print_pdf, name='group_print_pdf'),
     path('courses/<int:group_id>/edit/', views.course_group_edit, name='course_group_edit'),
     path('courses/<int:group_id>/delete-confirm/', views.course_group_delete_confirm, name='course_group_delete_confirm'),
 

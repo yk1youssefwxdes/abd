@@ -79,6 +79,9 @@
         </div>
       </div>
       <div class="col-auto d-flex gap-2 flex-wrap">
+        <a href="{% url 'core:group_print_pdf' group.id %}" target="_blank" class="btn btn-outline-secondary">
+          <i class="bi bi-printer"></i> Imprimer PDF
+        </a>
         <a href="{% url 'core:course_group_edit' group.id %}" class="btn btn-outline-primary">
           <i class="bi bi-pencil"></i> Éditer
         </a>
@@ -241,6 +244,9 @@
       <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <span class="fw-600">Élèves inscrits dans ce groupe ({{ total_students }})</span>
         <div class="d-flex gap-2">
+          <a href="{% url 'core:group_print_pdf' group.id %}" target="_blank" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-printer me-1"></i> Imprimer la liste
+          </a>
           {% if available_students %}
             <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#enrollStudentModal">
               <i class="bi bi-person-plus-fill me-1"></i> + Inscrire un élève

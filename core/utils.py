@@ -2120,6 +2120,284 @@ def generate_teacher_payslip_pdf(teacher, start_date, end_date, result) -> Bytes
     return buffer
 
 
+def generate_course_group_pdf(group) -> BytesIO:
+    """
+    Génère une fiche PDF A4 complète pour un groupe de cours (CourseGroup)
+    contenant les informations de l'enseignant, des élèves inscrits, des horaires
+    et le jour et la date d'impression.
+    """
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from xml.sax.saxutils import escape
+
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36
+    )
+    styles = getSampleStyleSheet()
+
+    # Color tokens
+    PRIMARY = colors.HexColor('#1e3a8a')    # Deep blue
+    DARK = colors.HexColor('#0f172a')       # Slate 900
+    MUTED = colors.HexColor('#64748b')      # Slate 500
+    BG_LIGHT = colors.HexColor('#f8fafc')   # Slate 50
+    BORDER = colors.HexColor('#e2e8f0')     # Slate 200
+
+    section_style = ParagraphStyle(
+        'GroupSectionHeading',
+        parent=styles['Heading2'],
+        fontSize=10,
+        leading=13,
+        textColor=PRIMARY,
+        fontName='Helvetica-Bold',
+        spaceBefore=8,
+        spaceAfter=4,
+    )
+    body_style = ParagraphStyle(
+        'GroupBody',
+        parent=styles['Normal'],
+        fontSize=8.5,
+        leading=11.5,
+        textColor=DARK,
+        fontName='Helvetica',
+    )
+    bold_body_style = ParagraphStyle(
+        'GroupBoldBody',
+        parent=body_style,
+        fontName='Helvetica-Bold',
+    )
+    small_style = ParagraphStyle(
+        'GroupSmall',
+        parent=styles['Normal'],
+        fontSize=7.5,
+        leading=10,
+        textColor=MUTED,
+        fontName='Helvetica',
+    )
+    header_col_style = ParagraphStyle(
+        'GroupTableHead',
+        parent=styles['Normal'],
+        fontSize=8,
+        leading=10,
+        textColor=colors.white,
+        fontName='Helvetica-Bold',
+        alignment=1,  # Center
+    )
+
+    elements = []
+
+    # 1. School Information & Document Header
+    school_name = get_setting('SCHOOL_NAME', 'Centre')
+    school_subtitle = get_setting('SCHOOL_SUBTITLE', 'Soutien Scolaire & Langues')
+    school_address = get_setting('SCHOOL_ADDRESS', '')
+    school_phone = get_setting('SCHOOL_PHONE', '')
+    school_email = get_setting('SCHOOL_EMAIL', '')
+
+    now = timezone.now()
+    day_name_fr = FRENCH_DAYS.get(now.strftime('%A'), now.strftime('%A'))
+    month_name_fr_val = FRENCH_MONTHS.get(now.month, now.strftime('%B'))
+    printed_at_str = f"{day_name_fr} {now.strftime('%d')} {month_name_fr_val} {now.strftime('%Y')} à {now.strftime('%H:%M')}"
+
+    header_left = (
+        f"<b>{escape(school_name)}</b><br/>"
+        f"<font color='{MUTED.hexval()}'>{escape(school_subtitle)}</font><br/>"
+        f"<font size='7.5'>{escape(school_address)}</font><br/>"
+        f"<font size='7.5'>Tél: {escape(school_phone)} | Email: {escape(school_email)}</font>"
+    )
+    header_right = (
+        f"<font size='14' color='{PRIMARY.hexval()}'><b>FICHE DU GROUPE</b></font><br/>"
+        f"<b>{escape(group.name)}</b><br/>"
+        f"<font size='8' color='{MUTED.hexval()}'><b>Imprimé le :</b> {printed_at_str}</font>"
+    )
+
+    header_table = Table(
+        [[Paragraph(header_left, body_style), Paragraph(header_right, body_style)]],
+        colWidths=[270, 250]
+    )
+    header_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+    ]))
+    elements.append(header_table)
+    elements.append(HRFlowable(width='100%', thickness=1.5, color=PRIMARY, spaceBefore=4, spaceAfter=8))
+
+    # 2. Group & Teacher Information Boxes
+    teacher_name = group.teacher.name if group.teacher else 'Non assigné'
+    teacher_phone = group.teacher.phone if group.teacher and group.teacher.phone else '—'
+    teacher_email = group.teacher.email if group.teacher and group.teacher.email else '—'
+    payment_method = group.teacher.get_payment_method_display() if group.teacher else '—'
+
+    levels_display = group.levels_display if hasattr(group, 'levels_display') else (group.level.name if group.level else 'Tous niveaux')
+    status_label = "Actif" if group.is_active else "Inactif"
+
+    info_card_left = [
+        [Paragraph("<b>INFORMATIONS DU GROUPE</b>", bold_body_style), ""],
+        [Paragraph("Matière :", small_style), Paragraph(f"<b>{escape(group.subject)}</b>", body_style)],
+        [Paragraph("Niveau(x) :", small_style), Paragraph(f"<b>{escape(levels_display)}</b>", body_style)],
+        [Paragraph("Tarif mensuel :", small_style), Paragraph(f"<b>{group.monthly_price} DH</b> / mois", body_style)],
+        [Paragraph("Statut :", small_style), Paragraph(f"<b>{status_label}</b>", body_style)],
+    ]
+    table_group_info = Table(info_card_left, colWidths=[80, 170])
+    table_group_info.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),
+        ('BACKGROUND', (0,0), (1,0), BG_LIGHT),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('BOX', (0,0), (-1,-1), 0.5, BORDER),
+        ('LINEBELOW', (0,0), (1,0), 0.5, BORDER),
+    ]))
+
+    info_card_right = [
+        [Paragraph("<b>PROFESSEUR / ENSEIGNANT</b>", bold_body_style), ""],
+        [Paragraph("Nom :", small_style), Paragraph(f"<b>{escape(teacher_name)}</b>", body_style)],
+        [Paragraph("Téléphone :", small_style), Paragraph(escape(teacher_phone), body_style)],
+        [Paragraph("Email :", small_style), Paragraph(escape(teacher_email), body_style)],
+        [Paragraph("Rémunération :", small_style), Paragraph(escape(payment_method), body_style)],
+    ]
+    table_teacher_info = Table(info_card_right, colWidths=[85, 165])
+    table_teacher_info.setStyle(TableStyle([
+        ('SPAN', (0,0), (1,0)),
+        ('BACKGROUND', (0,0), (1,0), BG_LIGHT),
+        ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ('TOPPADDING', (0,0), (-1,-1), 2),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 2),
+        ('LEFTPADDING', (0,0), (-1,-1), 4),
+        ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ('BOX', (0,0), (-1,-1), 0.5, BORDER),
+        ('LINEBELOW', (0,0), (1,0), 0.5, BORDER),
+    ]))
+
+    info_row_table = Table([[table_group_info, table_teacher_info]], colWidths=[255, 265])
+    info_row_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING', (0,0), (-1,-1), 0),
+        ('RIGHTPADDING', (0,0), (-1,-1), 0),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+    ]))
+    elements.append(info_row_table)
+
+    # 3. Weekly Schedules Section
+    schedules = list(group.schedules.select_related('room').all())
+    elements.append(Paragraph("<b>HORAIRES HEBDOMADAIRES</b>", section_style))
+    if schedules:
+        sch_header = [
+            Paragraph("Jour", header_col_style),
+            Paragraph("Heure de début", header_col_style),
+            Paragraph("Heure de fin", header_col_style),
+            Paragraph("Durée", header_col_style),
+            Paragraph("Salle", header_col_style),
+        ]
+        sch_rows = [sch_header]
+        for sch in schedules:
+            dur = f"{sch.duration_hours():.1f}h" if hasattr(sch, 'duration_hours') else ""
+            room_name = sch.room.name if sch.room else "À définir"
+            sch_rows.append([
+                Paragraph(f"<b>{escape(sch.get_day_display())}</b>", body_style),
+                Paragraph(sch.start_time.strftime('%H:%M'), body_style),
+                Paragraph(sch.end_time.strftime('%H:%M'), body_style),
+                Paragraph(dur, body_style),
+                Paragraph(escape(room_name), body_style),
+            ])
+        sch_table = Table(sch_rows, colWidths=[110, 100, 100, 80, 130])
+        sch_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), PRIMARY),
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, BORDER),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, BG_LIGHT]),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('LEFTPADDING', (0,0), (-1,-1), 6),
+            ('RIGHTPADDING', (0,0), (-1,-1), 6),
+        ]))
+        elements.append(sch_table)
+    else:
+        elements.append(Paragraph("<i>Aucun horaire défini pour ce groupe.</i>", body_style))
+
+    elements.append(Spacer(1, 6))
+
+    # 4. Enrolled Students Section
+    students = list(group.students.select_related('level').order_by('name'))
+    total_students = len(students)
+    elements.append(Paragraph(f"<b>LISTE DES ÉLÈVES INSCRITS ({total_students} élève{'s' if total_students > 1 else ''})</b>", section_style))
+
+    if students:
+        stud_header = [
+            Paragraph("N°", header_col_style),
+            Paragraph("Matricule", header_col_style),
+            Paragraph("Nom et Prénom", header_col_style),
+            Paragraph("Niveau", header_col_style),
+            Paragraph("Contact Parent", header_col_style),
+            Paragraph("Statut", header_col_style),
+            Paragraph("Émargement", header_col_style),
+        ]
+        stud_rows = [stud_header]
+        for idx, student in enumerate(students, start=1):
+            matricule = escape(student.matricule) if student.matricule else "—"
+            stud_name = f"<b>{escape(student.name)}</b>"
+            level_str = escape(student.level.name) if student.level else "—"
+            parent_contact = escape(student.parent_contact or student.phone or "—")
+            if student.parent_name:
+                parent_contact = f"{escape(student.parent_name)}<br/><font size='7' color='{MUTED.hexval()}'>{parent_contact}</font>"
+            status_text = "Actif" if student.is_active else "Inactif"
+
+            stud_rows.append([
+                Paragraph(str(idx), body_style),
+                Paragraph(matricule, body_style),
+                Paragraph(stud_name, body_style),
+                Paragraph(level_str, body_style),
+                Paragraph(parent_contact, body_style),
+                Paragraph(status_text, body_style),
+                Paragraph("", body_style),  # Empty for teacher attendance/signature
+            ])
+
+        # Width sum: 25 + 55 + 155 + 75 + 85 + 55 + 75 = 520pt
+        stud_table = Table(stud_rows, colWidths=[25, 55, 155, 75, 85, 55, 75], repeatRows=1)
+        stud_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), PRIMARY),
+            ('ALIGN', (0,0), (1,-1), 'CENTER'),
+            ('ALIGN', (3,0), (3,-1), 'CENTER'),
+            ('ALIGN', (5,0), (5,-1), 'CENTER'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('GRID', (0,0), (-1,-1), 0.5, BORDER),
+            ('ROWBACKGROUNDS', (0,1), (-1,-1), [colors.white, BG_LIGHT]),
+            ('TOPPADDING', (0,0), (-1,-1), 3),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 3),
+            ('LEFTPADDING', (0,0), (-1,-1), 4),
+            ('RIGHTPADDING', (0,0), (-1,-1), 4),
+        ]))
+        elements.append(stud_table)
+    else:
+        elements.append(Paragraph("<i>Aucun élève inscrit dans ce groupe actuellement.</i>", body_style))
+
+    elements.append(Spacer(1, 10))
+
+    # 5. Footer note & signatures
+    footer_data = [
+        [
+            Paragraph(f"<font size='7.5' color='{MUTED.hexval()}'>{escape(school_name)} — Document pédagogique généré le {printed_at_str}</font>", small_style),
+            Paragraph("<b>Signature / Visa de l'enseignant :</b><br/><br/><br/>______________________", body_style),
+        ]
+    ]
+    footer_table = Table(footer_data, colWidths=[330, 190])
+    footer_table.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('ALIGN', (1,0), (1,0), 'RIGHT'),
+    ]))
+    elements.append(footer_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
+
+
 def generate_thermal_receipt(payment) -> str:
     """
     Génère un reçu format texte pour imprimante thermique (58mm)

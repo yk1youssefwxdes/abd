@@ -1227,6 +1227,34 @@ def group_detail(request, group_id):
     })
 
 
+@require_GET
+def group_print_pdf(request, group_id):
+    """
+    Generate and stream a PDF summary of the CourseGroup, including
+    teacher details, enrolled students list, schedules, and printing date.
+    """
+    from .models import CourseGroup
+    from .utils import generate_course_group_pdf
+    import re
+
+    group = get_object_or_404(
+        CourseGroup.objects.select_related('teacher', 'level').prefetch_related(
+            'levels',
+            'schedules__room',
+            'students__level'
+        ),
+        pk=group_id
+    )
+
+    pdf_buf = generate_course_group_pdf(group)
+    safe_name = re.sub(r'[^\w\-_]', '_', group.name).strip('_') or f"groupe_{group.id}"
+    filename = f"groupe_{safe_name}_{timezone.now().strftime('%Y%m%d')}.pdf"
+
+    response = HttpResponse(pdf_buf.read(), content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{filename}"'
+    return response
+
+
 def teachers_list(request):
     """Display all teachers with summary info."""
     from .models import Teacher

@@ -1273,6 +1273,85 @@ class WhatsAppEnhancementsTestCase(TestCase):
             self.assertIn("Le service WhatsApp n'est pas encore prêt", data.get('error'))
 
 
+class GroupPdfPrintTestCase(TestCase):
+    def setUp(self):
+        User = get_user_model()
+        self.user = User.objects.create_user(username='testadmin_grouppdf', password='password123', is_staff=True)
+        self.client.force_login(self.user)
+
+        self.room = Room.objects.create(name="Salle Alpha", capacity=15)
+        self.teacher = Teacher.objects.create(
+            name="Professeur Khalid",
+            phone="0611223344",
+            email="khalid@example.com",
+            payment_method="PERCENTAGE",
+            payment_percentage=Decimal("50.00"),
+        )
+        self.group = CourseGroup.objects.create(
+            name="Groupe BAC Maths",
+            subject="Mathématiques",
+            monthly_price=Decimal("350.00"),
+            teacher=self.teacher,
+            is_active=True,
+        )
+        self.schedule = CourseGroupSchedule.objects.create(
+            course_group=self.group,
+            day="MON",
+            start_time=time(18, 0),
+            end_time=time(20, 0),
+            room=self.room,
+        )
+        self.student = Student.objects.create(
+            name="Amine Bennani",
+            matricule="ST-101",
+            phone="0622334455",
+            parent_contact="0633445566",
+            parent_name="Mohammed Bennani",
+        )
+        Enrollment.objects.create(
+            student=self.student,
+            course_group=self.group,
+            is_active=True,
+        )
+
+    def test_generate_course_group_pdf_utility(self):
+        from core.utils import generate_course_group_pdf
+        pdf_buf = generate_course_group_pdf(self.group)
+        self.assertIsNotNone(pdf_buf)
+        content = pdf_buf.read()
+        self.assertTrue(content.startswith(b'%PDF'))
+        self.assertGreater(len(content), 1000)
+
+    def test_generate_course_group_pdf_without_students(self):
+        from core.utils import generate_course_group_pdf
+        empty_group = CourseGroup.objects.create(
+            name="Groupe Vide",
+            subject="Physique",
+            monthly_price=Decimal("200.00"),
+            teacher=self.teacher,
+            is_active=True,
+        )
+        pdf_buf = generate_course_group_pdf(empty_group)
+        content = pdf_buf.read()
+        self.assertTrue(content.startswith(b'%PDF'))
+        self.assertGreater(len(content), 1000)
+
+    def test_group_print_pdf_view(self):
+        url = reverse('core:group_print_pdf', args=[self.group.id])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response['Content-Type'], 'application/pdf')
+        self.assertIn('inline;', response['Content-Disposition'])
+        self.assertIn('groupe_Groupe_BAC_Maths', response['Content-Disposition'])
+        self.assertTrue(response.content.startswith(b'%PDF'))
+
+    def test_group_print_pdf_view_404(self):
+        url = reverse('core:group_print_pdf', args=[999999])
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
+
+
 
 
 
