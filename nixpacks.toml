@@ -8,6 +8,7 @@
 
 [variables]
 PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+AUTO_LICENSE = "true"
 
 # ── System packages (Nix) ────────────────────────────────────────────────────
 [phases.setup]

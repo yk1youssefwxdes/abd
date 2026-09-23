@@ -5,6 +5,9 @@ echo "=================================================="
 echo "  Starting School ERP Production Services"
 echo "=================================================="
 
+# Ensure server / production environment auto-licenses if not specified
+export AUTO_LICENSE="${AUTO_LICENSE:-true}"
+
 # 1. Auto-detect Chromium path if not already provided
 if [ -z "$CHROME_PATH" ]; then
     DETECTED_CHROME=$(which chromium 2>/dev/null || which chromium-browser 2>/dev/null || which google-chrome-stable 2>/dev/null || which google-chrome 2>/dev/null || true)

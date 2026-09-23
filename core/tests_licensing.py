@@ -203,3 +203,23 @@ class LicensingEngineTestCase(TestCase):
                         # Even if license file is deleted, in-process cache returns True
                         lic_file.unlink()
                         self.assertTrue(license.validate_or_exit())
+
+    def test_source_json_fallback_when_license_enc_missing(self):
+        """When license.enc is absent but tools/license_source.json exists, auto-generates license."""
+        tools_dir = self.temp_dir / "tools"
+        tools_dir.mkdir(parents=True, exist_ok=True)
+        source_json = tools_dir / "license_source.json"
+        source_json.write_text(json.dumps({
+            "LICENSED_FINGERPRINT": "*",
+            "START_DATE": "2020-01-01",
+            "END_DATE": "2035-12-31",
+        }), encoding="utf-8")
+
+        lic_dir = self.temp_dir / "licenses"
+
+        with mock.patch("core.license.get_licenses_dir", return_value=lic_dir):
+            with mock.patch("core.license.get_data_dir", return_value=self.temp_dir / "data"):
+                with mock.patch("core.license.get_base_dir", return_value=self.temp_dir):
+                    with mock.patch("core.license._is_cloud_environment", return_value=False):
+                        self.assertTrue(license.validate_or_exit())
+                        self.assertTrue((self.temp_dir / "license.enc").is_file())

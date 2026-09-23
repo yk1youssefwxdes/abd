@@ -103,7 +103,8 @@ def renew_license(days: int | None = None, start_date_str: str | None = None, en
 
     # Immediate self-validation test
     try:
-        from core.license import validate_or_exit
+        from core.license import validate_or_exit, _reset_validation_cache
+        _reset_validation_cache()
         validate_or_exit()
         _ok("VALIDATION SUCCESSFUL! License is active and verified for this PC.")
         return True

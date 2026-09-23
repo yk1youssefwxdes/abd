@@ -101,6 +101,24 @@ def _load_license_data() -> dict:
         except Exception:
             continue
 
+    # Fallback for development / fresh repository clones where license.enc is gitignored:
+    # If tools/license_source.json exists, auto-encrypt and initialize the runtime license.
+    source_json = get_base_dir() / "tools" / "license_source.json"
+    if source_json.is_file():
+        try:
+            payload = json.loads(source_json.read_text(encoding="utf-8"))
+            encrypted = encrypt_license_payload(payload, secret_key, _LICENSE_FILE_NAME)
+            content = json.dumps(encrypted, indent=2)
+            for target_dir in [get_licenses_dir(), get_base_dir()]:
+                try:
+                    target_dir.mkdir(parents=True, exist_ok=True)
+                    (target_dir / _LICENSE_FILE_NAME).write_text(content, encoding="utf-8")
+                except Exception:
+                    pass
+            return payload
+        except Exception:
+            pass
+
     # If no file decrypted successfully, die
     _die("Fichier de licence manquant ou invalide. Veuillez contacter : 0715125245")
 
@@ -109,7 +127,7 @@ def _die(message: str = _ERROR_MESSAGE) -> None:
     raise SystemExit(message)
 
 
-def validate_or_exit() -> None:
+def validate_or_exit() -> bool:
     """
     Validate device fingerprint and license dates.
 
