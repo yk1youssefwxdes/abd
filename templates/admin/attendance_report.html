@@ -1,0 +1,110 @@
+{% extends 'core/base.html' %}
+{% block title %}Rapport d'Absence — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-file-earmark-bar-graph"></i> Rapport d'Absence</span>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="page-header d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="page-title"><i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--danger);"></i>Rapport d'Absences</h1>
+      <p class="page-subtitle">Analyse des élèves absents par groupe de cours</p>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4 text-start">
+          <label for="start_date" class="form-label fw-semibold">Date de début</label>
+          <input type="date" name="start_date" id="start_date" class="form-control" value="{{ start_date }}">
+        </div>
+        <div class="col-md-4 text-start">
+          <label for="end_date" class="form-label fw-semibold">Date de fin</label>
+          <input type="date" name="end_date" id="end_date" class="form-control" value="{{ end_date }}">
+        </div>
+        <div class="col-md-2">
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-filter"></i> Filtrer</button>
+        </div>
+        <div class="col-md-2">
+          <a href="{% url 'core:attendance_report' %}" class="btn btn-outline-secondary w-100">Réinitialiser</a>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Report Data Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="card-header bg-white py-3">
+      <h5 class="card-title mb-0 fw-bold"><i class="bi bi-table me-2"></i>Liste des absences agrégées</h5>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Élève</th>
+            <th>Groupe de cours</th>
+            <th class="text-center">Total Séances</th>
+            <th class="text-center">Présences</th>
+            <th class="text-center text-danger">Absences</th>
+            <th style="width: 200px;">Taux d'absence</th>
+            <th class="text-end pe-4">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in results %}
+            <tr>
+              <td class="ps-4">
+                <a href="{% url 'core:student_page' r.student_id %}" class="fw-bold text-decoration-none">
+                  {{ r.student_name }}
+                </a>
+              </td>
+              <td>
+                <a href="{% url 'core:group_detail' r.course_group_id %}" class="text-muted text-decoration-none">
+                  {{ r.course_group_name }}
+                </a>
+              </td>
+              <td class="text-center">{{ r.total_sessions }}</td>
+              <td class="text-center text-success fw-semibold">{{ r.presences }}</td>
+              <td class="text-center text-danger fw-bold">{{ r.absences }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress flex-grow-1" style="height: 6px;">
+                    <div class="progress-bar {% if r.absence_percentage >= 50 %}bg-danger{% elif r.absence_percentage >= 25 %}bg-warning{% else %}bg-info{% endif %}" 
+                         role="progressbar" 
+                         style="width: {{ r.absence_percentage }}%;" 
+                         aria-valuenow="{{ r.absence_percentage }}" 
+                         aria-valuemin="0" 
+                         aria-valuemax="100">
+                    </div>
+                  </div>
+                  <span class="fw-bold" style="font-size: 13px;">{{ r.absence_percentage }}%</span>
+                </div>
+              </td>
+              <td class="text-end pe-4">
+                <a href="{% url 'core:student_page' r.student_id %}" class="btn btn-xs btn-outline-primary py-1 px-2" style="font-size: 12px;">
+                  <i class="bi bi-eye"></i> Profil
+                </a>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="7" class="text-center py-5">
+                <div class="text-muted mb-2"><i class="bi bi-check-circle" style="font-size: 3rem; color: #10b981;"></i></div>
+                <h5 class="fw-bold">Aucune absence trouvée</h5>
+                <p class="text-muted mb-0">Tous les élèves ont été présents sur la période sélectionnée.</p>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

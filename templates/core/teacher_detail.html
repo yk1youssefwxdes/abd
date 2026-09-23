@@ -1,0 +1,336 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ teacher.name }} — Professeur — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teachers_list' %}"><i class="bi bi-person-badge-fill"></i> Professeurs</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ teacher.name }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .teacher-avatar-lg {
+    width: 72px; height: 72px; border-radius: 18px;
+    background: var(--primary-light); color: var(--primary);
+    font-size: 30px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .fw-600 { font-weight: 600; }
+  .fw-700 { font-weight: 700; }
+  .avail-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .avail-badge.available { background: #dcfce7; color: #16a34a; }
+  .avail-badge.unavailable { background: #fee2e2; color: #dc2626; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Teacher Header ─────────────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row align-items-center g-4">
+      <div class="col-auto">
+        <div class="teacher-avatar-lg">{{ teacher.name|slice:":1"|upper }}</div>
+      </div>
+      <div class="col">
+        <h1 class="page-title mb-1">{{ teacher.name }}</h1>
+        <div class="d-flex flex-wrap gap-3 align-items-center mt-1">
+          {% if teacher.phone %}
+            <span class="text-muted" style="font-size:13.5px;"><i class="bi bi-telephone me-1"></i>{{ teacher.phone }}</span>
+          {% endif %}
+          {% if teacher.email %}
+            <span class="text-muted" style="font-size:13.5px;"><i class="bi bi-envelope me-1"></i>{{ teacher.email }}</span>
+          {% endif %}
+          {% if teacher.is_active %}
+            <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Actif</span>
+          {% else %}
+            <span class="badge badge-secondary"><i class="bi bi-pause-circle-fill"></i> Inactif</span>
+          {% endif %}
+          {% if active_leave %}
+            <span class="badge badge-warning"><i class="bi bi-calendar-x"></i> En congé jusqu'au {{ active_leave.end_date|date:"d/m/Y" }}</span>
+          {% endif %}
+        </div>
+
+        <!-- Remuneration chip -->
+        <div class="mt-2">
+          {% if teacher.payment_method == 'PERCENTAGE' %}
+            <span class="badge" style="background:#d1fae5;color:#065f46;font-size:13px;">
+              <i class="bi bi-percent"></i> {{ teacher.payment_percentage|floatformat:0 }}% des gains
+            </span>
+          {% elif teacher.payment_method == 'SESSION' %}
+            <span class="badge" style="background:#dbeafe;color:#1e40af;font-size:13px;">
+              <i class="bi bi-calendar-check"></i> {{ teacher.session_rate|floatformat:0 }} DH/session
+            </span>
+          {% else %}
+            <span class="badge" style="background:#fef9c3;color:#854d0e;font-size:13px;">
+              <i class="bi bi-clock"></i> {{ teacher.hourly_rate|floatformat:0 }} DH/heure
+            </span>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-auto d-flex gap-2 flex-wrap">
+        <a href="{% url 'core:teacher_availability' teacher.id %}" class="btn btn-outline-secondary">
+          <i class="bi bi-clock"></i> Disponibilités
+        </a>
+        <a href="{% url 'core:teacher_leaves' teacher.id %}" class="btn btn-outline-secondary">
+          <i class="bi bi-calendar-x"></i> Congés
+        </a>
+        <a href="{% url 'core:teacher_edit' teacher.id %}" class="btn btn-outline-primary">
+          <i class="bi bi-pencil"></i> Éditer
+        </a>
+        <a href="{% url 'core:teacher_delete_confirm' teacher.id %}" class="btn btn-outline-danger">
+          <i class="bi bi-trash"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quick Stats ─────────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Groupes de cours</div>
+          <div class="stat-card-value">{{ total_groups }}</div>
+          <small class="text-muted">Groupes assignés</small>
+        </div>
+        <div class="stat-card-icon" style="background:var(--primary-light);">
+          <i class="bi bi-book-half" style="color:var(--primary);"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Sessions réalisées</div>
+          <div class="stat-card-value">{{ done_sessions }}</div>
+          <small class="text-muted">À venir : {{ planned_sessions }}</small>
+        </div>
+        <div class="stat-card-icon" style="background:#dbeafe;">
+          <i class="bi bi-calendar-check-fill" style="color:#3b82f6;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Mode de paiement</div>
+          <div class="stat-card-value" style="font-size:16px;">{{ teacher.get_payment_method_display }}</div>
+        </div>
+        <div class="stat-card-icon" style="background:#dcfce7;">
+          <i class="bi bi-cash-coin" style="color:#16a34a;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tabs ───────────────────────────────────────────────────────── -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#groups-tab">
+      <i class="bi bi-book-half"></i> Groupes ({{ total_groups }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#avail-tab">
+      <i class="bi bi-clock"></i> Disponibilités ({{ availabilities|length }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#leaves-tab">
+      <i class="bi bi-calendar-x"></i> Congés ({{ leaves|length }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#sessions-tab">
+      <i class="bi bi-list-ul"></i> Sessions récentes
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- Groups Tab -->
+  <div class="tab-pane fade show active" id="groups-tab">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-600">Groupes de cours</span>
+        <a href="{% url 'core:course_group_create' %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> Ajouter un groupe
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Nom du groupe</th>
+              <th>Matière</th>
+              <th>Niveau</th>
+              <th>Horaires</th>
+              <th class="text-center">Élèves</th>
+              <th class="text-end">Prix/mois</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in course_groups %}
+              <tr>
+                <td>
+                  <strong><a href="{% url 'core:group_detail' group.id %}" class="text-decoration-none">{{ group.name }}</a></strong>
+                  {% if not group.is_active %}<span class="badge badge-secondary ms-1">Inactif</span>{% endif %}
+                </td>
+                <td>{{ group.subject }}</td>
+                <td>{{ group.level.name|default:"—" }}</td>
+                <td>
+                  {% for sch in group.schedules.all %}
+                    <div style="font-size:12px;"><strong>{{ sch.get_day_display }}</strong> {{ sch.start_time|time:"H:i" }}–{{ sch.end_time|time:"H:i" }} <span class="badge badge-secondary">{{ sch.room.name }}</span></div>
+                  {% empty %}
+                    <span class="text-muted small">Aucun horaire</span>
+                  {% endfor %}
+                </td>
+                <td class="text-center"><span class="badge bg-light text-dark">{{ group.enrollment_count }}</span></td>
+                <td class="text-end"><strong>{{ group.monthly_price }} DH</strong></td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    <a href="{% url 'core:group_detail' group.id %}" class="btn btn-sm btn-outline-info" title="Voir"><i class="bi bi-eye"></i></a>
+                    <a href="{% url 'core:course_group_edit' group.id %}" class="btn btn-sm btn-outline-primary" title="Modifier"><i class="bi bi-pencil"></i></a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="7" class="text-center py-5 text-muted">Aucun groupe assigné à ce professeur.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Availability Tab -->
+  <div class="tab-pane fade" id="avail-tab">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-600">Disponibilités hebdomadaires</span>
+        <a href="{% url 'core:teacher_availability' teacher.id %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-gear"></i> Gérer les disponibilités
+        </a>
+      </div>
+      <div class="card-body">
+        {% if availabilities %}
+          <div class="d-flex flex-wrap gap-2">
+            {% for av in availabilities %}
+              <div class="p-3 rounded" style="background:var(--surface-alt);border:1px solid var(--border);min-width:180px;">
+                <div class="fw-600 mb-1">{{ av.get_day_display }}</div>
+                <div class="text-muted" style="font-size:13px;">{{ av.start_time|time:"H:i" }} – {{ av.end_time|time:"H:i" }}</div>
+                {% if av.is_available %}
+                  <span class="avail-badge available mt-1"><i class="bi bi-check-circle-fill"></i> Disponible</span>
+                {% else %}
+                  <span class="avail-badge unavailable mt-1"><i class="bi bi-x-circle-fill"></i> Indisponible</span>
+                {% endif %}
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="empty-state py-4">
+            <div class="empty-state-icon"><i class="bi bi-clock"></i></div>
+            <div class="empty-state-title">Aucune disponibilité renseignée</div>
+            <div class="empty-state-text">Ajoutez des plages horaires pour ce professeur via l'administration.</div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaves Tab -->
+  <div class="tab-pane fade" id="leaves-tab">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-600">Congés & absences</span>
+        <a href="{% url 'core:teacher_leaves' teacher.id %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-gear"></i> Gérer les congés
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Du</th>
+              <th>Au</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for leave in leaves %}
+              <tr>
+                <td><span class="badge badge-warning">{{ leave.get_leave_type_display }}</span></td>
+                <td>{{ leave.start_date|date:"d/m/Y" }}</td>
+                <td>{{ leave.end_date|date:"d/m/Y" }}</td>
+                <td class="text-muted" style="font-size:12px;">{{ leave.notes|default:"—" }}</td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="4" class="text-center py-4 text-muted">Aucun congé enregistré.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Recent Sessions Tab -->
+  <div class="tab-pane fade" id="sessions-tab">
+    <div class="card">
+      <div class="card-header fw-600">Sessions récentes</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Groupe</th>
+              <th>Horaire</th>
+              <th>Salle</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in recent_sessions %}
+              <tr>
+                <td>{{ s.date|date:"d/m/Y" }}</td>
+                <td><a href="{% url 'core:group_detail' s.group.id %}" class="text-decoration-none">{{ s.group.name }}</a></td>
+                <td>{{ s.start_time|time:"H:i" }} – {{ s.end_time|time:"H:i" }}</td>
+                <td>{{ s.room.name }}</td>
+                <td>
+                  {% if s.status == 'DONE' %}<span class="badge badge-success">Terminé</span>
+                  {% elif s.status == 'CANCELLED' %}<span class="badge badge-danger">Annulé</span>
+                  {% else %}<span class="badge badge-primary">Prévu</span>{% endif %}
+                </td>
+              </tr>
+            {% empty %}
+              <tr><td colspan="5" class="text-center py-4 text-muted">Aucune session récente.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Back button -->
+<div class="mt-4 d-flex gap-2">
+  <a href="{% url 'core:teachers_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour à la liste
+  </a>
+</div>
+
+{% endblock %}

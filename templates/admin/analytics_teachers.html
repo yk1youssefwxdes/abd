@@ -1,0 +1,249 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Paie &amp; Charge des Enseignants — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+.te { font-family:'Inter',system-ui,sans-serif; display:flex; flex-direction:column; gap:1.5rem; padding:.25rem 0 3rem; }
+.te-hero {
+  position:relative; border-radius:24px; padding:2.25rem 2.75rem; overflow:hidden;
+  background:#064e3b; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+}
+.te-hero::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,#064e3b 0%,#059669 45%,#0d9488 100%);
+  background-size:200% 200%; animation:teGrad 10s ease infinite;
+}
+@keyframes teGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.te-hero-content { position:relative; z-index:2; }
+.te-hero-title { font-size:1.8rem; font-weight:900; letter-spacing:-.03em; margin:0; }
+.te-hero-sub { font-size:.85rem; color:rgba(255,255,255,.6); margin:.3rem 0 0; }
+.te-hero-actions { position:relative; z-index:2; display:flex; gap:.5rem; flex-wrap:wrap; }
+.te-btn { display:inline-flex; align-items:center; gap:.4rem; padding:.5rem 1.1rem; border-radius:10px; font-size:.8rem; font-weight:700; text-decoration:none; cursor:pointer; border:none; }
+.te-btn-emerald { background:#10b981; color:#fff; }
+.te-btn-emerald:hover { background:#059669; color:#fff; }
+.te-btn-outline { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.25); }
+.te-btn-outline:hover { background:rgba(255,255,255,.25); color:#fff; }
+.te-filter-bar { background:#fff; border-radius:16px; padding:1.1rem 1.5rem; border:1px solid rgba(0,0,0,.06); display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; }
+.dark .te-filter-bar { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.te-filter-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; margin-bottom:.35rem; }
+.te-filter-input { padding:.45rem .8rem; border:1px solid #e2e8f0; border-radius:10px; font-size:.82rem; font-family:inherit; outline:none; }
+.te-filter-input:focus { border-color:#10b981; box-shadow:0 0 0 3px rgba(16,185,129,.15); }
+.dark .te-filter-input { background:#0f172a; border-color:rgba(255,255,255,.1); color:#f1f5f9; }
+.te-filter-submit { padding:.45rem 1.1rem; background:#10b981; color:#fff; border:none; border-radius:10px; font-size:.82rem; font-weight:700; cursor:pointer; font-family:inherit; }
+.te-filter-submit:hover { background:#059669; }
+.te-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+.te-kpi { background:#fff; border-radius:20px; padding:1.4rem 1.5rem 1.25rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); transition:transform .2s; display:flex; align-items:center; gap:1rem; }
+.te-kpi:hover { transform:translateY(-3px); }
+.dark .te-kpi { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.te-kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.te-kpi-label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
+.te-kpi-val { font-size:1.6rem; font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.dark .te-kpi-val { color:#f1f5f9; }
+.te-grid-2-1 { display:grid; grid-template-columns:2fr 1fr; gap:1.25rem; }
+.te-card { background:#fff; border-radius:20px; padding:1.6rem 1.75rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); }
+.dark .te-card { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.te-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; border-bottom:1px solid #f1f5f9; padding-bottom:.9rem; }
+.dark .te-card-hdr { border-bottom-color:rgba(255,255,255,.05); }
+.te-card-title { font-size:.92rem; font-weight:800; color:#0f172a; }
+.dark .te-card-title { color:#f1f5f9; }
+.te-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.te-table th { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; border-bottom:1px solid #e2e8f0; padding:.7rem 1rem; text-align:left; }
+.te-table td { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; color:#334155; }
+.dark .te-table th { border-bottom-color:rgba(255,255,255,.07); }
+.dark .te-table td { border-bottom-color:rgba(255,255,255,.04); color:#cbd5e1; }
+.te-table tr:last-child td { border-bottom:none; }
+.te-table tr:hover td { background:#f8fafc; }
+.dark .te-table tr:hover td { background:rgba(255,255,255,.03); }
+.te-chip { display:inline-flex; align-items:center; padding:.2rem .7rem; border-radius:99px; font-size:.7rem; font-weight:800; }
+.te-chip-red { background:#fee2e2; color:#ef4444; }
+.te-chip-orange { background:#fef3c7; color:#d97706; }
+.te-chip-green { background:#d1fae5; color:#059669; }
+.te-chip-gray { background:#f1f5f9; color:#64748b; }
+.te-progress { height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
+.te-progress-fill { height:100%; border-radius:99px; }
+@media(max-width:992px) { .te-kpi-grid{grid-template-columns:repeat(2,1fr);} .te-grid-2-1{grid-template-columns:1fr;} }
+@media(max-width:576px) { .te-kpi-grid{grid-template-columns:1fr;} }
+</style>
+
+<div class="te">
+
+  <!-- HERO -->
+  <div class="te-hero">
+    <div class="te-hero-content">
+      <h1 class="te-hero-title">Rémunération &amp; Charge Enseignants</h1>
+      <p class="te-hero-sub">Détail des paies mensuelles calculées, volume horaire et taux de remplacement</p>
+    </div>
+    <div class="te-hero-actions">
+      <a href="{% url 'core:export_payroll_pdf' %}" class="te-btn te-btn-emerald">
+        <span class="material-symbols-outlined" style="font-size:15px;">picture_as_pdf</span> PDF de Paie
+      </a>
+      <a href="{% url 'core:export_csv_view' %}?type=payroll" class="te-btn te-btn-outline">
+        <span class="material-symbols-outlined" style="font-size:15px;">file_download</span> CSV Paie
+      </a>
+    </div>
+  </div>
+
+  <!-- DATE FILTER -->
+  <form method="get" class="te-filter-bar">
+    <div>
+      <div class="te-filter-label">Date de début</div>
+      <input type="date" name="start_date" value="{{ start_date }}" class="te-filter-input">
+    </div>
+    <div>
+      <div class="te-filter-label">Date de fin</div>
+      <input type="date" name="end_date" value="{{ end_date }}" class="te-filter-input">
+    </div>
+    <button type="submit" class="te-filter-submit">
+      <span class="material-symbols-outlined" style="font-size:15px; vertical-align:middle;">filter_alt</span> Calculer
+    </button>
+  </form>
+
+  <!-- KPI STRIP -->
+  <div class="te-kpi-grid">
+    <div class="te-kpi">
+      <div class="te-kpi-icon" style="background:#d1fae5; color:#10b981;"><span class="material-symbols-outlined">payments</span></div>
+      <div><div class="te-kpi-val" id="teTotalPayroll">-</div><div class="te-kpi-label">Paie Totale Calculée</div></div>
+    </div>
+    <div class="te-kpi">
+      <div class="te-kpi-icon" style="background:#e0f2fe; color:#0284c7;"><span class="material-symbols-outlined">person_book</span></div>
+      <div><div class="te-kpi-val">{{ payroll|length }}</div><div class="te-kpi-label">Enseignants Actifs</div></div>
+    </div>
+    <div class="te-kpi">
+      <div class="te-kpi-icon" style="background:#ede9fe; color:#6366f1;"><span class="material-symbols-outlined">schedule</span></div>
+      <div><div class="te-kpi-val" id="teTotalHours">-</div><div class="te-kpi-label">Heures Totales</div></div>
+    </div>
+    <div class="te-kpi">
+      <div class="te-kpi-icon" style="background:#fee2e2; color:#ef4444;"><span class="material-symbols-outlined">warning</span></div>
+      <div><div class="te-kpi-val" id="teOverloaded">-</div><div class="te-kpi-label">Enseignants Surchargés</div></div>
+    </div>
+  </div>
+
+  <!-- PAYROLL DETAILS TABLE -->
+  <div class="te-card">
+    <div class="te-card-hdr">
+      <span class="te-card-title">Détail des gains par professeur sur la période</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="te-table">
+        <thead>
+          <tr>
+            <th>Enseignant</th>
+            <th>Mode de paiement</th>
+            <th style="text-align:center;">Séances propres</th>
+            <th style="text-align:center;">Remplacements</th>
+            <th style="text-align:center;">Heures totales</th>
+            <th style="text-align:right;">Gains calculés (DH)</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in payroll %}
+          <tr>
+            <td><strong>{{ r.teacher_name }}</strong></td>
+            <td>
+              {% if r.payment_method == 'HOURLY' %}Taux horaire
+              {% elif r.payment_method == 'PERCENTAGE' %}Part des gains (%)
+              {% elif r.payment_method == 'SESSION' %}Tarif par session
+              {% else %}{{ r.payment_method }}{% endif %}
+            </td>
+            <td style="text-align:center;">{{ r.session_count }}</td>
+            <td style="text-align:center; {% if r.substitute_count > 0 %}color:#6366f1; font-weight:700;{% endif %}">+{{ r.substitute_count }}</td>
+            <td style="text-align:center; font-weight:700;">{{ r.total_hours|floatformat:1 }}h</td>
+            <td style="text-align:right; font-weight:900; color:#10b981; font-size:.92rem;" class="te-val-earnings" data-val="{{ r.earnings }}">{{ r.earnings|floatformat:0 }} DH</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:2rem;">Aucun calcul de paie disponible.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- WORKLOAD & SUBSTITUTION -->
+  <div class="te-grid-2-1">
+    <!-- Workload thresholds table -->
+    <div class="te-card">
+      <div class="te-card-hdr">
+        <span class="te-card-title">Charge de travail planifiée (Hebdomadaire)</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table class="te-table">
+          <thead>
+            <tr>
+              <th>Enseignant</th>
+              <th style="text-align:center;">Heures planifiées</th>
+              <th style="text-align:center;">Cours par semaine</th>
+              <th>Statut de charge</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in load %}
+            <tr>
+              <td><strong>{{ r.teacher_name }}</strong></td>
+              <td style="text-align:center; font-weight:700;">{{ r.weekly_hours }}h</td>
+              <td style="text-align:center;">{{ r.session_count }}</td>
+              <td>
+                {% if r.load_flag == 'OVERLOADED' %}<span class="te-chip te-chip-red te-val-over">⚠ Surchargé (>30h)</span>
+                {% elif r.load_flag == 'UNDERUTILISED' %}<span class="te-chip te-chip-orange">↓ Sous-utilisé (<10h)</span>
+                {% else %}<span class="te-chip te-chip-green">✓ Normal</span>{% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:2rem;">Aucun enseignant.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Substitutes rate ranking table -->
+    <div class="te-card">
+      <div class="te-card-hdr">
+        <span class="te-card-title">Absence &amp; Taux de remplacement</span>
+      </div>
+      <p style="font-size:.75rem; color:#94a3b8; margin-bottom:12px;">3 derniers mois (sessions remplacées).</p>
+      <div style="overflow-y:auto; max-height:240px;">
+        {% for r in subs %}
+        {% if r.total_sessions > 0 %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:.6rem .8rem; background:#f8fafc; border-radius:10px; border:1px solid rgba(0,0,0,.04); margin-bottom:.4rem;" class="dark:bg-slate-800/40 dark:border-slate-700/20">
+          <div>
+            <strong style="font-size:.8rem;">{{ r.teacher_name }}</strong>
+            <div style="font-size:.65rem; color:#94a3b8;">{{ r.substituted_sessions }} / {{ r.total_sessions }} remplacements</div>
+          </div>
+          <span class="te-chip {% if r.substitution_rate >= 25 %}te-chip-red{% elif r.substitution_rate >= 10 %}te-chip-orange{% else %}te-chip-gray{% endif %}" style="font-size:.7rem;">{{ r.substitution_rate }}%</span>
+        </div>
+        {% endif %}
+        {% empty %}
+        <div style="text-align:center; color:#94a3b8; padding:2rem;">Aucune donnée de remplacement.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script>
+(function(){
+  // Aggregate payroll elements
+  const earnings = document.querySelectorAll('.te-val-earnings');
+  let totalEarnings = 0;
+  earnings.forEach(el => {
+    const val = parseFloat(el.getAttribute('data-val')) || 0;
+    totalEarnings += val;
+  });
+  document.getElementById('teTotalPayroll').textContent = totalEarnings.toLocaleString('fr-FR') + ' DH';
+
+  const hours = [{% for r in payroll %}{{ r.total_hours }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  let totalHours = 0;
+  hours.forEach(h => totalHours += h);
+  document.getElementById('teTotalHours').textContent = totalHours.toFixed(1) + 'h';
+
+  const overloadedCount = document.querySelectorAll('.te-val-over').length;
+  document.getElementById('teOverloaded').textContent = overloadedCount;
+})();
+</script>
+{% endblock %}

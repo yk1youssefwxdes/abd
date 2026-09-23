@@ -1,0 +1,571 @@
+{% extends 'core/base.html' %}
+{% block title %}Détecteur de conflits — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="context-bar-sep">›</span>
+<a href="{% url 'core:sessions_schedule' %}"><i class="bi bi-calendar3"></i> Planning</a>
+<span class="context-bar-sep">›</span>
+<span class="context-bar-current"><i class="bi bi-exclamation-triangle-fill"></i> Conflits</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-exclamation-triangle-fill me-2" style="color:var(--warning);"></i>Détecteur de conflits
+    </h1>
+    <p class="page-subtitle">
+      Période analysée : {{ scan_window_start|date:"d/m/Y" }} → {{ scan_window_end|date:"d/m/Y" }}
+      {% if last_checked %}
+      &nbsp;·&nbsp; <span id="last-checked-text" class="text-muted" style="font-size:12px;" data-ts="{{ last_checked|date:'U' }}">
+        Analysé il y a <span id="elapsed">quelques secondes</span>
+      </span>
+      {% endif %}
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'core:schedule_conflicts' %}" class="btn btn-outline-secondary" title="Relancer l'analyse">
+      <i class="bi bi-arrow-clockwise"></i> Actualiser
+    </a>
+    <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-primary">
+      <i class="bi bi-calendar3"></i> Planification
+    </a>
+  </div>
+</div>
+
+<!-- Summary stats -->
+<div class="row g-4 mb-4">
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card" style="border-left:3px solid var(--warning);">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="stat-card-label">Conflits hebdomadaires</div>
+          <div class="stat-card-value" style="color:var(--warning);">{{ schedule_conflicts|length }}</div>
+          <small class="text-muted">Structure des groupes</small>
+        </div>
+        <div class="stat-card-icon" style="background:#fef3c7;"><i class="bi bi-calendar-week" style="color:#d97706;"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card" style="border-left:3px solid var(--danger);">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="stat-card-label">Conflits de sessions</div>
+          <div class="stat-card-value" style="color:var(--danger);">{{ session_conflicts|length }}</div>
+          <small class="text-muted">Dates spécifiques planifiées</small>
+        </div>
+        <div class="stat-card-icon" style="background:#fee2e2;"><i class="bi bi-calendar2-range" style="color:#ef4444;"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card" style="border-left:3px solid var(--info);">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="stat-card-label">Alertes de capacité</div>
+          <div class="stat-card-value" style="color:var(--info);">{{ capacity_warnings|length }}</div>
+          <small class="text-muted">Élèves &gt; Places disponibles</small>
+        </div>
+        <div class="stat-card-icon" style="background:#dbeafe;"><i class="bi bi-people" style="color:#3b82f6;"></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-lg-3">
+    <div class="stat-card" style="border-left:3px solid #a855f7;">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="stat-card-label">Chevauchements élèves</div>
+          <div class="stat-card-value" style="color:#a855f7;">{{ student_conflicts|length }}</div>
+          <small class="text-muted">Inscriptions concurrentes</small>
+        </div>
+        <div class="stat-card-icon" style="background:#f3e8ff;"><i class="bi bi-person-fill-exclamation" style="color:#a855f7;"></i></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if total_count == 0 %}
+<div class="card">
+  <div class="card-body">
+    <div class="empty-state">
+      <div class="empty-state-icon" style="color:var(--success);opacity:1;"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="empty-state-title">Aucun conflit détecté 🎉</div>
+      <div class="empty-state-text">L'emploi du temps est parfaitement cohérent sur la période analysée.</div>
+    </div>
+  </div>
+</div>
+{% else %}
+
+<!-- Tabs -->
+<div class="card">
+  <div class="card-header">
+    <ul class="nav nav-tabs card-header-tabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link {% if schedule_conflicts %}active{% endif %} position-relative" data-bs-toggle="tab" data-bs-target="#schedules-pane">
+          <i class="bi bi-calendar-week me-1"></i>Hebdomadaire
+          {% if schedule_conflicts %}<span class="badge badge-warning ms-1">{{ schedule_conflicts|length }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item ms-1">
+        <button class="nav-link {% if not schedule_conflicts and session_conflicts %}active{% endif %} position-relative" data-bs-toggle="tab" data-bs-target="#sessions-pane">
+          <i class="bi bi-calendar2-range me-1"></i>Sessions
+          {% if session_conflicts %}<span class="badge badge-danger ms-1">{{ session_conflicts|length }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item ms-1">
+        <button class="nav-link {% if not schedule_conflicts and not session_conflicts and capacity_warnings %}active{% endif %} position-relative" data-bs-toggle="tab" data-bs-target="#capacity-pane">
+          <i class="bi bi-people me-1"></i>Capacité
+          {% if capacity_warnings %}<span class="badge badge-info ms-1">{{ capacity_warnings|length }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item ms-1">
+        <button class="nav-link {% if not schedule_conflicts and not session_conflicts and not capacity_warnings and student_conflicts %}active{% endif %} position-relative" data-bs-toggle="tab" data-bs-target="#students-pane">
+          <i class="bi bi-person-fill-exclamation me-1"></i>Élèves
+          {% if student_conflicts %}<span class="badge ms-1" style="background:#a855f7;color:#fff;">{{ student_conflicts|length }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item ms-1">
+        <button class="nav-link position-relative" data-bs-toggle="tab" data-bs-target="#info-pane">
+          <i class="bi bi-info-circle me-1"></i>Informations
+          {% if info_alerts %}<span class="badge bg-info ms-1">{{ info_alerts|length }}</span>{% endif %}
+        </button>
+      </li>
+    </ul>
+
+  </div>
+
+  <div class="card-body">
+    <div class="tab-content">
+
+      <!-- ═══════════ WEEKLY SCHEDULE CONFLICTS ═══════════ -->
+      <div class="tab-pane fade {% if schedule_conflicts %}show active{% endif %}" id="schedules-pane">
+        {% if schedule_conflicts %}
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+          <div class="alert alert-warning mb-0 py-2 flex-grow-1" style="font-size:13px;">
+            <i class="bi bi-info-circle-fill me-2"></i>Ces conflits proviennent de la <strong>configuration des groupes</strong> et affectent chaque semaine par défaut.
+          </div>
+          <!-- Sub-filter buttons -->
+          <div class="btn-group btn-group-sm" id="sched-filter" role="group">
+            <button class="btn btn-outline-secondary active" data-filter="all">Tous</button>
+            <button class="btn btn-outline-danger" data-filter="ROOM">🏫 Salle</button>
+            <button class="btn btn-outline-purple" data-filter="TEACHER">👤 Prof</button>
+            <button class="btn btn-outline-warning" data-filter="TEACHER_UNAVAILABLE">⛔ Indispo</button>
+            <button class="btn btn-outline-warning" data-filter="TEACHER_OUT_OF_BOUNDS">⏰ Hors-plage</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0" id="sched-table">
+            <thead>
+              <tr>
+                <th style="width:140px">Type / Sévérité</th>
+                <th>Entité</th>
+                <th>Groupe A</th>
+                <th>Groupe B</th>
+                <th>Jour &amp; Horaire</th>
+                <th style="min-width:200px">Détail</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for conflict in schedule_conflicts %}
+              <tr data-type="{{ conflict.type }}" title="{{ conflict.description }}">
+                <td>
+                  {% if conflict.severity == 'critical' %}
+                    {% if conflict.type == 'ROOM' %}
+                      <span class="badge badge-danger"><i class="bi bi-door-open-fill"></i> Salle 🔴</span>
+                    {% elif conflict.type == 'TEACHER' %}
+                      <span class="badge" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-person-fill-exclamation"></i> Prof 🔴</span>
+                    {% else %}
+                      <span class="badge badge-danger">{{ conflict.type }} 🔴</span>
+                    {% endif %}
+                  {% else %}
+                    {% if conflict.type == 'TEACHER_UNAVAILABLE' %}
+                      <span class="badge badge-warning">⛔ Indispo 🟡</span>
+                    {% elif conflict.type == 'TEACHER_OUT_OF_BOUNDS' %}
+                      <span class="badge badge-warning">⏰ Hors-plage 🟡</span>
+                    {% else %}
+                      <span class="badge badge-secondary">{{ conflict.type }}</span>
+                    {% endif %}
+                  {% endif %}
+                </td>
+                <td><strong>{{ conflict.entity.name }}</strong></td>
+                <td>
+                  {% if conflict.sch1 %}
+                  <a href="{% url 'core:course_group_edit' conflict.sch1.course_group.id %}" class="fw-600 text-decoration-none">
+                    {{ conflict.sch1.course_group.name }}
+                  </a>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if conflict.sch2 %}
+                  <a href="{% url 'core:course_group_edit' conflict.sch2.course_group.id %}">
+                    {{ conflict.sch2.course_group.name }}
+                  </a>
+                  {% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-secondary">
+                    {% if conflict.sch1 %}{{ conflict.sch1.get_day_display }} {{ conflict.sch1.start_time|time:"H:i" }} – {{ conflict.sch1.end_time|time:"H:i" }}{% endif %}
+                  </span>
+                </td>
+                <td style="font-size:12px;color:var(--text-secondary);max-width:220px;">{{ conflict.description }}</td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    {% if conflict.sch1 %}
+                    <a href="{% url 'core:course_group_edit' conflict.sch1.course_group.id %}" class="btn btn-sm btn-outline-primary">
+                      <i class="bi bi-pencil"></i> A
+                    </a>
+                    {% endif %}
+                    {% if conflict.sch2 %}
+                    <a href="{% url 'core:course_group_edit' conflict.sch2.course_group.id %}" class="btn btn-sm btn-outline-secondary">
+                      <i class="bi bi-pencil"></i> B
+                    </a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--success);opacity:1;"><i class="bi bi-check-circle-fill"></i></div>
+          <div class="empty-state-title">Aucun conflit d'horaire hebdomadaire</div>
+          <div class="empty-state-text">Votre emploi du temps est sans collision.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ═══════════ SESSION CONFLICTS ═══════════ -->
+      <div class="tab-pane fade {% if not schedule_conflicts and session_conflicts %}show active{% endif %}" id="sessions-pane">
+        {% if session_conflicts %}
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+          <div class="alert alert-danger mb-0 py-2 flex-grow-1" style="font-size:13px;">
+            <i class="bi bi-info-circle-fill me-2"></i>Ces conflits concernent des <strong>dates spécifiques</strong> déjà planifiées ({{ scan_window_start|date:"d/m" }} → {{ scan_window_end|date:"d/m/Y" }}).
+          </div>
+          <div class="btn-group btn-group-sm" id="sess-filter" role="group">
+            <button class="btn btn-outline-secondary active" data-filter="all">Tous</button>
+            <button class="btn btn-outline-danger" data-filter="ROOM">🏫 Salle</button>
+            <button class="btn btn-outline-purple" data-filter="TEACHER">👤 Prof</button>
+            <button class="btn btn-outline-danger" data-filter="TEACHER_LEAVE">🏖️ Congé</button>
+            <button class="btn btn-outline-warning" data-filter="TEACHER_UNAVAILABLE">⛔ Indispo</button>
+            <button class="btn btn-outline-warning" data-filter="TEACHER_OUT_OF_BOUNDS">⏰ Hors-plage</button>
+          </div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0" id="sess-table">
+            <thead>
+              <tr>
+                <th style="width:160px">Type / Sévérité</th>
+                <th>Date</th>
+                <th>Entité</th>
+                <th>Session A</th>
+                <th>Session B</th>
+                <th>Horaire</th>
+                <th style="min-width:200px">Détail</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for conflict in session_conflicts %}
+              <tr data-type="{{ conflict.type }}" title="{{ conflict.description }}">
+                <td>
+                  {% if conflict.type == 'ROOM' %}
+                    <span class="badge badge-danger"><i class="bi bi-door-open-fill"></i> Salle 🔴</span>
+                  {% elif conflict.type == 'TEACHER' %}
+                    <span class="badge" style="background:#ede9fe;color:#7c3aed;"><i class="bi bi-person-fill-exclamation"></i> Prof 🔴</span>
+                  {% elif conflict.type == 'TEACHER_LEAVE' %}
+                    <span class="badge badge-danger">🏖️ Congé 🔴</span>
+                  {% elif conflict.type == 'TEACHER_UNAVAILABLE' %}
+                    <span class="badge badge-warning">⛔ Indispo 🟡</span>
+                  {% elif conflict.type == 'TEACHER_OUT_OF_BOUNDS' %}
+                    <span class="badge badge-warning">⏰ Hors-plage 🟡</span>
+                  {% else %}
+                    <span class="badge badge-secondary">{{ conflict.type }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge badge-secondary">
+                    <i class="bi bi-calendar-event"></i>
+                    {% if conflict.session1 %}{{ conflict.session1.date|date:"d/m/Y" }}{% endif %}
+                  </span>
+                </td>
+                <td><strong>{{ conflict.entity.name }}</strong></td>
+                <td class="fw-600" style="color:var(--primary);">
+                  {% if conflict.session1 %}{{ conflict.session1.group.name }}{% endif %}
+                </td>
+                <td class="fw-600 text-secondary">
+                  {% if conflict.session2 %}{{ conflict.session2.group.name }}{% else %}<span class="text-muted">—</span>{% endif %}
+                </td>
+                <td>
+                  {% if conflict.session1 %}
+                  <span class="badge badge-secondary">{{ conflict.session1.start_time|time:"H:i" }} – {{ conflict.session1.end_time|time:"H:i" }}</span>
+                  {% endif %}
+                </td>
+                <td style="font-size:12px;color:var(--text-secondary);max-width:220px;">{{ conflict.description }}</td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    {% if conflict.session1 %}
+                    <a href="{% url 'core:session_edit' conflict.session1.id %}" class="btn btn-sm btn-outline-danger"><i class="bi bi-pencil"></i> A</a>
+                    {% endif %}
+                    {% if conflict.session2 %}
+                    <a href="{% url 'core:session_edit' conflict.session2.id %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i> B</a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--success);opacity:1;"><i class="bi bi-check-circle-fill"></i></div>
+          <div class="empty-state-title">Aucun conflit de session</div>
+          <div class="empty-state-text">Toutes les sessions planifiées sont sans interférence.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ═══════════ CAPACITY WARNINGS ═══════════ -->
+      <div class="tab-pane fade {% if not schedule_conflicts and not session_conflicts and capacity_warnings %}show active{% endif %}" id="capacity-pane">
+        {% if capacity_warnings %}
+        <div class="alert alert-info mb-4" style="font-size:13px;">
+          <i class="bi bi-info-circle-fill me-2"></i>Les groupes ou sessions dont le nombre d'élèves dépasse la capacité de la salle réservée.
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Contexte</th>
+                <th>Groupe</th>
+                <th>Salle</th>
+                <th class="text-end">Capacité</th>
+                <th class="text-end">Inscrits</th>
+                <th class="text-end">Dépassement</th>
+                <th style="min-width:200px">Détail</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for warn in capacity_warnings %}
+              <tr title="{{ warn.description }}">
+                <td>
+                  {% if warn.context == 'SCHEDULE' %}
+                  <span class="badge badge-primary">Structure de base</span>
+                  {% else %}
+                  <span class="badge badge-secondary">Session ({{ warn.session.date|date:"d/m" }})</span>
+                  {% endif %}
+                </td>
+                <td><strong>{{ warn.course.name }}</strong></td>
+                <td><span class="badge badge-secondary"><i class="bi bi-door-open"></i> {{ warn.room.name }}</span></td>
+                <td class="text-end">{{ warn.capacity }}</td>
+                <td class="text-end"><strong style="color:var(--danger);">{{ warn.enrolled }}</strong></td>
+                <td class="text-end"><span class="badge badge-danger">+{{ warn.overflow }} places</span></td>
+                <td style="font-size:12px;color:var(--text-secondary);max-width:220px;">{{ warn.description }}</td>
+                <td class="text-end">
+                  {% if warn.context == 'SCHEDULE' %}
+                  <a href="{% url 'core:course_group_edit' warn.course.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-door-open-fill"></i> Changer salle
+                  </a>
+                  {% else %}
+                  <a href="{% url 'core:session_edit' warn.session.id %}" class="btn btn-sm btn-outline-danger">
+                    <i class="bi bi-door-open-fill"></i> Déplacer
+                  </a>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--success);opacity:1;"><i class="bi bi-check-circle-fill"></i></div>
+          <div class="empty-state-title">Aucune alerte de capacité</div>
+          <div class="empty-state-text">Toutes les salles ont des capacités suffisantes.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ═══════════ STUDENT OVERLAP CONFLICTS ═══════════ -->
+      <div class="tab-pane fade {% if not schedule_conflicts and not session_conflicts and not capacity_warnings and student_conflicts %}show active{% endif %}" id="students-pane">
+        {% if student_conflicts %}
+        <div class="alert mb-4 py-2" style="font-size:13px;background:#f5f3ff;border:1px solid #a855f7;border-left:4px solid #a855f7;">
+          <i class="bi bi-info-circle-fill me-2" style="color:#a855f7;"></i>Ces élèves sont inscrits dans deux groupes dont les <strong>horaires hebdomadaires se chevauchent</strong>.
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Élève</th>
+                <th>Groupe A</th>
+                <th>Groupe B</th>
+                <th>Jour &amp; Chevauchement</th>
+                <th style="min-width:220px">Détail</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for conflict in student_conflicts %}
+              <tr title="{{ conflict.description }}">
+                <td>
+                  <span class="badge" style="background:#f3e8ff;color:#7c3aed;border:1px solid #a855f7;">
+                    <i class="bi bi-person-fill"></i> {{ conflict.entity.name }}
+                  </span>
+                </td>
+                <td>
+                  {% if conflict.sch1 %}
+                  <a href="{% url 'core:course_group_edit' conflict.sch1.course_group.id %}" class="fw-600 text-decoration-none">
+                    {{ conflict.sch1.course_group.name }}
+                  </a>
+                  <small class="text-muted d-block">{{ conflict.sch1.get_day_display }} {{ conflict.sch1.start_time|time:"H:i" }}–{{ conflict.sch1.end_time|time:"H:i" }}</small>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if conflict.sch2 %}
+                  <a href="{% url 'core:course_group_edit' conflict.sch2.course_group.id %}" class="fw-600 text-decoration-none">
+                    {{ conflict.sch2.course_group.name }}
+                  </a>
+                  <small class="text-muted d-block">{{ conflict.sch2.get_day_display }} {{ conflict.sch2.start_time|time:"H:i" }}–{{ conflict.sch2.end_time|time:"H:i" }}</small>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge" style="background:#ede9fe;color:#7c3aed;">
+                    🟡 {{ conflict.sch1.get_day_display }}
+                  </span>
+                </td>
+                <td style="font-size:12px;color:var(--text-secondary);max-width:240px;">{{ conflict.description }}</td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    {% if conflict.sch1 %}
+                    <a href="{% url 'core:course_group_edit' conflict.sch1.course_group.id %}" class="btn btn-sm btn-outline-primary" title="Modifier groupe A"><i class="bi bi-pencil"></i> A</a>
+                    {% endif %}
+                    {% if conflict.sch2 %}
+                    <a href="{% url 'core:course_group_edit' conflict.sch2.course_group.id %}" class="btn btn-sm btn-outline-secondary" title="Modifier groupe B"><i class="bi bi-pencil"></i> B</a>
+                    {% endif %}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--success);opacity:1;"><i class="bi bi-check-circle-fill"></i></div>
+          <div class="empty-state-title">Aucun chevauchement d'inscriptions</div>
+          <div class="empty-state-text">Aucun élève n'est inscrit à deux groupes avec des horaires conflictuels.</div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- ═══════════ INFORMATIONAL ALERTS ═══════════ -->
+      <div class="tab-pane fade" id="info-pane">
+        {% if info_alerts %}
+        <div class="alert alert-info mb-4" style="font-size:13px;">
+          <i class="bi bi-info-circle-fill me-2"></i>Notes informatives sur le planning (séances modifiées manuellement, rattrapages).
+        </div>
+        <div class="table-responsive">
+          <table class="table table-hover mb-0">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Date</th>
+                <th>Détail</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for info in info_alerts %}
+              <tr title="{{ info.description }}">
+                <td>
+                  {% if info.type == 'MANUAL_OVERRIDE' %}
+                    <span class="badge bg-info"><i class="bi bi-pencil-square"></i> Modification</span>
+                  {% elif info.type == 'MAKEUP_SESSION' %}
+                    <span class="badge bg-success"><i class="bi bi-arrow-repeat"></i> Rattrapage</span>
+                  {% else %}
+                    <span class="badge bg-secondary">{{ info.type }}</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <span class="badge bg-light text-dark">
+                    <i class="bi bi-calendar-event"></i>
+                    {{ info.date|date:"d/m/Y" }}
+                  </span>
+                </td>
+                <td style="font-size:13px;">{{ info.description }}</td>
+                <td class="text-end">
+                  {% if info.session1 %}
+                  <a href="{% url 'core:session_edit' info.session1.id %}" class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil"></i> Éditer
+                  </a>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+          <div class="empty-state-icon" style="color:var(--success);opacity:1;"><i class="bi bi-check-circle-fill"></i></div>
+          <div class="empty-state-title">Aucune note d'information</div>
+          <div class="empty-state-text">Toutes les séances suivent leur cours standard.</div>
+        </div>
+        {% endif %}
+      </div>
+
+
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+  .fw-600 { font-weight: 600; }
+  .btn-outline-purple { color: #7c3aed; border-color: #a855f7; }
+  .btn-outline-purple:hover { background: #f3e8ff; color: #7c3aed; }
+  .btn-outline-purple.active { background: #ede9fe; color: #7c3aed; border-color: #a855f7; }
+</style>
+
+<script>
+// Sub-filter logic for schedule and session tabs
+function setupFilter(btnGroupId, tableId) {
+  const btnGroup = document.getElementById(btnGroupId);
+  const table = document.getElementById(tableId);
+  if (!btnGroup || !table) return;
+  btnGroup.addEventListener('click', function(e) {
+    const btn = e.target.closest('[data-filter]');
+    if (!btn) return;
+    // update active button
+    btnGroup.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filter = btn.dataset.filter;
+    table.querySelectorAll('tbody tr').forEach(row => {
+      row.style.display = (filter === 'all' || row.dataset.type === filter) ? '' : 'none';
+    });
+  });
+}
+setupFilter('sched-filter', 'sched-table');
+setupFilter('sess-filter', 'sess-table');
+
+// Elapsed time counter
+(function() {
+  const el = document.getElementById('elapsed');
+  const tsEl = document.getElementById('last-checked-text');
+  if (!el || !tsEl) return;
+  const ts = parseInt(tsEl.dataset.ts, 10) * 1000;
+  function update() {
+    const sec = Math.floor((Date.now() - ts) / 1000);
+    if (sec < 60) el.textContent = sec + 's';
+    else if (sec < 3600) el.textContent = Math.floor(sec/60) + 'min ' + (sec%60) + 's';
+    else el.textContent = Math.floor(sec/3600) + 'h ' + Math.floor((sec%3600)/60) + 'min';
+  }
+  update();
+  setInterval(update, 1000);
+})();
+</script>
+{% endblock %}

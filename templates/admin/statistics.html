@@ -1,0 +1,673 @@
+{% extends "core/base.html" %}
+{% load i18n static %}
+
+{% block title %}Statistiques — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+
+<!-- Data for JS -->
+{{ monthly_revenue|json_script:"stat-monthly-data" }}
+{{ room_stats|json_script:"stat-room-data" }}
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   STATISTICS PAGE — PREMIUM REDESIGN
+   ═══════════════════════════════════════════════════════ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+.sp {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding: .25rem 0 3rem;
+}
+
+/* ── HERO HEADER ─────────────────────────────────────── */
+.sp-hero {
+    position: relative;
+    border-radius: 24px;
+    padding: 2.5rem 2.75rem;
+    overflow: hidden;
+    background: #0f172a;
+    color: #fff;
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+}
+/* animated gradient background */
+.sp-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg,
+        #1e1b4b 0%,
+        #312e81 25%,
+        #1d4ed8 55%,
+        #0369a1 80%,
+        #065f46 100%);
+    background-size: 300% 300%;
+    animation: heroGrad 8s ease infinite;
+}
+@keyframes heroGrad {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+/* glowing orbs */
+.sp-hero-orb {
+    position: absolute; border-radius: 50%; pointer-events: none;
+    filter: blur(60px);
+}
+.sp-hero-content { position: relative; z-index: 2; flex: 1; }
+.sp-hero-badge {
+    display: inline-flex; align-items: center; gap: .45rem;
+    background: rgba(255,255,255,.1); backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.2);
+    padding: .35rem .9rem; border-radius: 99px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .07em;
+    text-transform: uppercase; color: rgba(255,255,255,.85);
+    margin-bottom: .9rem;
+}
+.sp-hero-badge .material-symbols-outlined { font-size: 14px; color: #a5b4fc; }
+.sp-hero-title {
+    font-size: 2.15rem; font-weight: 900;
+    letter-spacing: -.04em; line-height: 1.05;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 60%, #93c5fd 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+.sp-hero-sub {
+    font-size: .85rem; color: rgba(255,255,255,.55);
+    margin-top: .55rem; font-weight: 400;
+}
+/* right side — live date */
+.sp-hero-right {
+    position: relative; z-index: 2;
+    text-align: right; flex-shrink: 0;
+}
+.sp-hero-date-label { font-size: .65rem; text-transform: uppercase; letter-spacing: .1em; color: rgba(255,255,255,.4); margin-bottom: .25rem; }
+.sp-hero-date-val { font-size: 1.15rem; font-weight: 700; color: #a5b4fc; }
+.sp-hero-month { font-size: .78rem; color: rgba(255,255,255,.5); margin-top: .15rem; }
+
+/* ── KPI STRIP ───────────────────────────────────────── */
+.sp-kpi-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+.sp-kpi {
+    position: relative;
+    background: #fff;
+    border-radius: 20px;
+    padding: 1.4rem 1.5rem 1.25rem;
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 4px 20px rgba(0,0,0,.05);
+    overflow: hidden;
+    transition: transform .2s, box-shadow .2s;
+    cursor: default;
+}
+.sp-kpi:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px rgba(0,0,0,.1);
+}
+.dark .sp-kpi { background: #1e293b; border-color: rgba(255,255,255,.05); box-shadow: 0 4px 20px rgba(0,0,0,.25); }
+
+/* shimmer stripe on top */
+.sp-kpi-stripe {
+    position: absolute; top: 0; left: 0; right: 0; height: 4px;
+    border-radius: 20px 20px 0 0;
+}
+/* soft tinted glow in corner */
+.sp-kpi-glow {
+    position: absolute; top: -30px; right: -30px;
+    width: 110px; height: 110px; border-radius: 50%;
+    opacity: .18; pointer-events: none;
+}
+.sp-kpi-icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1rem;
+}
+.sp-kpi-icon-wrap .material-symbols-outlined { font-size: 22px; }
+.sp-kpi-label { font-size: .67rem; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #94a3b8; margin-bottom: .3rem; }
+.sp-kpi-val { font-size: 1.85rem; font-weight: 900; letter-spacing: -.04em; line-height: 1; }
+.sp-kpi-sub { font-size: .73rem; color: #94a3b8; margin-top: .55rem; display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+.sp-badge {
+    display: inline-flex; align-items: center; gap: .15rem;
+    padding: .2rem .6rem; border-radius: 99px;
+    font-size: .68rem; font-weight: 800;
+}
+.sp-badge-up   { background: #d1fae5; color: #059669; }
+.sp-badge-dn   { background: #fee2e2; color: #ef4444; }
+.sp-badge-neu  { background: #f1f5f9; color: #64748b; }
+.dark .sp-badge-up  { background: rgba(5,150,105,.2);  color: #34d399; }
+.dark .sp-badge-dn  { background: rgba(239,68,68,.2);  color: #f87171; }
+.dark .sp-badge-neu { background: rgba(100,116,139,.15); color: #94a3b8; }
+.sp-badge .material-symbols-outlined { font-size: 10px; }
+
+/* ── MAIN GRID ───────────────────────────────────────── */
+.sp-main { display: grid; grid-template-columns: 3fr 2fr; gap: 1.25rem; }
+
+/* ── CHART CARD ──────────────────────────────────────── */
+.sp-card {
+    background: #fff;
+    border-radius: 20px;
+    padding: 1.6rem 1.75rem;
+    border: 1px solid rgba(0,0,0,.06);
+    box-shadow: 0 4px 20px rgba(0,0,0,.05);
+}
+.dark .sp-card { background: #1e293b; border-color: rgba(255,255,255,.05); }
+
+.sp-card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+.sp-card-title-wrap { display: flex; align-items: center; gap: .65rem; }
+.sp-card-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+}
+.sp-card-icon .material-symbols-outlined { font-size: 18px; }
+.sp-card-title { font-size: .95rem; font-weight: 800; color: #0f172a; letter-spacing: -.02em; }
+.dark .sp-card-title { color: #f1f5f9; }
+.sp-card-pill {
+    font-size: .67rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+    padding: .25rem .75rem; border-radius: 99px;
+    background: #f1f5f9; color: #64748b;
+}
+.dark .sp-card-pill { background: rgba(100,116,139,.15); color: #94a3b8; }
+
+.sp-chart-wrap { position: relative; height: 260px; }
+
+/* ── ROOM USAGES ─────────────────────────────────────── */
+.sp-rooms { display: flex; flex-direction: column; gap: 1.1rem; }
+.sp-room {
+    padding: 1rem 1.15rem;
+    background: #f8fafc; border-radius: 14px;
+    border: 1px solid rgba(0,0,0,.04);
+    transition: background .18s;
+}
+.sp-room:hover { background: #f1f5f9; }
+.dark .sp-room { background: rgba(255,255,255,.03); border-color: rgba(255,255,255,.05); }
+.dark .sp-room:hover { background: rgba(255,255,255,.06); }
+
+.sp-room-top {
+    display: flex; align-items: center;
+    justify-content: space-between; gap: .5rem;
+    margin-bottom: .65rem;
+}
+.sp-room-name { font-size: .88rem; font-weight: 700; color: #0f172a; }
+.dark .sp-room-name { color: #e2e8f0; }
+.sp-room-meta { font-size: .7rem; color: #94a3b8; margin-top: .05rem; }
+.sp-room-pct {
+    font-size: 1.1rem; font-weight: 900; flex-shrink: 0;
+    min-width: 52px; text-align: right;
+}
+.sp-bar-track {
+    height: 8px; border-radius: 99px;
+    background: rgba(0,0,0,.06);
+    overflow: hidden;
+    position: relative;
+}
+.dark .sp-bar-track { background: rgba(255,255,255,.08); }
+.sp-bar-fill {
+    height: 100%; border-radius: 99px;
+    position: relative; overflow: hidden;
+    transition: width .9s cubic-bezier(.4,0,.2,1);
+}
+/* shimmer animation on bar */
+.sp-bar-fill::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,.35) 50%, transparent 100%);
+    animation: barShimmer 2.2s ease infinite;
+    transform: translateX(-100%);
+}
+@keyframes barShimmer {
+    0%   { transform: translateX(-100%); }
+    60%  { transform: translateX(100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* ── BOTTOM TABLE ────────────────────────────────────── */
+.sp-table-wrap { overflow-x: auto; }
+.sp-table {
+    width: 100%; border-collapse: collapse;
+    font-size: .855rem;
+}
+.sp-table thead tr {
+    border-bottom: 2px solid rgba(0,0,0,.07);
+}
+.dark .sp-table thead tr { border-color: rgba(255,255,255,.07); }
+.sp-table th {
+    padding: .7rem 1rem;
+    font-size: .67rem; font-weight: 800; text-transform: uppercase;
+    letter-spacing: .1em; color: #94a3b8; text-align: left;
+}
+.sp-table th:not(:first-child) { text-align: right; }
+.sp-table tbody tr {
+    border-bottom: 1px solid rgba(0,0,0,.045);
+    transition: background .15s;
+}
+.dark .sp-table tbody tr { border-color: rgba(255,255,255,.05); }
+.sp-table tbody tr:hover { background: rgba(79,70,229,.04); }
+.dark .sp-table tbody tr:hover { background: rgba(99,102,241,.08); }
+.sp-table td {
+    padding: .75rem 1rem;
+    color: #334155;
+}
+.dark .sp-table td { color: #cbd5e1; }
+.sp-table td:not(:first-child) { text-align: right; }
+.sp-table td:first-child { font-weight: 700; color: #0f172a; }
+.dark .sp-table td:first-child { color: #f1f5f9; }
+.sp-table .val-cell { font-weight: 800; font-size: .92rem; }
+
+/* mini sparkline col */
+.sp-table .spark-cell canvas { display: block; }
+
+/* ── RESPONSIVE ──────────────────────────────────────── */
+@media (max-width: 1100px) {
+    .sp-main { grid-template-columns: 1fr; }
+    .sp-kpi-strip { grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width: 600px) {
+    .sp-kpi-strip { grid-template-columns: 1fr 1fr; }
+    .sp-hero { padding: 1.75rem 1.5rem; }
+    .sp-hero-title { font-size: 1.55rem; }
+    .sp-hero-right { display: none; }
+}
+
+/* ── ENTRY ANIMATIONS ────────────────────────────────── */
+.sp-fade-in {
+    opacity: 0; transform: translateY(16px);
+    animation: spFadeIn .5s ease forwards;
+}
+@keyframes spFadeIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+.sp-fade-in:nth-child(1) { animation-delay: .05s; }
+.sp-fade-in:nth-child(2) { animation-delay: .12s; }
+.sp-fade-in:nth-child(3) { animation-delay: .19s; }
+.sp-fade-in:nth-child(4) { animation-delay: .26s; }
+.sp-fade-in:nth-child(5) { animation-delay: .33s; }
+.sp-fade-in:nth-child(6) { animation-delay: .4s; }
+</style>
+
+<!-- ╔══════════════════════════════════════════════════════╗ -->
+<!-- ║  PAGE CONTAINER                                       ║ -->
+<!-- ╚══════════════════════════════════════════════════════╝ -->
+<div class="sp">
+
+    <!-- ── HERO ────────────────────────────────────────── -->
+    <div class="sp-hero sp-fade-in">
+        <!-- glowing orbs -->
+        <div class="sp-hero-orb" style="width:300px;height:300px;background:#6366f1;top:-100px;left:-60px;opacity:.3;"></div>
+        <div class="sp-hero-orb" style="width:220px;height:220px;background:#06b6d4;bottom:-80px;right:15%;opacity:.25;"></div>
+        <div class="sp-hero-orb" style="width:160px;height:160px;background:#f59e0b;top:-50px;right:5%;opacity:.2;"></div>
+
+        <div class="sp-hero-content">
+            <div class="sp-hero-badge">
+                <span class="material-symbols-outlined">auto_graph</span>
+                Tableau de statistiques
+            </div>
+            <div class="sp-hero-title">Statistiques &amp; Analytiques</div>
+            <div class="sp-hero-sub">Gains mensuels personnels &nbsp;·&nbsp; Taux d'utilisation des salles &nbsp;·&nbsp; Évolution annuelle</div>
+        </div>
+
+        <div class="sp-hero-right">
+            <div class="sp-hero-date-label">Période courante</div>
+            <div class="sp-hero-date-val">{{ current_month_label }}</div>
+            <div class="sp-hero-month">{{ revenue_this_month|floatformat:0 }} DH collectés</div>
+        </div>
+    </div>
+
+    <!-- ── KPI STRIP ────────────────────────────────────── -->
+    <div class="sp-kpi-strip">
+
+        <!-- Revenue this month -->
+        <div class="sp-kpi sp-fade-in">
+            <div class="sp-kpi-stripe" style="background:linear-gradient(90deg,#6366f1,#8b5cf6);"></div>
+            <div class="sp-kpi-glow" style="background:#6366f1;"></div>
+            <div class="sp-kpi-icon-wrap" style="background:#ede9fe;">
+                <span class="material-symbols-outlined" style="color:#6366f1;">payments</span>
+            </div>
+            <div class="sp-kpi-label">Ce mois — {{ current_month_label }}</div>
+            <div class="sp-kpi-val" style="color:#6366f1;">{{ revenue_this_month|floatformat:0 }} <span style="font-size:.9rem;font-weight:600;opacity:.7;">DH</span></div>
+            <div class="sp-kpi-sub">
+                {% if revenue_growth is not None %}
+                    {% if revenue_growth >= 0 %}
+                        <span class="sp-badge sp-badge-up"><span class="material-symbols-outlined">arrow_upward</span>+{{ revenue_growth }}%</span>
+                    {% else %}
+                        <span class="sp-badge sp-badge-dn"><span class="material-symbols-outlined">arrow_downward</span>{{ revenue_growth }}%</span>
+                    {% endif %}
+                    vs mois précédent
+                {% else %}
+                    <span class="sp-badge sp-badge-neu">Premier mois</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Prev month -->
+        <div class="sp-kpi sp-fade-in">
+            <div class="sp-kpi-stripe" style="background:linear-gradient(90deg,#06b6d4,#0284c7);"></div>
+            <div class="sp-kpi-glow" style="background:#06b6d4;"></div>
+            <div class="sp-kpi-icon-wrap" style="background:#cffafe;">
+                <span class="material-symbols-outlined" style="color:#0891b2;">history</span>
+            </div>
+            <div class="sp-kpi-label">Mois précédent</div>
+            <div class="sp-kpi-val" style="color:#0891b2;">{{ revenue_prev_month|floatformat:0 }} <span style="font-size:.9rem;font-weight:600;opacity:.7;">DH</span></div>
+            <div class="sp-kpi-sub">Gains enregistrés &amp; validés</div>
+        </div>
+
+        <!-- YTD -->
+        <div class="sp-kpi sp-fade-in">
+            <div class="sp-kpi-stripe" style="background:linear-gradient(90deg,#10b981,#059669);"></div>
+            <div class="sp-kpi-glow" style="background:#10b981;"></div>
+            <div class="sp-kpi-icon-wrap" style="background:#d1fae5;">
+                <span class="material-symbols-outlined" style="color:#059669;">savings</span>
+            </div>
+            <div class="sp-kpi-label">Cumul année en cours</div>
+            <div class="sp-kpi-val" style="color:#059669;">{{ total_revenue_ytd|floatformat:0 }} <span style="font-size:.9rem;font-weight:600;opacity:.7;">DH</span></div>
+            <div class="sp-kpi-sub">Total paiements confirmés</div>
+        </div>
+
+        <!-- Rooms -->
+        <div class="sp-kpi sp-fade-in">
+            <div class="sp-kpi-stripe" style="background:linear-gradient(90deg,#f59e0b,#ef4444);"></div>
+            <div class="sp-kpi-glow" style="background:#f59e0b;"></div>
+            <div class="sp-kpi-icon-wrap" style="background:#fef3c7;">
+                <span class="material-symbols-outlined" style="color:#d97706;">meeting_room</span>
+            </div>
+            <div class="sp-kpi-label">Salles actives</div>
+            <div class="sp-kpi-val" style="color:#d97706;">{{ room_stats|length }} <span style="font-size:.9rem;font-weight:600;opacity:.7;">salles</span></div>
+            <div class="sp-kpi-sub">Espaces de cours suivis</div>
+        </div>
+
+    </div>
+
+    <!-- ── MAIN GRID ─────────────────────────────────────── -->
+    <div class="sp-main sp-fade-in">
+
+        <!-- Chart card -->
+        <div class="sp-card">
+            <div class="sp-card-header">
+                <div class="sp-card-title-wrap">
+                    <div class="sp-card-icon" style="background:#ede9fe;">
+                        <span class="material-symbols-outlined" style="color:#6366f1;">trending_up</span>
+                    </div>
+                    <div>
+                        <div class="sp-card-title">Gains mensuels</div>
+                    </div>
+                </div>
+                <span class="sp-card-pill">12 derniers mois</span>
+            </div>
+            <div class="sp-chart-wrap">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Rooms card -->
+        <div class="sp-card">
+            <div class="sp-card-header">
+                <div class="sp-card-title-wrap">
+                    <div class="sp-card-icon" style="background:#fef3c7;">
+                        <span class="material-symbols-outlined" style="color:#d97706;">space_dashboard</span>
+                    </div>
+                    <div>
+                        <div class="sp-card-title">Utilisation des salles</div>
+                    </div>
+                </div>
+                <span class="sp-card-pill">Hebdomadaire</span>
+            </div>
+
+            {% if room_stats %}
+            <div class="sp-rooms">
+                {% for room in room_stats %}
+                <div class="sp-room">
+                    <div class="sp-room-top">
+                        <div>
+                            <div class="sp-room-name">{{ room.name }}</div>
+                            <div class="sp-room-meta">{{ room.capacity }} places &nbsp;·&nbsp; {{ room.groups_count }} groupe{{ room.groups_count|pluralize }} &nbsp;·&nbsp; {{ room.weekly_hours }}h/sem</div>
+                        </div>
+                        <div class="sp-room-pct"
+                             style="color:{% if room.usage_pct >= 75 %}#ef4444{% elif room.usage_pct >= 45 %}#f59e0b{% else %}#10b981{% endif %};">
+                            {{ room.usage_pct }}%
+                        </div>
+                    </div>
+                    <div class="sp-bar-track">
+                        <div class="sp-bar-fill"
+                             data-pct="{{ room.usage_pct }}"
+                             style="width:0%;
+                                background:{% if room.usage_pct >= 75 %}linear-gradient(90deg,#f87171,#ef4444){% elif room.usage_pct >= 45 %}linear-gradient(90deg,#fbbf24,#f59e0b){% else %}linear-gradient(90deg,#34d399,#10b981){% endif %};">
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div style="text-align:center;padding:3rem 0;color:#94a3b8;">
+                <span class="material-symbols-outlined" style="font-size:48px;display:block;margin-bottom:.75rem;opacity:.4;">inbox</span>
+                Aucune salle active avec groupes planifiés.
+            </div>
+            {% endif %}
+        </div>
+
+    </div>
+
+    <!-- ── REVENUE TABLE ──────────────────────────────────── -->
+    <div class="sp-card sp-fade-in">
+        <div class="sp-card-header">
+            <div class="sp-card-title-wrap">
+                <div class="sp-card-icon" style="background:#f0fdf4;">
+                    <span class="material-symbols-outlined" style="color:#16a34a;">table_chart</span>
+                </div>
+                <div class="sp-card-title">Détail mensuel des gains</div>
+            </div>
+            <span class="sp-card-pill">12 mois · tri décroissant</span>
+        </div>
+        <div class="sp-table-wrap">
+            <table class="sp-table">
+                <thead>
+                    <tr>
+                        <th>Mois</th>
+                        <th>Gains (DH)</th>
+                        <th>Évolution</th>
+                        <th>Tendance</th>
+                    </tr>
+                </thead>
+                <tbody id="revenue-tbody">
+                    {% for entry in monthly_revenue reversed %}
+                    <tr data-revenue="{{ entry.revenue }}">
+                        <td>{{ entry.month_label }}</td>
+                        <td class="val-cell" style="color:#6366f1;">{{ entry.revenue|floatformat:0 }} DH</td>
+                        <td><span class="sp-badge sp-badge-neu" id="td-evo-{{ forloop.counter }}">–</span></td>
+                        <td><canvas id="spark-{{ forloop.counter }}" width="80" height="28" style="vertical-align:middle;"></canvas></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+</div><!-- .sp -->
+
+<!-- Chart.js -->
+<script src="{% static 'chart.umd.min.js' %}"></script>
+
+<script>
+(function () {
+    /* ── DATA ───────────────────────────── */
+    const rawData    = JSON.parse(document.getElementById('stat-monthly-data').textContent);
+    const roomData   = JSON.parse(document.getElementById('stat-room-data').textContent);
+    const labels     = rawData.map(d => d.month_label);
+    const values     = rawData.map(d => d.revenue);
+
+    /* ── HELPERS ─────────────────────────── */
+    const fmt = v => v.toLocaleString('fr-FR');
+    const isDark = document.documentElement.classList.contains('dark');
+    const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.05)';
+    const tickColor  = isDark ? '#4b5563' : '#94a3b8';
+    const tooltipBg  = isDark ? '#0f172a' : '#1e293b';
+
+    /* ── MAIN REVENUE CHART ──────────────── */
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+
+    const grad = ctx.createLinearGradient(0, 0, 0, 260);
+    grad.addColorStop(0,   'rgba(99,102,241,.75)');
+    grad.addColorStop(.65, 'rgba(139,92,246,.35)');
+    grad.addColorStop(1,   'rgba(14,165,233,.05)');
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [
+                /* LINE overlay */
+                {
+                    type: 'line',
+                    label: 'Tendance',
+                    data: values,
+                    borderColor: 'rgba(99,102,241,.6)',
+                    borderWidth: 2.5,
+                    pointBackgroundColor: '#6366f1',
+                    pointRadius: 4,
+                    pointHoverRadius: 7,
+                    tension: .38,
+                    fill: false,
+                    order: 1,
+                },
+                /* BARS */
+                {
+                    type: 'bar',
+                    label: 'Gains (DH)',
+                    data: values,
+                    backgroundColor: grad,
+                    hoverBackgroundColor: 'rgba(99,102,241,.85)',
+                    borderRadius: { topLeft: 8, topRight: 8 },
+                    borderSkipped: false,
+                    order: 2,
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: tooltipBg,
+                    titleColor: '#94a3b8',
+                    bodyColor: '#e2e8f0',
+                    padding: 14,
+                    cornerRadius: 12,
+                    displayColors: false,
+                    callbacks: {
+                        title: items => items[0].label,
+                        label: ctx => ctx.datasetIndex === 1
+                            ? `  ${fmt(ctx.parsed.y)} DH`
+                            : null,
+                        afterLabel: () => null,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { color: tickColor, font: { size: 10.5, family: 'Inter' }, maxRotation: 45 },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: gridColor, drawTicks: false },
+                    border: { dash: [4,4] },
+                    ticks: {
+                        color: tickColor,
+                        font: { size: 10.5, family: 'Inter' },
+                        padding: 8,
+                        callback: v => fmt(v) + ' DH'
+                    }
+                }
+            }
+        }
+    });
+
+    /* ── ANIMATE ROOM BARS ───────────────── */
+    setTimeout(() => {
+        document.querySelectorAll('.sp-bar-fill[data-pct]').forEach(el => {
+            el.style.width = el.dataset.pct + '%';
+        });
+    }, 300);
+
+    /* ── TABLE EVOLUTIONS ────────────────── */
+    const reversedData = [...rawData].reverse(); // newest first
+    reversedData.forEach((entry, i) => {
+        const el = document.getElementById('td-evo-' + (i + 1));
+        if (!el) return;
+        if (i === reversedData.length - 1) { el.textContent = '–'; return; }
+        const prev = reversedData[i + 1].revenue;
+        if (prev === 0) { el.textContent = '–'; return; }
+        const pct = ((entry.revenue - prev) / prev * 100).toFixed(1);
+        const numPct = parseFloat(pct);
+        if (numPct > 0) {
+            el.textContent = '+' + pct + '%';
+            el.className = 'sp-badge sp-badge-up';
+        } else if (numPct < 0) {
+            el.textContent = pct + '%';
+            el.className = 'sp-badge sp-badge-dn';
+        } else {
+            el.textContent = '0%';
+            el.className = 'sp-badge sp-badge-neu';
+        }
+    });
+
+    /* ── MINI SPARKLINES (last 6 months rolling window) ── */
+    reversedData.forEach((entry, i) => {
+        const canvas = document.getElementById('spark-' + (i + 1));
+        if (!canvas) return;
+        // Build a mini 6-point window centered on this entry (from rawData)
+        const allIdx = rawData.findIndex(d => d.month_str === entry.month_str);
+        const start  = Math.max(0, allIdx - 5);
+        const slice  = rawData.slice(start, allIdx + 1).map(d => d.revenue);
+        if (slice.length < 2) return;
+
+        const sCtx = canvas.getContext('2d');
+        const sMax = Math.max(...slice) || 1;
+        const w = canvas.width, h = canvas.height, pad = 3;
+        const pts = slice.map((v, idx) => ({
+            x: pad + (idx / (slice.length - 1)) * (w - pad * 2),
+            y: h - pad - (v / sMax) * (h - pad * 2)
+        }));
+
+        const current = slice[slice.length - 1];
+        const prev2   = slice[slice.length - 2];
+        const color   = current >= prev2 ? '#10b981' : '#ef4444';
+
+        sCtx.clearRect(0, 0, w, h);
+        sCtx.beginPath();
+        pts.forEach((p, j) => j === 0 ? sCtx.moveTo(p.x, p.y) : sCtx.lineTo(p.x, p.y));
+        sCtx.strokeStyle = color;
+        sCtx.lineWidth = 1.8;
+        sCtx.lineJoin = 'round';
+        sCtx.stroke();
+
+        // filled area
+        sCtx.lineTo(pts[pts.length-1].x, h);
+        sCtx.lineTo(pts[0].x, h);
+        sCtx.closePath();
+        sCtx.fillStyle = color + '22';
+        sCtx.fill();
+
+        // dot at current
+        sCtx.beginPath();
+        sCtx.arc(pts[pts.length-1].x, pts[pts.length-1].y, 3, 0, Math.PI*2);
+        sCtx.fillStyle = color;
+        sCtx.fill();
+    });
+
+})();
+</script>
+
+{% endblock %}

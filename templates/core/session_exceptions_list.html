@@ -1,0 +1,197 @@
+{% extends 'core/base.html' %}
+{% block title %}Audit des exceptions — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-exclamation-circle-fill"></i> Exceptions de séances</span>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-exclamation-circle-fill text-warning me-2"></i>Exceptions de séances (Automatique)
+      </h1>
+      <p class="text-muted mb-0">Déviations par rapport aux plannings habituels des groupes de cours</p>
+    </div>
+    <a href="{% url 'core:sessions_schedule' %}" class="btn btn-primary">
+      <i class="bi bi-calendar3"></i> Voir la Planification
+    </a>
+  </div>
+
+  <!-- Filter -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-9">
+          <label class="form-label fw-semibold text-muted small">Filtrer par groupe de cours</label>
+          <select name="group_id" class="form-select form-select-sm">
+            <option value="">— Tous les groupes —</option>
+            {% for course in courses %}
+              <option value="{{ course.id }}" {% if course.id|stringformat:"s" == selected_group_id %}selected{% endif %}>
+                {{ course.name }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <button class="btn btn-primary btn-sm w-100" type="submit">
+            <i class="bi bi-funnel"></i> Filtrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Audit Table -->
+  <div class="card border-0 shadow-sm">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Groupe</th>
+            <th>Matière / Enseignant</th>
+            <th>Date & Heure</th>
+            <th>Type d'exception</th>
+            <th>Détail de la modification</th>
+            <th class="text-end pe-3">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in exceptions %}
+            <tr>
+              <td class="ps-3">
+                <span class="fw-bold">{{ s.group.name }}</span>
+                {% if s.group.level %}
+                  <div class="small text-muted">{{ s.group.level.name }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-light text-dark border">{{ s.group.subject }}</span>
+                <div class="small text-muted mt-1">
+                  <i class="bi bi-person"></i> {{ s.group.teacher.name }}
+                </div>
+              </td>
+              <td>
+                <span class="fw-medium text-dark"><i class="bi bi-calendar-event"></i> {{ s.date|date:"d/m/Y" }}</span>
+                <div class="small text-muted mt-1">
+                  <i class="bi bi-clock"></i> {{ s.start_time|time:"H:i" }} - {{ s.end_time|time:"H:i" }}
+                </div>
+              </td>
+              <td>
+                {% with exc_type=s.get_exception_type %}
+                  {% if exc_type == 'CANCELLED' %}
+                    <span class="badge bg-danger"><i class="bi bi-x-circle-fill"></i> Annulée</span>
+                  {% elif exc_type == 'SUBSTITUTE' %}
+                    <span class="badge bg-warning text-dark"><i class="bi bi-person-badge-fill"></i> Remplaçant</span>
+                  {% elif exc_type == 'ROOM' %}
+                    <span class="badge bg-info text-dark"><i class="bi bi-door-open-fill"></i> Salle modifiée</span>
+                  {% elif exc_type == 'TIME' %}
+                    <span class="badge bg-primary"><i class="bi bi-clock-fill"></i> Horaire modifié</span>
+                  {% elif exc_type == 'DATE' %}
+                    <span class="badge bg-purple text-white" style="background-color: #8b5cf6;"><i class="bi bi-calendar-plus-fill"></i> Séance hors-planning</span>
+                  {% else %}
+                    <span class="badge bg-secondary">Modifiée</span>
+                  {% endif %}
+                {% endwith %}
+              </td>
+              <td>
+                <div class="small">
+                  {% with default_sch=s.get_default_schedule %}
+                    {% if s.status == 'CANCELLED' %}
+                      <span class="text-danger fw-semibold">Cette séance a été annulée.</span>
+                    {% elif s.substitute_teacher %}
+                      <div class="text-warning-emphasis">
+                        <i class="bi bi-arrow-right-short"></i> Remplaçant : <strong>{{ s.substitute_teacher.name }}</strong>
+                        <span class="text-muted">(Principal: {{ s.group.teacher.name }})</span>
+                      </div>
+                    {% endif %}
+
+                    {% if default_sch %}
+                      {% if s.room_id != default_sch.room_id %}
+                        <div>
+                          <i class="bi bi-arrow-right-short"></i> Salle : 
+                          <span class="text-decoration-line-through text-muted">{{ default_sch.room.name }}</span> 
+                          ➔ <strong>{{ s.room.name }}</strong>
+                        </div>
+                      {% endif %}
+                      
+                      {% if s.start_time != default_sch.start_time or s.end_time != default_sch.end_time %}
+                        <div>
+                          <i class="bi bi-arrow-right-short"></i> Horaire : 
+                          <span class="text-decoration-line-through text-muted">{{ default_sch.start_time|time:"H:i" }} - {{ default_sch.end_time|time:"H:i" }}</span> 
+                          ➔ <strong>{{ s.start_time|time:"H:i" }} - {{ s.end_time|time:"H:i" }}</strong>
+                        </div>
+                      {% endif %}
+                    {% else %}
+                      {% if s.get_exception_type == 'DATE' %}
+                        <span class="text-muted">Séance planifiée un jour sans réunion habituelle.</span>
+                      {% endif %}
+                    {% endif %}
+                  {% endwith %}
+                  
+                  {% if s.notes %}
+                    <div class="text-muted mt-1 bg-light p-1 rounded small">
+                      <i class="bi bi-pencil-square"></i> {{ s.notes }}
+                    </div>
+                  {% endif %}
+                </div>
+              </td>
+              <td class="text-end pe-3">
+                <div class="btn-group btn-group-sm">
+                  <a href="{% url 'core:sessions_schedule' %}?week={{ s.date|date:'Y-m-d' }}" class="btn btn-outline-secondary" title="Voir sur le planning">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                  <button type="button" class="btn btn-outline-danger" onclick="resetToDefault({{ s.id }})" title="Réinitialiser par défaut">
+                    <i class="bi bi-arrow-counterclockwise"></i> Réinitialiser
+                  </button>
+                </div>
+              </td>
+            </tr>
+          {% empty %}
+            <tr>
+              <td colspan="6" class="text-center py-5 text-muted">
+                <i class="bi bi-check-circle" style="font-size: 3rem; color: var(--success); opacity: 0.5;"></i>
+                <p class="mt-3 mb-0 fw-semibold">Aucune déviation par rapport aux plannings par défaut.</p>
+                <small class="text-muted">Toutes les séances de cours suivent parfaitement leur grille d'horaires réguliers.</small>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+function resetToDefault(sessionId) {
+  if (!confirm("Confirmer la réinitialisation de cette séance ? Elle reprendra ses horaires et sa salle par défaut.")) {
+    return;
+  }
+  
+  const csrfToken = '{{ csrf_token }}';
+  
+  fetch(`/sessions/${sessionId}/reset-ajax/`, {
+    method: 'POST',
+    headers: {
+      'X-CSRFToken': csrfToken,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      alert("La séance a été réinitialisée avec succès.");
+      location.reload();
+    } else {
+      alert("Erreur: " + data.error);
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    alert("Erreur lors de la réinitialisation de la séance.");
+  });
+}
+</script>
+{% endblock %}

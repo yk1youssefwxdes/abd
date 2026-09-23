@@ -1,0 +1,4 @@
+Bonjour {name},
+Votre commande n°{order_id} a bien été confirmée ✅.
+Date de livraison estimée : {delivery_date}.
+Suivez votre commande ici : {tracking_url}

@@ -1,0 +1,275 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ level.name }} — Détails du niveau{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:levels_list' %}"><i class="bi bi-layers-fill"></i> Niveaux</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ level.name }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .avatar-circle {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: var(--primary-light); color: var(--primary);
+    font-size: 26px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .fw-600 { font-weight: 600; }
+  .fw-700 { font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Level Header ─────────────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row align-items-center g-4">
+      <div class="col-auto">
+        <div class="avatar-circle"><i class="bi bi-layers-fill"></i></div>
+      </div>
+      <div class="col">
+        <h1 class="page-title mb-1">{{ level.name }}</h1>
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+          <span class="text-muted" style="font-size:13.5px;">
+            <i class="bi bi-tag me-1"></i>Catégorie : <strong>{{ level.get_category_display }}</strong>
+          </span>
+        </div>
+        <div class="mt-2 d-flex flex-wrap gap-2">
+          <span class="badge badge-primary"><i class="bi bi-book"></i> {{ total_groups }} groupe{{ total_groups|pluralize }}</span>
+          <span class="badge badge-info"><i class="bi bi-people"></i> {{ total_students }} élève{{ total_students|pluralize }}</span>
+        </div>
+      </div>
+      <div class="col-auto d-flex gap-2">
+        <a href="{% url 'core:level_edit' level.id %}" class="btn btn-outline-primary">
+          <i class="bi bi-pencil"></i> Éditer le niveau
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quick stats ────────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Groupes de cours</div>
+          <div class="stat-card-value">{{ total_groups }}</div>
+          <small class="text-muted">Définis pour ce niveau</small>
+        </div>
+        <div class="stat-card-icon" style="background:var(--primary-light);">
+          <i class="bi bi-book-half" style="color:var(--primary);"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Élèves inscrits</div>
+          <div class="stat-card-value">{{ total_students }}</div>
+          <small class="text-muted">Actifs : <strong>{{ active_students }}</strong></small>
+        </div>
+        <div class="stat-card-icon" style="background:#dbeafe;">
+          <i class="bi bi-people-fill" style="color:#3b82f6;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Estimation revenus mensuels</div>
+          <div class="stat-card-value">{{ total_monthly_fees|floatformat:0 }}<span style="font-size:13px;font-weight:400;color:var(--text-muted);"> DH</span></div>
+          <small class="text-muted">Frais des élèves actifs de ce niveau</small>
+        </div>
+        <div class="stat-card-icon" style="background:#dcfce7;">
+          <i class="bi bi-cash-coin" style="color:#16a34a;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tabs ───────────────────────────────────────────────────────── -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#groups">
+      <i class="bi bi-book-half"></i> Groupes de cours ({{ total_groups }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#students">
+      <i class="bi bi-people"></i> Élèves ({{ total_students }})
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  <!-- Groups Tab -->
+  <div class="tab-pane fade show active" id="groups">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-600">Groupes de cours du niveau</span>
+        <a href="{% url 'core:course_group_create' %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> Ajouter un groupe
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Nom du groupe</th>
+              <th>Matière</th>
+              <th>Professeur</th>
+              <th>Horaires / Salles</th>
+              <th class="text-center">Élèves</th>
+              <th class="text-end">Prix/mois</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for group in course_groups %}
+              <tr>
+                <td><strong><a href="{% url 'core:group_detail' group.id %}" class="text-decoration-none">{{ group.name }}</a></strong></td>
+                <td>{{ group.subject }}</td>
+                <td>
+                  <div>{{ group.teacher.name }}</div>
+                  <small class="text-muted">{{ group.teacher.phone }}</small>
+                </td>
+                <td>
+                  {% for sch in group.schedules.all %}
+                    <div class="mb-1" style="font-size:12.5px;">
+                      <strong>{{ sch.get_day_display }}</strong> {{ sch.start_time|time:"H:i" }}–{{ sch.end_time|time:"H:i" }}
+                      <span class="badge badge-secondary ms-1"><i class="bi bi-door-open"></i> {{ sch.room.name }}</span>
+                    </div>
+                  {% empty %}
+                    <span class="text-muted small">Aucun horaire</span>
+                  {% endfor %}
+                </td>
+                <td class="text-center">
+                  <span class="badge bg-light text-dark">{{ group.enrollment_count }}</span>
+                </td>
+                <td class="text-end"><strong>{{ group.monthly_price }} DH</strong></td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    <a href="{% url 'core:course_group_edit' group.id %}" class="btn btn-sm btn-outline-primary" title="Modifier">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                    <a href="{% url 'core:course_group_delete_confirm' group.id %}" class="btn btn-sm btn-outline-danger" title="Supprimer">
+                      <i class="bi bi-trash"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="7" class="text-center py-5 text-muted">
+                  Aucun groupe de cours pour ce niveau.
+                  <a href="{% url 'core:course_group_create' %}" class="btn btn-sm btn-primary ms-2">Créer un groupe</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Students Tab -->
+  <div class="tab-pane fade" id="students">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-600">Élèves inscrits à ce niveau</span>
+        <a href="{% url 'core:student_create' %}" class="btn btn-sm btn-primary">
+          <i class="bi bi-plus-lg"></i> Ajouter un élève
+        </a>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Nom de l'élève</th>
+              <th>Contact parent</th>
+              <th class="text-center">Cours inscrits</th>
+              <th class="text-end">Total frais/mois</th>
+              <th class="text-center">Paiement</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for student in students %}
+              <tr {% if not student.is_active %}class="opacity-75"{% endif %}>
+                <td>
+                  <strong>{{ student.name }}</strong>
+                  {% if not student.is_active %}
+                    <span class="badge badge-secondary ms-1">Inactif</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div>{{ student.parent_name|default:"-" }}</div>
+                  <small class="text-muted"><i class="bi bi-telephone"></i> {{ student.parent_contact }}</small>
+                  {% if student.parent_contact_2 %}
+                    <small class="text-muted d-block"><i class="bi bi-telephone"></i> {{ student.parent_contact_2 }}</small>
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  <span class="badge badge-primary">{{ student.enrollment_set.count }}</span>
+                </td>
+                <td class="text-end"><strong>{{ student.total_monthly_fees|floatformat:0 }} DH</strong></td>
+                <td class="text-center">
+                  {% with status=student.payment_status %}
+                    {% if status == 'OK' %}
+                      <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Payé</span>
+                    {% elif status == 'PARTIAL' %}
+                      <span class="badge badge-warning"><i class="bi bi-exclamation-circle-fill"></i> Partiel</span>
+                    {% else %}
+                      <span class="badge badge-danger"><i class="bi bi-x-circle-fill"></i> Impayé</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    <a href="{% url 'core:student_page' student.id %}" class="btn btn-sm btn-outline-primary" title="Voir le profil">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{% url 'core:student_edit' student.id %}" class="btn btn-sm btn-outline-secondary" title="Éditer">
+                      <i class="bi bi-pencil"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-5 text-muted">
+                  Aucun élève enregistré à ce niveau.
+                  <a href="{% url 'core:student_create' %}" class="btn btn-sm btn-primary ms-2">Ajouter un élève</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Breadcrumb actions -->
+<div class="mt-4 d-flex gap-2">
+  <a href="{% url 'core:levels_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour à la liste
+  </a>
+  <a href="{% url 'core:level_delete_confirm' level.id %}" class="btn btn-outline-danger ms-auto">
+    <i class="bi bi-trash"></i> Supprimer ce niveau
+  </a>
+</div>
+
+{% endblock %}

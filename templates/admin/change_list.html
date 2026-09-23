@@ -1,0 +1,214 @@
+{% extends "admin/change_list.html" %}
+{% load i18n admin_urls static admin_list unfold_list %}
+
+{% block content %}
+
+{% with model_name=cl.opts.model_name %}
+
+{% if model_name == 'student' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#4f46e5;">
+        <span class="material-symbols-outlined">school</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Élèves (filtrés)</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+    <a href="{% url 'admin:core_student_add' %}" class="school-btn-primary">
+        <span class="material-symbols-outlined">person_add</span>
+        Ajouter un élève
+    </a>
+</div>
+{% endif %}
+
+{% if model_name == 'payment' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#10b981;">
+        <span class="material-symbols-outlined">payments</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Paiements</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+    <a href="{% url 'admin:core_payment_add' %}" class="school-btn-primary">
+        <span class="material-symbols-outlined">add</span>
+        Nouveau paiement
+    </a>
+</div>
+{% endif %}
+
+{% if model_name == 'coursegroup' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#8b5cf6;">
+        <span class="material-symbols-outlined">groups</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Groupes</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+    <a href="{% url 'admin:core_coursegroup_add' %}" class="school-btn-primary">
+        <span class="material-symbols-outlined">add</span>
+        Nouveau groupe
+    </a>
+</div>
+{% endif %}
+
+{% if model_name == 'teacher' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#06b6d4;">
+        <span class="material-symbols-outlined">person_book</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Professeurs</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+    <a href="{% url 'admin:core_teacher_add' %}" class="school-btn-primary">
+        <span class="material-symbols-outlined">add</span>
+        Nouveau professeur
+    </a>
+</div>
+{% endif %}
+
+{% if model_name == 'session' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#f59e0b;">
+        <span class="material-symbols-outlined">calendar_month</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Sessions</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+    <a href="/sessions/today/" class="school-btn-secondary">
+        <span class="material-symbols-outlined">today</span>
+        Sessions d'aujourd'hui
+    </a>
+    <a href="{% url 'admin:core_session_add' %}" class="school-btn-primary">
+        <span class="material-symbols-outlined">add</span>
+        Nouvelle session
+    </a>
+</div>
+{% endif %}
+
+{% if model_name == 'attendance' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#4f46e5;">
+        <span class="material-symbols-outlined">fact_check</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Présences enregistrées</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+</div>
+{% endif %}
+
+{% if model_name == 'room' %}
+<div class="school-list-summary">
+    <div class="school-list-stat" style="--c:#ef4444;">
+        <span class="material-symbols-outlined">meeting_room</span>
+        <div>
+            <div class="school-list-stat-value">{{ cl.queryset.count }}</div>
+            <div class="school-list-stat-label">Salles</div>
+        </div>
+    </div>
+    <div style="flex:1;"></div>
+    <a href="{% url 'admin:core_room_add' %}" class="school-btn-primary">
+        <span class="material-symbols-outlined">add</span>
+        Ajouter une salle
+    </a>
+</div>
+{% endif %}
+
+{% endwith %}
+
+{{ block.super }}
+
+<style>
+.school-list-summary {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.05);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+}
+.dark .school-list-summary {
+    background: #1e293b;
+    border-color: rgba(255,255,255,.06);
+}
+.school-list-stat {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    color: var(--c, #4f46e5);
+}
+.school-list-stat .material-symbols-outlined {
+    font-size: 28px;
+    opacity: .85;
+}
+.school-list-stat-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    line-height: 1;
+    color: #0f172a;
+}
+.dark .school-list-stat-value { color: #f1f5f9; }
+.school-list-stat-label {
+    font-size: .72rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #64748b;
+}
+.school-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: #4f46e5;
+    color: #fff !important;
+    padding: .55rem 1.1rem;
+    border-radius: 8px;
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    white-space: nowrap;
+    transition: background .18s ease, transform .18s ease, box-shadow .18s ease;
+    box-shadow: 0 2px 8px rgba(79,70,229,.3);
+}
+.school-btn-primary:hover {
+    background: #4338ca;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(79,70,229,.4);
+}
+.school-btn-primary .material-symbols-outlined { font-size: 18px; }
+.school-btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: transparent;
+    color: #4f46e5 !important;
+    padding: .5rem 1rem;
+    border-radius: 8px;
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    white-space: nowrap;
+    border: 1.5px solid #4f46e5;
+    transition: all .18s ease;
+}
+.school-btn-secondary:hover { background: rgba(79,70,229,.07); }
+.school-btn-secondary .material-symbols-outlined { font-size: 18px; }
+.dark .school-btn-secondary { color: #818cf8 !important; border-color: #6366f1; }
+.dark .school-btn-secondary:hover { background: rgba(99,102,241,.12); }
+</style>
+
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ category.name }} — Catégorie de niveau — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:levels_list' %}"><i class="bi bi-layers-fill"></i> Niveaux</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:level_categories_list' %}">Catégories</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ category.name }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .cat-avatar {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: var(--primary-light); color: var(--primary);
+    font-size: 26px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .fw-600 { font-weight: 600; }
+  .fw-700 { font-weight: 700; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Header card -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row align-items-center g-4">
+      <div class="col-auto">
+        <div class="cat-avatar"><i class="bi bi-collection-fill"></i></div>
+      </div>
+      <div class="col">
+        <h1 class="page-title mb-1">{{ category.name }}</h1>
+        <div class="d-flex flex-wrap gap-3 align-items-center mt-1">
+          <span class="text-muted" style="font-size:13.5px;">
+            <i class="bi bi-tag me-1"></i>Code :
+            <code>{{ category.code }}</code>
+          </span>
+          <span class="badge" style="background:var(--primary-light);color:var(--primary);">
+            <i class="bi bi-layers-fill"></i> {{ levels|length }} niveau{{ levels|length|pluralize:"x" }}
+          </span>
+        </div>
+      </div>
+      <div class="col-auto d-flex gap-2">
+        <a href="{% url 'core:level_category_edit' category.id %}" class="btn btn-outline-primary">
+          <i class="bi bi-pencil"></i> Modifier
+        </a>
+        <a href="{% url 'core:level_category_delete_confirm' category.id %}" class="btn btn-outline-danger">
+          <i class="bi bi-trash"></i>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Levels in this category -->
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span class="fw-600"><i class="bi bi-layers-fill me-1"></i>Niveaux de cette catégorie</span>
+    <a href="{% url 'core:level_create' %}" class="btn btn-sm btn-primary">
+      <i class="bi bi-plus-lg"></i> Ajouter un niveau
+    </a>
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4">Niveau</th>
+          <th class="text-center">Groupes de cours</th>
+          <th class="text-center">Élèves</th>
+          <th class="text-end pe-4">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for level in levels %}
+          <tr>
+            <td class="ps-4 fw-600">
+              <a href="{% url 'core:level_detail' level.id %}" class="text-decoration-none" style="color:var(--primary);">
+                {{ level.name }}
+              </a>
+            </td>
+            <td class="text-center">
+              <span class="badge badge-secondary">{{ level.group_count }} groupe{{ level.group_count|pluralize }}</span>
+            </td>
+            <td class="text-center">
+              <span class="badge" style="background:var(--primary-light);color:var(--primary);">
+                {{ level.student_count }} élève{{ level.student_count|pluralize }}
+              </span>
+            </td>
+            <td class="text-end pe-4">
+              <div class="d-flex gap-1 justify-content-end">
+                <a href="{% url 'core:level_detail' level.id %}" class="btn btn-sm btn-icon btn-outline-info" title="Voir">
+                  <i class="bi bi-eye"></i>
+                </a>
+                <a href="{% url 'core:level_edit' level.id %}" class="btn btn-sm btn-icon btn-outline-primary" title="Modifier">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                <a href="{% url 'core:level_delete_confirm' level.id %}" class="btn btn-sm btn-icon btn-outline-danger" title="Supprimer">
+                  <i class="bi bi-trash"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="4" class="text-center py-5 text-muted">
+              Aucun niveau dans cette catégorie.
+              <a href="{% url 'core:level_create' %}" class="btn btn-sm btn-primary ms-2">Créer un niveau</a>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mt-4 d-flex gap-2">
+  <a href="{% url 'core:level_categories_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour aux catégories
+  </a>
+</div>
+
+{% endblock %}

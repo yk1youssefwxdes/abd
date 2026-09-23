@@ -1,0 +1,13 @@
+Bonjour {name},
+
+Nous confirmons la réception de votre paiement:
+
+Montant: {amount} DH
+Date: {date}
+Reçu N°: {receipt_number}
+Pour le mois de: {month}
+
+Merci pour votre confiance!
+
+Cordialement,
+L'équipe administrative

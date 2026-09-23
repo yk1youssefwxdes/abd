@@ -1,0 +1,3 @@
+Bonjour {student_name},
+Votre note pour la matière {subject} a été publiée 📚.
+Consultez votre espace étudiant pour voir les détails.

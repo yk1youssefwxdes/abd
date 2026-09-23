@@ -1,0 +1,191 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Santé Opérationnelle — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+.ao { font-family:'Inter',system-ui,sans-serif; display:flex; flex-direction:column; gap:1.5rem; padding:.25rem 0 3rem; }
+.ao-hero {
+  position:relative; border-radius:24px; padding:2.25rem 2.75rem; overflow:hidden;
+  background:#1e1b4b; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+}
+.ao-hero::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,#1e1b4b 0%,#1d4ed8 50%,#0369a1 100%);
+  background-size:200% 200%; animation:aoGrad 10s ease infinite;
+}
+@keyframes aoGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.ao-hero-content { position:relative; z-index:2; }
+.ao-hero-title { font-size:1.8rem; font-weight:900; letter-spacing:-.03em; margin:0; }
+.ao-hero-sub { font-size:.85rem; color:rgba(255,255,255,.6); margin:.3rem 0 0; }
+.ao-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+.ao-kpi { background:#fff; border-radius:20px; padding:1.4rem 1.5rem 1.25rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); transition:transform .2s; display:flex; align-items:center; gap:1rem; }
+.ao-kpi:hover { transform:translateY(-3px); }
+.dark .ao-kpi { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.ao-kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.ao-kpi-label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
+.ao-kpi-val { font-size:1.6rem; font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.dark .ao-kpi-val { color:#f1f5f9; }
+.ao-grid-2-1 { display:grid; grid-template-columns:2fr 1fr; gap:1.25rem; }
+.ao-card { background:#fff; border-radius:20px; padding:1.6rem 1.75rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); }
+.dark .ao-card { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.ao-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; border-bottom:1px solid #f1f5f9; padding-bottom:.9rem; }
+.dark .ao-card-hdr { border-bottom-color:rgba(255,255,255,.05); }
+.ao-card-title { font-size:.92rem; font-weight:800; color:#0f172a; }
+.dark .ao-card-title { color:#f1f5f9; }
+.ao-list-item { display:flex; align-items:center; justify-content:space-between; padding:.7rem .9rem; border-radius:12px; background:#f8fafc; border:1px solid rgba(0,0,0,.04); margin-bottom:.5rem; }
+.dark .ao-list-item { background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.05); }
+.ao-chip { display:inline-flex; align-items:center; padding:.2rem .7rem; border-radius:99px; font-size:.7rem; font-weight:800; }
+.ao-chip-red { background:#fee2e2; color:#ef4444; }
+.ao-chip-orange { background:#fef3c7; color:#d97706; }
+.ao-chip-gray { background:#f1f5f9; color:#64748b; }
+.ao-bucket { padding:1rem 1.25rem; border-radius:14px; border:1px solid; margin-bottom:1rem; }
+.ao-bucket-title { font-size:.82rem; font-weight:800; margin-bottom:.6rem; }
+.ao-bucket-item { font-size:.75rem; padding:.2rem 0; border-bottom:1px solid rgba(0,0,0,.04); }
+.ao-bucket-item:last-child { border-bottom:none; }
+.ao-score-ring { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.3rem; }
+.ao-score-num { font-size:3.5rem; font-weight:900; letter-spacing:-.04em; color:#10b981; }
+.ao-score-label { font-size:.75rem; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:.07em; }
+.ao-score-circle { width:120px; height:120px; border-radius:50%; border:8px solid #e2e8f0; position:relative; display:flex; align-items:center; justify-content:center; }
+.ao-score-circle svg { position:absolute; top:0; left:0; transform:rotate(-90deg); }
+@media(max-width:992px) { .ao-kpi-grid{grid-template-columns:repeat(2,1fr);} .ao-grid-2-1{grid-template-columns:1fr;} }
+@media(max-width:576px) { .ao-kpi-grid{grid-template-columns:1fr;} }
+</style>
+
+<div class="ao">
+
+  <!-- HERO -->
+  <div class="ao-hero">
+    <div class="ao-hero-content">
+      <h1 class="ao-hero-title">Santé Opérationnelle &amp; Planification</h1>
+      <p class="ao-hero-sub">Complétion des séances, annulations, conflits &amp; score de santé global</p>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="ao-kpi-grid">
+    <div class="ao-kpi">
+      <div class="ao-kpi-icon" style="background:#d1fae5; color:#10b981;"><span class="material-symbols-outlined">favorite</span></div>
+      <div><div class="ao-kpi-val" style="color:#10b981;">{{ health.health_score }}/100</div><div class="ao-kpi-label">Score de santé</div></div>
+    </div>
+    <div class="ao-kpi">
+      <div class="ao-kpi-icon" style="background:#fee2e2; color:#ef4444;"><span class="material-symbols-outlined">error</span></div>
+      <div><div class="ao-kpi-val" style="color:#ef4444;">{{ health.uncompleted_past_sessions }}</div><div class="ao-kpi-label">Séances en retard</div></div>
+    </div>
+    <div class="ao-kpi">
+      <div class="ao-kpi-icon" style="background:#fef3c7; color:#d97706;"><span class="material-symbols-outlined">event_busy</span></div>
+      <div><div class="ao-kpi-val" style="color:#d97706;">{{ health.groups_no_session_this_week }}</div><div class="ao-kpi-label">Groupes sans séance</div></div>
+    </div>
+    <div class="ao-kpi">
+      <div class="ao-kpi-icon" style="background:#e0f2fe; color:#0284c7;"><span class="material-symbols-outlined">bolt</span></div>
+      <div><div class="ao-kpi-val" style="color:#0284c7;">{{ health.conflict_count }}</div><div class="ao-kpi-label">Superpositions</div></div>
+    </div>
+  </div>
+
+  <!-- CHART + CANCELLATIONS -->
+  <div class="ao-grid-2-1">
+    <div class="ao-card">
+      <div class="ao-card-hdr">
+        <span class="ao-card-title">Statut de complétion des séances (6 mois)</span>
+      </div>
+      <div style="position:relative; height:280px;"><canvas id="aoCompChart"></canvas></div>
+    </div>
+
+    <div class="ao-card">
+      <div class="ao-card-hdr">
+        <span class="ao-card-title">Top groupes — annulations</span>
+      </div>
+      <p style="font-size:.76rem; color:#94a3b8; margin-bottom:12px;">90 derniers jours.</p>
+      <div style="max-height:280px; overflow-y:auto;">
+        {% for c in cancellations %}
+        <div class="ao-list-item">
+          <div>
+            <div style="font-size:.82rem; font-weight:700;"><a href="{% url 'core:group_detail' c.group_id %}" style="color:#4f46e5; text-decoration:none;">{{ c.group_name }}</a></div>
+            <div style="font-size:.72rem; color:#94a3b8;">{{ c.teacher_name }}</div>
+          </div>
+          <span class="ao-chip ao-chip-red">{{ c.cancelled_sessions }} annulées</span>
+        </div>
+        {% empty %}
+        <div style="text-align:center; color:#94a3b8; padding:1.5rem;">Aucune annulation récente.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- OVERDUE BUCKETS -->
+  <div class="ao-grid-2-1">
+    <div class="ao-card">
+      <div class="ao-card-hdr">
+        <span class="ao-card-title">Séances passées non complétées</span>
+        <span class="ao-chip ao-chip-red">{{ uncompleted.total }} en retard</span>
+      </div>
+
+      <div class="ao-bucket" style="background:#fffbeb; border-color:#fde68a;">
+        <div class="ao-bucket-title" style="color:#d97706;">⏰ &lt;7 jours ({{ uncompleted.last_7_days|length }})</div>
+        {% for s in uncompleted.last_7_days %}<div class="ao-bucket-item">{{ s.date|date:"d/m" }} {{ s.start_time|time:"H:i" }} — {{ s.group.name }}</div>{% empty %}<div class="ao-bucket-item" style="color:#94a3b8;">Aucune.</div>{% endfor %}
+      </div>
+
+      <div class="ao-bucket" style="background:#fff7ed; border-color:#fed7aa;">
+        <div class="ao-bucket-title" style="color:#ea580c;">⚠ 7–30 jours ({{ uncompleted.last_30_days|length }})</div>
+        {% for s in uncompleted.last_30_days %}<div class="ao-bucket-item">{{ s.date|date:"d/m/Y" }} — {{ s.group.name }}</div>{% empty %}<div class="ao-bucket-item" style="color:#94a3b8;">Aucune.</div>{% endfor %}
+      </div>
+
+      <div class="ao-bucket" style="background:#fef2f2; border-color:#fca5a5;">
+        <div class="ao-bucket-title" style="color:#dc2626;">🚨 Plus de 30 jours ({{ uncompleted.older|length }})</div>
+        {% for s in uncompleted.older %}<div class="ao-bucket-item">{{ s.date|date:"d/m/Y" }} — {{ s.group.name }}</div>{% empty %}<div class="ao-bucket-item" style="color:#94a3b8;">Aucune.</div>{% endfor %}
+      </div>
+    </div>
+
+    <!-- HEALTH SCORE PANEL -->
+    <div class="ao-card" style="display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:1.5rem;">
+      <div class="ao-card-hdr" style="width:100%; justify-content:center; border:none; margin-bottom:0; padding-bottom:0;">
+        <span class="ao-card-title">Score de santé global</span>
+      </div>
+
+      <div class="ao-score-circle">
+        <svg width="120" height="120" viewBox="0 0 120 120">
+          <circle cx="60" cy="60" r="52" fill="none" stroke="#e2e8f0" stroke-width="8"/>
+          <circle cx="60" cy="60" r="52" fill="none"
+            stroke="{% if health.health_score >= 80 %}#10b981{% elif health.health_score >= 50 %}#f59e0b{% else %}#ef4444{% endif %}"
+            stroke-width="8"
+            stroke-linecap="round"
+            stroke-dasharray="{{ health.health_score|floatformat:0 }} 100"
+            pathLength="100"/>
+        </svg>
+        <div class="ao-score-ring">
+          <div class="ao-score-num" style="color:{% if health.health_score >= 80 %}#10b981{% elif health.health_score >= 50 %}#f59e0b{% else %}#ef4444{% endif %}; font-size:2.5rem;">{{ health.health_score }}</div>
+          <div class="ao-score-label">/ 100</div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:.75rem; width:100%;">
+        <div style="display:flex; justify-content:space-between; font-size:.8rem; padding:.6rem 1rem; background:#f8fafc; border-radius:10px;">
+          <span style="color:#64748b; font-weight:600;">Groupes sans séance cette semaine</span>
+          <span style="font-weight:800; color:#d97706;">{{ health.groups_no_session_this_week }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:.8rem; padding:.6rem 1rem; background:#f8fafc; border-radius:10px;">
+          <span style="color:#64748b; font-weight:600;">Séances non complétées</span>
+          <span style="font-weight:800; color:#ef4444;">{{ health.uncompleted_past_sessions }}</span>
+        </div>
+        <div style="display:flex; justify-content:space-between; font-size:.8rem; padding:.6rem 1rem; background:#f8fafc; border-radius:10px;">
+          <span style="color:#64748b; font-weight:600;">Conflits de planification</span>
+          <span style="font-weight:800; color:#0284c7;">{{ health.conflict_count }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+(function(){
+  const comp=[{% for c in completion %}{month:"{{ c.month_label }}",done:{{ c.done }},cancelled:{{ c.cancelled }},planned:{{ c.planned }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  new Chart(document.getElementById('aoCompChart').getContext('2d'),{type:'bar',data:{labels:comp.map(x=>x.month),datasets:[{label:'Complétées',data:comp.map(x=>x.done),backgroundColor:'rgba(16,185,129,.85)',borderRadius:4},{label:'Annulées',data:comp.map(x=>x.cancelled),backgroundColor:'rgba(239,68,68,.85)',borderRadius:4},{label:'En attente',data:comp.map(x=>x.planned),backgroundColor:'rgba(156,163,175,.6)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{x:{stacked:true,grid:{display:false}},y:{stacked:true,beginAtZero:true}}}});
+})();
+</script>
+{% endblock %}

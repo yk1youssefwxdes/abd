@@ -1,0 +1,448 @@
+{% extends 'admin/base.html' %}
+{% load i18n static %}
+
+{% block title %} Tableau de bord {% endblock %}
+
+{% block branding %}
+{% include "unfold/helpers/site_branding.html" %}
+{% endblock %}
+
+{% block content %}
+
+{% comment %}WELCOME BANNER{% endcomment %}
+<div class="ct-hero">
+    <!-- Animated SVG background shapes -->
+    <svg class="ct-hero-bg" viewBox="0 0 1200 300" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+            <linearGradient id="heroGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#1e1b4b"/>
+                <stop offset="35%" stop-color="#312e81"/>
+                <stop offset="60%" stop-color="#1d4ed8"/>
+                <stop offset="85%" stop-color="#0369a1"/>
+                <stop offset="100%" stop-color="#065f46"/>
+            </linearGradient>
+        </defs>
+        <rect width="1200" height="300" fill="url(#heroGrad)"/>
+    </svg>
+
+    <!-- Floating orbs -->
+    <div class="ct-hero-orb ct-hero-orb-1"></div>
+    <div class="ct-hero-orb ct-hero-orb-2"></div>
+    <div class="ct-hero-orb ct-hero-orb-3"></div>
+
+    <!-- Animated dots grid -->
+    <div class="ct-hero-dots"></div>
+
+    <div class="ct-hero-inner">
+        <div class="ct-hero-text">
+            <div class="ct-hero-tag">
+                <span class="material-symbols-outlined" style="font-size:14px;">verified</span>
+                {{ SCHOOL_NAME|upper }}
+                <span style="opacity:.4;margin:0 .2rem;">•</span>
+                
+            </div>
+            <h1 class="ct-hero-title">
+                Bienvenue, {{ user.get_short_name|default:user.username }} <span class="ct-wave">👋</span>
+            </h1>
+            
+            <p class="ct-hero-sub">Soutien Scolaire · Langues & Communication · Soft Skills · Orientation & Préparation</p>
+        </div>
+
+        <div class="ct-hero-actions">
+            <a href="{% url 'admin:core_student_add' %}" class="ct-hero-btn">
+                <span class="material-symbols-outlined">person_add</span>
+                Ajouter un élève
+            </a>
+            <a href="{% url 'admin:core_payment_add' %}" class="ct-hero-btn">
+                <span class="material-symbols-outlined">payments</span>
+                Enregistrer un paiement
+            </a>
+        </div>
+    </div>
+
+    <!-- Wave bottom separator -->
+    <svg class="ct-hero-wave" viewBox="0 0 1440 60" preserveAspectRatio="none">
+        <path d="M0,40 C360,80 720,0 1080,40 C1260,60 1380,20 1440,30 L1440,60 L0,60 Z" fill="var(--school-bg, #f4f6fb)"/>
+    </svg>
+</div>
+
+{% comment %}KPI CARDS{% endcomment %}
+<div class="school-kpi-grid">
+
+    <a href="{% url 'admin:core_student_changelist' %}" style="text-decoration:none;">
+        <div class="school-kpi-card" style="--kpi-color:#4f46e5;">
+            <div class="school-kpi-icon">
+                <span class="material-symbols-outlined">school</span>
+            </div>
+            <div class="school-kpi-value" id="kpi-students">–</div>
+            <div class="school-kpi-label">Élèves</div>
+            <div class="school-kpi-sub">
+                <span class="material-symbols-outlined" style="font-size:14px;opacity:.5;">arrow_forward</span>
+                Voir tous les élèves
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'admin:core_teacher_changelist' %}" style="text-decoration:none;">
+        <div class="school-kpi-card" style="--kpi-color:#06b6d4;">
+            <div class="school-kpi-icon">
+                <span class="material-symbols-outlined">person_book</span>
+            </div>
+            <div class="school-kpi-value" id="kpi-teachers">–</div>
+            <div class="school-kpi-label">Professeurs</div>
+            <div class="school-kpi-sub">
+                <span class="material-symbols-outlined" style="font-size:14px;opacity:.5;">arrow_forward</span>
+                Voir tous les profs
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'admin:core_coursegroup_changelist' %}" style="text-decoration:none;">
+        <div class="school-kpi-card" style="--kpi-color:#8b5cf6;">
+            <div class="school-kpi-icon">
+                <span class="material-symbols-outlined">groups</span>
+            </div>
+            <div class="school-kpi-value" id="kpi-groups">–</div>
+            <div class="school-kpi-label">Groupes actifs</div>
+            <div class="school-kpi-sub">
+                <span class="material-symbols-outlined" style="font-size:14px;opacity:.5;">arrow_forward</span>
+                Gérer les groupes
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'admin:core_payment_changelist' %}" style="text-decoration:none;">
+        <div class="school-kpi-card" style="--kpi-color:#10b981;">
+            <div class="school-kpi-icon">
+                <span class="material-symbols-outlined">payments</span>
+            </div>
+            <div class="school-kpi-value" id="kpi-payments">–</div>
+            <div class="school-kpi-label">Paiements</div>
+            <div class="school-kpi-sub">
+                <span class="material-symbols-outlined" style="font-size:14px;opacity:.5;">arrow_forward</span>
+                Voir les paiements
+            </div>
+        </div>
+    </a>
+
+    <a href="{% url 'admin:core_room_changelist' %}" style="text-decoration:none;">
+        <div class="school-kpi-card" style="--kpi-color:#ef4444;">
+            <div class="school-kpi-icon">
+                <span class="material-symbols-outlined">meeting_room</span>
+            </div>
+            <div class="school-kpi-value" id="kpi-rooms">–</div>
+            <div class="school-kpi-label">Salles</div>
+            <div class="school-kpi-sub">
+                <span class="material-symbols-outlined" style="font-size:14px;opacity:.5;">arrow_forward</span>
+                Gérer les salles
+            </div>
+        </div>
+    </a>
+
+</div>
+
+
+<div class="school-quick-actions">
+    <h3>
+        <span class="material-symbols-outlined"
+            style="font-size:14px;vertical-align:middle;margin-right:.3em;">bolt</span>
+        Actions rapides
+    </h3>
+    <div class="school-quick-links" style="display:flex; flex-wrap:wrap; justify-content:center; width:100%; gap:8px;">
+        <a class="school-quick-link" href="{% url 'admin:core_student_add' %}" style="flex:1; min-width:120px; text-align:center;">
+            <span class="material-symbols-outlined">person_add</span>
+            Nouvel élève
+        </a>
+        <a class="school-quick-link" href="{% url 'admin:core_teacher_add' %}" style="flex:1; min-width:120px; text-align:center;">
+            <span class="material-symbols-outlined">person_book</span>
+            Nouveau prof
+        </a>
+        <a class="school-quick-link" href="{% url 'admin:core_coursegroup_add' %}" style="flex:1; min-width:120px; text-align:center;">
+            <span class="material-symbols-outlined">add_circle</span>
+            Nouveau groupe
+        </a>
+        <a class="school-quick-link" href="{% url 'admin:core_payment_add' %}" style="flex:1; min-width:120px; text-align:center;">
+            <span class="material-symbols-outlined">payments</span>
+            Paiement
+        </a>
+        <a class="school-quick-link" href="{% url 'admin:core_attendance_changelist' %}" style="flex:1; min-width:120px; text-align:center;">
+            <span class="material-symbols-outlined">fact_check</span>
+            Présences
+        </a>
+    </div>
+</div>
+
+<style>
+/* ═══════════════════════════════════════════════════════
+   DASHBOARD HERO — PREMIUM DESIGN
+   ═══════════════════════════════════════════════════════ */
+
+.ct-hero {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    min-height: 200px;
+    margin-bottom: 2rem;
+    background: #0f172a;
+}
+
+.ct-hero-bg {
+    position: absolute;
+    inset: 0;
+    width: 100%; height: 100%;
+    object-fit: cover;
+    animation: heroBgShift 10s ease infinite;
+}
+
+@keyframes heroBgShift {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* Floating orbs */
+.ct-hero-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    pointer-events: none;
+    animation: orbFloat 6s ease-in-out infinite;
+}
+
+.ct-hero-orb-1 {
+    width: 280px; height: 280px;
+    background: rgba(99,102,241,.35);
+    top: -80px; left: -40px;
+    animation-delay: 0s;
+}
+
+.ct-hero-orb-2 {
+    width: 200px; height: 200px;
+    background: rgba(6,182,212,.3);
+    bottom: -60px; right: 15%;
+    animation-delay: -2s;
+}
+
+.ct-hero-orb-3 {
+    width: 150px; height: 150px;
+    background: rgba(249,200,14,.2);
+    top: -30px; right: 8%;
+    animation-delay: -4s;
+}
+
+@keyframes orbFloat {
+    0%, 100% { transform: translate(0, 0); }
+    33%      { transform: translate(10px, -15px); }
+    66%      { transform: translate(-8px, 10px); }
+}
+
+/* Animated dots pattern */
+.ct-hero-dots {
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+    animation: dotsSlide 20s linear infinite;
+}
+
+@keyframes dotsSlide {
+    0%   { background-position: 0 0; }
+    100% { background-position: 48px 48px; }
+}
+
+.ct-hero-inner {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2.5rem 2.75rem 3rem;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.ct-hero-text {
+    max-width: 620px;
+}
+
+.ct-hero-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: rgba(255,255,255,.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,.15);
+    padding: .35rem .9rem;
+    border-radius: 99px;
+    font-size: .7rem;
+    font-weight: 800;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.85);
+    margin-bottom: .9rem;
+}
+
+.ct-hero-title {
+    font-size: 2rem;
+    font-weight: 900;
+    letter-spacing: -.04em;
+    line-height: 1.1;
+    margin: 0;
+    background: linear-gradient(135deg, #fff 0%, #c7d2fe 60%, #93c5fd 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.ct-wave {
+    display: inline-block;
+    animation: waveHand 2s ease-in-out infinite;
+    transform-origin: 70% 70%;
+    -webkit-text-fill-color: initial;
+}
+
+@keyframes waveHand {
+    0%, 100% { transform: rotate(0deg); }
+    15%      { transform: rotate(14deg); }
+    30%      { transform: rotate(-8deg); }
+    40%      { transform: rotate(14deg); }
+    50%      { transform: rotate(-4deg); }
+    60%      { transform: rotate(10deg); }
+    70%      { transform: rotate(0deg); }
+}
+
+.ct-hero-slogan {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #f9c80e;
+    margin: .5rem 0 0;
+    font-family: system-ui, -apple-system, sans-serif;
+    text-shadow: 0 2px 20px rgba(249,200,14,.15);
+}
+
+.ct-hero-sub {
+    font-size: .82rem;
+    color: rgba(255,255,255,.5);
+    margin-top: .6rem;
+    font-weight: 500;
+}
+
+.ct-hero-actions {
+    display: flex;
+    gap: .65rem;
+    flex-wrap: wrap;
+}
+
+.ct-hero-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    background: rgba(255,255,255,.1);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff !important;
+    padding: .65rem 1.2rem;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: .82rem;
+    text-decoration: none !important;
+    transition: all .25s cubic-bezier(.4,0,.2,1);
+    letter-spacing: .02em;
+}
+
+.ct-hero-btn:hover {
+    background: rgba(255,255,255,.2);
+    border-color: rgba(255,255,255,.35);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+
+.ct-hero-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
+/* Wave separator */
+.ct-hero-wave {
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    width: 100%;
+    height: 40px;
+    z-index: 3;
+}
+
+/* Dark mode wave fill */
+.dark .ct-hero-wave path {
+    fill: var(--school-bg, #0c1222);
+}
+
+@media (max-width: 768px) {
+    .ct-hero-inner { padding: 2rem 1.5rem 2.5rem; }
+    .ct-hero-title { font-size: 1.5rem; }
+    .ct-hero-slogan { font-size: 1.1rem; }
+    .ct-hero-actions { width: 100%; }
+    .ct-hero-btn { flex: 1; justify-content: center; }
+}
+
+@media (max-width: 1024px) {
+    .school-main-grid {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+
+<script>
+    (function () {
+        function animateCount(el, target, duration) {
+            if (!el || isNaN(target)) return;
+            var start = 0;
+            var step = Math.ceil(target / (duration / 16));
+            var timer = setInterval(function () {
+                start = Math.min(start + step, target);
+                el.textContent = start.toLocaleString('fr-FR');
+                if (start >= target) clearInterval(timer);
+            }, 16);
+        }
+
+        async function fetchCounts() {
+            try {
+                var resp = await fetch('{% url "core:admin_kpis_api" %}', { credentials: 'same-origin' });
+                if (resp.ok) {
+                    return await resp.json();
+                }
+                return null;
+            } catch (e) { return null; }
+        }
+
+        var kpiMapping = {
+            'kpi-students': 'students',
+            'kpi-teachers': 'teachers',
+            'kpi-groups': 'groups',
+            'kpi-payments': 'payments',
+            'kpi-sessions': 'sessions',
+            'kpi-rooms': 'rooms'
+        };
+
+        fetchCounts().then(function (data) {
+            if (data) {
+                Object.keys(kpiMapping).forEach(function (elementId) {
+                    var el = document.getElementById(elementId);
+                    var countKey = kpiMapping[elementId];
+                    var count = data[countKey];
+                    if (el && count !== undefined && count !== null) {
+                        animateCount(el, count, 600);
+                    } else if (el) {
+                        el.textContent = '–';
+                    }
+                });
+            } else {
+                Object.keys(kpiMapping).forEach(function (elementId) {
+                    var el = document.getElementById(elementId);
+                    if (el) el.textContent = '–';
+                });
+            }
+        });
+    })();
+</script>
+
+{% endblock %}

@@ -1,0 +1,3 @@
+Bonjour {name},
+Nous vous rappelons votre rendez-vous prévu le {date} à {time}.
+Répondez « CONFIRMER » pour confirmer votre présence ou « REPORTER » pour modifier le rendez-vous.

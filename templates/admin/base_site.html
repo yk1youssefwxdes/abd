@@ -1,0 +1,16 @@
+{% extends "admin/base.html" %}
+{% load i18n static %}
+
+{% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | Admin {{ SCHOOL_NAME }}{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<link href="{% static 'fonts/fonts.css' %}" rel="stylesheet">
+<link href="{% static 'admin/css/school_admin.css' %}?v=2026.06.25" rel="stylesheet">
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<meta name="description" content="{{ SCHOOL_NAME }} – Tableau de bord administratif">
+<meta name="theme-color" content="#4f46e5">
+{% endblock %}

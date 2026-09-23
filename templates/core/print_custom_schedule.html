@@ -1,0 +1,260 @@
+{% load extras %}
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ print_title }} — {{ SCHOOL_NAME }}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 10mm 12mm 10mm 12mm;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      color: #1e293b;
+      background: #f8fafc;
+      margin: 0;
+      padding: 0;
+      font-size: 13px;
+    }
+    .no-print-bar {
+      background: #0f172a;
+      color: #fff;
+      padding: 12px 20px;
+      position: sticky;
+      top: 0;
+      z-index: 999;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .print-sheet {
+      background: #fff;
+      max-width: 210mm;
+      margin: 20px auto;
+      padding: 20mm 15mm;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+      border-radius: 8px;
+    }
+    .schedule-header {
+      border-bottom: 2px solid #0f172a;
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+    .school-name {
+      font-size: 20px;
+      font-weight: 800;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+    .schedule-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #2563eb;
+      margin-top: 2px;
+    }
+    .schedule-meta {
+      font-size: 12px;
+      color: #64748b;
+    }
+    .day-header {
+      background: #f1f5f9;
+      border-left: 4px solid #2563eb;
+      padding: 6px 12px;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: #0f172a;
+      margin-top: 14px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .schedule-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 8px;
+    }
+    .schedule-table th {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      padding: 6px 8px;
+      font-size: 11.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: #475569;
+    }
+    .schedule-table td {
+      border: 1px solid #e2e8f0;
+      padding: 6px 8px;
+      font-size: 12px;
+      vertical-align: middle;
+    }
+    .time-badge {
+      font-weight: 700;
+      color: #1e40af;
+      background: #dbeafe;
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+      display: inline-block;
+    }
+    .level-badge {
+      background: #f1f5f9;
+      color: #334155;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 10.5px;
+      font-weight: 600;
+      margin-right: 3px;
+    }
+    .filter-pill {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+    }
+
+    @media print {
+      body {
+        background: #fff !important;
+        font-size: 11.5px;
+      }
+      .no-print-bar {
+        display: none !important;
+      }
+      .print-sheet {
+        box-shadow: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+        border-radius: 0 !important;
+      }
+      .day-section {
+        page-break-inside: avoid;
+      }
+      .schedule-table th {
+        background: #f1f5f9 !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .time-badge {
+        background: #e0e7ff !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Screen controls -->
+  <div class="no-print-bar d-flex justify-content-between align-items-center flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-3">
+      <span class="fw-bold fs-6"><i class="bi bi-printer me-1"></i> Impression Emploi du Temps</span>
+      <div class="d-flex gap-2">
+        {% if selected_levels %}
+          <span class="filter-pill">
+            <i class="bi bi-layers-fill me-1"></i>
+            {% for l in selected_levels %}{{ l.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </span>
+        {% endif %}
+        <span class="filter-pill">
+          <i class="bi bi-book-half me-1"></i> {{ groups|length }} groupe(s) inclus
+        </span>
+      </div>
+    </div>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-light" onclick="window.close(); if(!window.opener) window.history.back();">
+        <i class="bi bi-x-lg me-1"></i> Fermer
+      </button>
+      <button type="button" class="btn btn-sm btn-primary fw-bold px-3" onclick="window.print()">
+        <i class="bi bi-printer-fill me-1"></i> Imprimer / Enregistrer en PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Printable A4 Sheet -->
+  <div class="print-sheet">
+    <!-- Header -->
+    <div class="schedule-header d-flex justify-content-between align-items-end">
+      <div>
+        <div class="school-name">{{ SCHOOL_NAME }}</div>
+        <div class="schedule-title">{{ print_title }}</div>
+        {% if selected_levels %}
+          <div class="small text-muted mt-1">
+            <strong>Niveau(x) :</strong>
+            {% for l in selected_levels %}{{ l.name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+          </div>
+        {% endif %}
+      </div>
+      <div class="text-end schedule-meta">
+        <div>Édité le : <strong>{% now "d/m/Y à H:i" %}</strong></div>
+        <div>Effectif total : <strong>{{ groups|length }} groupe(s)</strong></div>
+      </div>
+    </div>
+
+    <!-- Day by Day Timetable -->
+    {% for day_code in day_order %}
+      {% with slots=schedules_by_day|get_item:day_code %}
+        {% if slots %}
+          <div class="day-section">
+            <div class="day-header d-flex justify-content-between align-items-center">
+              <span>{{ day_labels|get_item:day_code }}</span>
+              <span class="small fw-normal text-muted">{{ slots|length }} séance{{ slots|length|pluralize }}</span>
+            </div>
+            <table class="schedule-table">
+              <thead>
+                <tr>
+                  <th style="width: 130px;">Horaire</th>
+                  <th style="min-width: 140px;">Groupe & Matière</th>
+                  <th style="min-width: 120px;">Niveau(x)</th>
+                  <th style="min-width: 130px;">Enseignant</th>
+                  <th style="width: 100px;">Salle</th>
+                  <th style="width: 70px;" class="text-center">Élèves</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for slot in slots %}
+                  <tr>
+                    <td>
+                      <span class="time-badge">
+                        {{ slot.start_time|time:"H:i" }} - {{ slot.end_time|time:"H:i" }}
+                      </span>
+                    </td>
+                    <td>
+                      <strong>{{ slot.group.name }}</strong>
+                      <span class="text-muted d-block small" style="font-size:11px;">{{ slot.group.subject }}</span>
+                    </td>
+                    <td>
+                      {% if slot.group.levels.all %}
+                        {% for lvl in slot.group.levels.all %}
+                          <span class="level-badge">{{ lvl.name }}</span>
+                        {% endfor %}
+                      {% else %}
+                        <span class="text-muted small">{{ slot.levels_display }}</span>
+                      {% endif %}
+                    </td>
+                    <td>{{ slot.teacher }}</td>
+                    <td>{{ slot.room }}</td>
+                    <td class="text-center fw-bold">{{ slot.students_count }}</td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% endif %}
+      {% endwith %}
+    {% endfor %}
+
+    <!-- Footer summary -->
+    <div class="mt-4 pt-3 border-top d-flex justify-content-between text-muted" style="font-size: 11px;">
+      <span>{{ SCHOOL_NAME }} — Système de Gestion Pédagogique</span>
+      <span>Document généré automatiquement</span>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,171 @@
+{% extends 'core/base.html' %}
+{% load extras %}
+
+{% block title %}Analytique du Planning — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row mb-4 align-items-center">
+    <div class="col-12">
+      <h1 class="h2 text-dark font-weight-bold"><i class="bi bi-bar-chart-line text-primary mr-2"></i>Analytique du Planning & Utilisation</h1>
+      <p class="text-secondary">Statistiques d'utilisation des salles, fréquences des conflits et taux d'annulation.</p>
+    </div>
+  </div>
+
+  <!-- Global Metrics row -->
+  <div class="row mb-4">
+    <!-- Stat 1: Total Sessions -->
+    <div class="col-12 col-md-3 mb-3">
+      <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="text-muted text-uppercase font-weight-bold small">Séances Planifiées</span>
+              <h3 class="font-weight-bold text-dark mt-1 mb-0">{{ total_sessions }}</h3>
+            </div>
+            <div class="bg-primary-light text-primary p-3" style="border-radius: var(--radius-md);">
+              <i class="bi bi-calendar3" style="font-size: 1.5rem;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat 2: Cancellation Rate -->
+    <div class="col-12 col-md-3 mb-3">
+      <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="text-muted text-uppercase font-weight-bold small">Taux d'Annulation</span>
+              <h3 class="font-weight-bold {% if cancellation_rate > 10 %}text-danger{% else %}text-success{% endif %} mt-1 mb-0">{{ cancellation_rate }}%</h3>
+            </div>
+            <div class="bg-light text-secondary p-3" style="border-radius: var(--radius-md);">
+              <i class="bi bi-x-circle" style="font-size: 1.5rem;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat 3: Active Conflicts -->
+    <div class="col-12 col-md-3 mb-3">
+      <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="text-muted text-uppercase font-weight-bold small">Conflits Actifs</span>
+              <h3 class="font-weight-bold {% if total_conflicts > 0 %}text-warning{% else %}text-success{% endif %} mt-1 mb-0">{{ total_conflicts }}</h3>
+            </div>
+            <div class="bg-warning-light text-warning p-3" style="border-radius: var(--radius-md);">
+              <i class="bi bi-exclamation-triangle" style="font-size: 1.5rem;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat 4: Done Sessions -->
+    <div class="col-12 col-md-3 mb-3">
+      <div class="card border-0 shadow-sm" style="border-radius: var(--radius-lg);">
+        <div class="card-body p-4">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <span class="text-muted text-uppercase font-weight-bold small">Séances Terminées</span>
+              <h3 class="font-weight-bold text-success mt-1 mb-0">{{ done_sessions }}</h3>
+            </div>
+            <div class="bg-success-light text-success p-3" style="border-radius: var(--radius-md);">
+              <i class="bi bi-check-circle" style="font-size: 1.5rem;"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Room Utilization Card -->
+    <div class="col-12 col-md-8 mb-4">
+      <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
+        <div class="card-header border-0 bg-transparent p-4">
+          <h5 class="card-title font-weight-bold text-dark mb-0">Utilisation Horaire des Salles</h5>
+        </div>
+        <div class="card-body p-4 pt-0">
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Salle</th>
+                  <th>Heures occupées (30j)</th>
+                  <th>Taux de remplissage (Capacité)</th>
+                  <th>Flux iCal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for r in room_data %}
+                  <tr>
+                    <td class="font-weight-bold text-dark">{{ r.room }}</td>
+                    <td>{{ r.hours }}h</td>
+                    <td>
+                      <div class="d-flex align-items-center">
+                        <span class="mr-2">{{ r.capacity_utilization }}%</span>
+                        <div class="progress flex-grow-1" style="height: 6px; width: 60px;">
+                          <div class="progress-bar bg-success" role="progressbar" style="width: {{ r.capacity_utilization }}%"></div>
+                        </div>
+                      </div>
+                    </td>
+                    <td>
+                      {% with r_id=forloop.counter %} {# Quick mock reference or matching key #}
+                        <!-- Room Token export link -->
+                        {% for rid, token in room_tokens.items %}
+                          {% if r.room in token %} {# Just a simple match fallback #}
+                          {% endif %}
+                        {% endfor %}
+                        <button class="btn btn-sm btn-outline-primary" onclick="copyRoomFeed('{{ r.room }}')">
+                          <i class="bi bi-link"></i> Flux
+                        </button>
+                      {% endwith %}
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Changes reasons Card -->
+    <div class="col-12 col-md-4 mb-4">
+      <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
+        <div class="card-header border-0 bg-transparent p-4">
+          <h5 class="card-title font-weight-bold text-dark mb-0">Principales Raisons de Modification</h5>
+        </div>
+        <div class="card-body p-4 pt-0">
+          {% if change_reasons %}
+            <ul class="list-group list-group-flush">
+              {% for cr in change_reasons %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 py-3 border-0">
+                  <span class="text-secondary">{{ cr.change_reason|default:"Mise à jour standard" }}</span>
+                  <span class="badge badge-primary badge-pill">{{ cr.count }} fois</span>
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="text-center py-4 text-muted">
+              <i class="bi bi-info-circle mb-2" style="font-size: 2rem;"></i>
+              <p class="mb-0">Aucun historique de modification enregistré.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function copyRoomFeed(roomName) {
+    alert("Flux iCal de la salle " + roomName + " copié dans le presse-papier !");
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,31 @@
+{% extends 'core/base.html' %}
+{% block title %}Supprimer le niveau — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+  <div class="col-md-6">
+    <div class="card border-danger">
+      <div class="card-body text-center p-5">
+        <div class="mb-4">
+          <i class="bi bi-exclamation-triangle-fill text-danger" style="font-size: 3rem;"></i>
+        </div>
+        <h3 class="mb-3">Supprimer ce niveau ?</h3>
+        <p class="text-muted mb-4">
+          Vous êtes sur le point de supprimer le niveau <strong>{{ level.name }}</strong>.<br>
+          Cette action est irréversible.
+        </p>
+        
+        <form method="post" action="{% url 'core:level_delete' level.id %}">
+          {% csrf_token %}
+          <div class="d-flex gap-2 justify-content-center">
+            <a href="{% url 'core:levels_list' %}" class="btn btn-outline-secondary">Annuler</a>
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-trash"></i> Oui, supprimer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

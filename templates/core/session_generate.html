@@ -1,0 +1,315 @@
+{% extends 'core/base.html' %}
+{% block title %}Générer les sessions — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:sessions_schedule' %}"><i class="bi bi-calendar3"></i> Planning</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Générer les sessions</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-gear-fill me-2" style="color:var(--primary);"></i>Générer les sessions
+    </h1>
+    <p class="page-subtitle">Créez automatiquement les sessions à partir des horaires des groupes</p>
+  </div>
+  <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-calendar3"></i> Voir le planning
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-9">
+
+    {% if errors %}
+      <div class="alert alert-danger mb-4">
+        {% for error in errors %}
+          <div><i class="bi bi-exclamation-circle-fill me-1"></i>{{ error }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {% if summary %}
+      <!-- Result card (After actual generation) -->
+      <div class="card mb-4" style="border-color:#a7f3d0;">
+        <div class="card-header d-flex align-items-center gap-2" style="background:#d1fae5;">
+          <i class="bi bi-check-circle-fill" style="color:#10b981;font-size:16px;"></i>
+          <span class="fw-600" style="color:#065f46;">Génération terminée</span>
+        </div>
+        <div class="card-body">
+          <div class="row g-3 mb-4">
+            <div class="col-6 col-md-3">
+              <div class="stat-card text-center">
+                <div class="stat-card-value text-success fw-bold">{{ summary.created }}</div>
+                <div class="stat-card-label">Créées</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card text-center">
+                <div class="stat-card-value text-warning fw-bold">{{ summary.updated }}</div>
+                <div class="stat-card-label">Mises à jour</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card text-center">
+                <div class="stat-card-value text-danger fw-bold">{{ summary.deleted }}</div>
+                <div class="stat-card-label">Supprimées</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card text-center">
+                <div class="stat-card-value text-muted fw-bold">{{ summary.skipped }}</div>
+                <div class="stat-card-label">Ignorées</div>
+              </div>
+            </div>
+          </div>
+
+          {% if summary.errors %}
+            <div class="alert alert-warning mb-4" style="font-size:13px;">
+              <div class="fw-600 mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Erreurs rencontrées :</div>
+              <ul class="mb-0 ps-3">
+                {% for err in summary.errors %}<li>{{ err }}</li>{% endfor %}
+              </ul>
+            </div>
+          {% endif %}
+
+          <a href="{% url 'core:sessions_schedule' %}" class="btn btn-primary">
+            <i class="bi bi-calendar3"></i> Retour au planning
+          </a>
+        </div>
+      </div>
+
+    {% elif preview_diff %}
+      <!-- Preview/Impact card (Dry-run mode) -->
+      <div class="card mb-4 border-primary">
+        <div class="card-header bg-primary text-white d-flex align-items-center gap-2">
+          <i class="bi bi-eye-fill"></i>
+          <span class="fw-600">Aperçu des modifications du planning</span>
+        </div>
+        <div class="card-body">
+          <p class="text-muted">Voici l'impact estimé de la régénération sur le planning. Aucune modification n'a été enregistrée pour le moment.</p>
+
+          <!-- KPI stats row -->
+          <div class="row g-3 mb-4">
+            <div class="col-6 col-md-2">
+              <div class="stat-card text-center border p-2 rounded">
+                <div class="fs-4 text-success fw-bold">{{ preview_diff.created_sessions|length }}</div>
+                <div class="text-muted" style="font-size:11px;">À créer</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2">
+              <div class="stat-card text-center border p-2 rounded">
+                <div class="fs-4 text-warning fw-bold">{{ preview_diff.updated_sessions|length }}</div>
+                <div class="text-muted" style="font-size:11px;">À modifier</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-2">
+              <div class="stat-card text-center border p-2 rounded">
+                <div class="fs-4 text-danger fw-bold">{{ preview_diff.removed_sessions|length }}</div>
+                <div class="text-muted" style="font-size:11px;">À supprimer</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card text-center border p-2 rounded">
+                <div class="fs-4 text-info fw-bold">{{ preview_diff.manual_exceptions|length }}</div>
+                <div class="text-muted" style="font-size:11px;">Exceptions ignorées</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="stat-card text-center border p-2 rounded">
+                <div class="fs-4 text-purple fw-bold" style="color:#8b5cf6;">{{ preview_diff.holiday_skips|length }}</div>
+                <div class="text-muted" style="font-size:11px;">Congés / Fériés</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Conflicts warnings -->
+          {% if preview_diff.conflicts %}
+            <div class="alert alert-warning mb-4">
+              <h6 class="fw-bold mb-2"><i class="bi bi-exclamation-triangle-fill me-1"></i>Conflits potentiels introduits ({{ preview_diff.conflicts|length }}) :</h6>
+              <ul class="mb-0 ps-3" style="font-size:13px;">
+                {% for conf in preview_diff.conflicts %}
+                  <li class="mb-1">
+                    {% if conf.severity == 'blocking' %}🔴{% else %}🟡{% endif %}
+                    <strong>{{ conf.type }} :</strong> {{ conf.description }}
+                  </li>
+                {% endfor %}
+              </ul>
+            </div>
+          {% else %}
+            <div class="alert alert-success py-2 mb-4" style="font-size:13px;">
+              <i class="bi bi-check-circle-fill me-1"></i> Aucun nouveau conflit introduit par cette génération !
+            </div>
+          {% endif %}
+
+          <!-- Detailed Accordions -->
+          <div class="accordion mb-4" id="previewAccordion">
+            <!-- Created -->
+            {% if preview_diff.created_sessions %}
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCreated">
+                    Détail des séances à créer ({{ preview_diff.created_sessions|length }})
+                  </button>
+                </h2>
+                <div id="collapseCreated" class="accordion-collapse collapse" data-bs-parent="#previewAccordion">
+                  <div class="accordion-body p-0">
+                    <table class="table table-sm mb-0 table-striped" style="font-size:12.5px;">
+                      <thead>
+                        <tr><th>Groupe</th><th>Date</th><th>Horaire</th><th>Salle</th></tr>
+                      </thead>
+                      <tbody>
+                        {% for s in preview_diff.created_sessions %}
+                          <tr>
+                            <td><strong>{{ s.group_name }}</strong></td>
+                            <td>{{ s.date|date:"d/m/Y" }}</td>
+                            <td>{{ s.start_time|time:"H:i" }}–{{ s.end_time|time:"H:i" }}</td>
+                            <td>{{ s.room_name }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Updated -->
+            {% if preview_diff.updated_sessions %}
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseUpdated">
+                    Détail des séances à modifier ({{ preview_diff.updated_sessions|length }})
+                  </button>
+                </h2>
+                <div id="collapseUpdated" class="accordion-collapse collapse" data-bs-parent="#previewAccordion">
+                  <div class="accordion-body p-0">
+                    <table class="table table-sm mb-0 table-striped" style="font-size:12.5px;">
+                      <thead>
+                        <tr><th>Groupe</th><th>Date</th><th>Horaire actuel</th><th>Nouvel horaire</th><th>Salles (anc → nouv)</th></tr>
+                      </thead>
+                      <tbody>
+                        {% for s in preview_diff.updated_sessions %}
+                          <tr>
+                            <td><strong>{{ s.group_name }}</strong></td>
+                            <td>{{ s.date|date:"d/m/Y" }}</td>
+                            <td>{{ s.old_start }}–{{ s.old_end }}</td>
+                            <td class="text-warning">{{ s.new_start }}–{{ s.new_end }}</td>
+                            <td>{{ s.old_room }} → <strong class="text-warning">{{ s.new_room }}</strong></td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+
+            <!-- Removed -->
+            {% if preview_diff.removed_sessions %}
+              <div class="accordion-item">
+                <h2 class="accordion-header">
+                  <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseRemoved">
+                    Détail des séances à supprimer ({{ preview_diff.removed_sessions|length }})
+                  </button>
+                </h2>
+                <div id="collapseRemoved" class="accordion-collapse collapse" data-bs-parent="#previewAccordion">
+                  <div class="accordion-body p-0">
+                    <table class="table table-sm mb-0 table-striped" style="font-size:12.5px;">
+                      <thead>
+                        <tr><th>Groupe</th><th>Date</th><th>Horaire</th><th>Salle</th></tr>
+                      </thead>
+                      <tbody>
+                        {% for s in preview_diff.removed_sessions %}
+                          <tr>
+                            <td><strong>{{ s.group_name }}</strong></td>
+                            <td>{{ s.date|date:"d/m/Y" }}</td>
+                            <td>{{ s.start_time|time:"H:i" }}–{{ s.end_time|time:"H:i" }}</td>
+                            <td class="text-danger">{{ s.room_name }}</td>
+                          </tr>
+                        {% endfor %}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            {% endif %}
+          </div>
+
+          <!-- Confirm / Cancel buttons -->
+          <form method="post" class="d-flex gap-3">
+            {% csrf_token %}
+            <input type="hidden" name="weeks" value="{{ weeks }}">
+            {% if force %}
+              <input type="hidden" name="force" value="on">
+            {% endif %}
+            <input type="hidden" name="confirm_save" value="on">
+
+            <button type="submit" class="btn btn-success px-4">
+              <i class="bi bi-check-circle-fill"></i> Appliquer et sauvegarder
+            </button>
+            <a href="{% url 'core:session_generate_bulk' %}" class="btn btn-outline-secondary">Modifier les paramètres</a>
+          </form>
+        </div>
+      </div>
+
+    {% else %}
+      <!-- Generate parameters form -->
+      <div class="card">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="bi bi-play-circle" style="color:var(--primary);font-size:16px;"></i>
+          <span class="fw-600">Paramètres de génération</span>
+        </div>
+        <div class="card-body">
+          <form method="post" class="d-flex flex-column gap-4">
+            {% csrf_token %}
+
+            <div>
+              <label for="weeks" class="form-label fw-bold">
+                <i class="bi bi-calendar-range me-1" style="color:var(--primary);"></i>
+                Nombre de semaines à générer
+              </label>
+              <input type="number" id="weeks" name="weeks" class="form-control"
+                     value="4" min="1" max="26" style="max-width:180px;">
+              <div class="form-text">À partir d'aujourd'hui</div>
+            </div>
+
+            <div class="p-3 rounded border" style="background:var(--surface-alt);">
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="force" name="force">
+                <label class="form-check-label" for="force">
+                  <strong>Forcer la mise à jour</strong> des sessions existantes si l'horaire ou la salle a changé
+                </label>
+              </div>
+            </div>
+
+            <div class="alert alert-info d-flex gap-3" style="font-size:13px;">
+              <i class="bi bi-info-circle-fill mt-1 flex-shrink-0" style="font-size:16px;"></i>
+              <div>
+                <strong>Aperçu avant enregistrement :</strong>
+                <p class="mb-0 mt-1">Cliquer sur "Calculer l'aperçu" analysera l'impact complet sur le planning et listera tous les conflits introduits sans modifier la base de données. Vous pourrez ensuite valider pour appliquer.</p>
+              </div>
+            </div>
+
+            <div class="d-flex gap-3 pt-2" style="border-top:1px solid var(--border);">
+              <button class="btn btn-primary px-4" type="submit">
+                <i class="bi bi-eye"></i> Calculer l'aperçu
+              </button>
+              <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-secondary">Annuler</a>
+            </div>
+          </form>
+        </div>
+      </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<style>
+.fw-600 { font-weight: 600; }
+.text-purple { color: #8b5cf6; }
+</style>
+{% endblock %}

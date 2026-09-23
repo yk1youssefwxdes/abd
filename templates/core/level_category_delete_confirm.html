@@ -1,0 +1,63 @@
+{% extends 'core/base.html' %}
+{% block title %}Supprimer {{ category.name }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:levels_list' %}"><i class="bi bi-layers-fill"></i> Niveaux</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:level_categories_list' %}">Catégories</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:level_category_detail' category.id %}">{{ category.name }}</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Supprimer</span>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card border-danger">
+      <div class="card-header" style="background:#fee2e2;border-bottom:1px solid #fca5a5;">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;font-size:20px;"></i>
+          <span class="fw-700" style="color:#dc2626;">Confirmer la suppression</span>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <p class="mb-2">Vous êtes sur le point de supprimer la catégorie :</p>
+        <div class="p-3 rounded mb-4" style="background:var(--surface-alt);border:1px solid var(--border);">
+          <div class="fw-700" style="font-size:16px;">{{ category.name }}</div>
+          <div class="text-muted small"><i class="bi bi-tag"></i> Code : <code>{{ category.code }}</code></div>
+        </div>
+
+        {% if levels_count > 0 %}
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            Cette catégorie contient <strong>{{ levels_count }} niveau{{ levels_count|pluralize:"x" }}</strong>.
+            Supprimez ou réaffectez ces niveaux avant de supprimer la catégorie.
+          </div>
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'core:level_category_detail' category.id %}" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> Retour
+            </a>
+          </div>
+        {% else %}
+          <p class="text-muted">Cette action est <strong>irréversible</strong>.</p>
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'core:level_category_detail' category.id %}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg"></i> Annuler
+            </a>
+            <form method="post" action="{% url 'core:level_category_delete' category.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash-fill"></i> Supprimer définitivement
+              </button>
+            </form>
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,467 @@
+{% extends 'core/base_public.html' %}
+{% load static %}
+
+{% block title %}Appel : {{ session.group.name }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 14px;
+    color: #4b5563;
+    text-decoration: none;
+    font-weight: 600;
+    margin-bottom: 20px;
+    transition: color 0.2s ease;
+  }
+
+  .back-link:hover {
+    color: #2563eb;
+  }
+
+  .session-info-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  .info-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #111827;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    font-size: 13px;
+    color: #4b5563;
+  }
+
+  .info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .info-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    color: #9ca3af;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .info-val {
+    font-weight: 600;
+    color: #1f2937;
+  }
+
+  .students-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+  }
+
+  .card-header-actions {
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #374151;
+  }
+
+  .btn-helper {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    color: #4b5563;
+    transition: all 0.2s ease;
+  }
+
+  .btn-helper:hover {
+    background: #f3f4f6;
+    color: #111827;
+  }
+
+  .student-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .student-row {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid #e5e7eb;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    gap: 16px;
+  }
+
+  .student-row:last-child {
+    border-bottom: none;
+  }
+
+  /* Present State */
+  .student-row.present {
+    background-color: rgba(16, 185, 129, 0.03);
+  }
+
+  .student-row.present:hover {
+    background-color: rgba(16, 185, 129, 0.06);
+  }
+
+  /* Absent State */
+  .student-row.absent {
+    background-color: rgba(239, 68, 68, 0.02);
+  }
+
+  .student-row.absent:hover {
+    background-color: rgba(239, 68, 68, 0.05);
+  }
+
+  .toggle-box {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #d1d5db;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    color: transparent;
+  }
+
+  .present .toggle-box {
+    background: #10b981;
+    border-color: #10b981;
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+  }
+
+  .absent .toggle-box {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #ffffff;
+    transform: scale(1.05);
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+  }
+
+  .toggle-box i {
+    font-size: 16px;
+  }
+
+  .mini-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: #f3f4f6;
+    color: #4b5563;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .present .mini-avatar {
+    background: rgba(16, 185, 129, 0.1);
+    color: #10b981;
+  }
+
+  .absent .mini-avatar {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+  }
+
+  .student-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .student-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .student-contact {
+    font-size: 12px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .unpaid-badge {
+    background: rgba(245, 158, 11, 0.1);
+    color: #d97706;
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+  }
+
+  .sticky-action-bar {
+    position: sticky;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-top: 1px solid #e5e7eb;
+    padding: 16px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+    border-bottom-left-radius: 16px;
+    border-bottom-right-radius: 16px;
+  }
+
+  .counter-text {
+    font-size: 14px;
+    color: #374151;
+    font-weight: 600;
+  }
+
+  .btn-submit-attendance {
+    background: #10b981;
+    color: #ffffff;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-submit-attendance:hover {
+    background: #059669;
+    box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+  }
+
+  @media (max-width: 576px) {
+    .student-row {
+      padding: 14px 16px;
+      gap: 12px;
+    }
+    
+    .unpaid-badge {
+      display: none; /* Hide on mobile to prevent squishing */
+    }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Back link -->
+<a href="{% url 'core:public_teacher_attendance_dashboard' %}" class="back-link">
+  <i class="bi bi-arrow-left"></i>
+  <span>Retour au tableau de bord</span>
+</a>
+
+<!-- Session info -->
+<div class="session-info-card">
+  <h1 class="info-title">
+    <i class="bi bi-journal-text" style="color: #2563eb;"></i>
+    <span>{{ session.group.name }}</span>
+  </h1>
+  <div class="info-grid">
+    <div class="info-item">
+      <span class="info-label">Matière</span>
+      <span class="info-val">{{ session.group.subject }}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Date</span>
+      <span class="info-val">{{ session.date|date:"d/m/Y" }}</span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Horaire</span>
+      <span class="info-val" style="color: #2563eb;">
+        {{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}
+      </span>
+    </div>
+    <div class="info-item">
+      <span class="info-label">Salle</span>
+      <span class="info-val">{{ session.room.name }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Attendance Form Sheet -->
+<div class="students-card">
+  <div class="card-header-actions">
+    <span class="header-title">
+      <i class="bi bi-people me-2"></i>Liste des élèves
+      <span class="badge bg-secondary ms-1">{{ students_list|length }}</span>
+    </span>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn-helper" id="selectAllBtn">
+        <i class="bi bi-check-all"></i> Tous présents
+      </button>
+      <button type="button" class="btn-helper" id="clearAllBtn">
+        <i class="bi bi-x"></i> Tous absents
+      </button>
+    </div>
+  </div>
+
+  <form method="post" id="attendanceForm">
+    {% csrf_token %}
+
+    <div class="student-list" id="studentList">
+      {% for item in students_list %}
+        <div class="student-row {% if item.checked %}present{% else %}absent{% endif %}"
+             onclick="toggleRow(this)" role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' '){toggleRow(this);event.preventDefault();}">
+          
+          <!-- Hidden checkbox for submission -->
+          <input type="checkbox" name="present_{{ item.student.id }}" 
+                 {% if item.checked %}checked{% endif %}
+                 class="student-cb" style="display: none;">
+
+          <!-- Toggle Box Circle Indicator -->
+          <div class="toggle-box">
+            <i class="bi {% if item.checked %}bi-check-lg{% else %}bi-x-lg{% endif %}"></i>
+          </div>
+
+          <!-- Avatar icon -->
+          <div class="mini-avatar">{{ item.student.name|slice:":1"|upper }}</div>
+
+          <!-- Student Information -->
+          <div class="student-info">
+            <div class="student-name">{{ item.student.name }}</div>
+            <div class="student-contact">
+              <i class="bi bi-telephone"></i> {{ item.student.parent_contact|default:"—" }}
+              {% if item.student.parent_contact_2 %}
+                <span style="font-size:11px;opacity:.7;display:block;"><i class="bi bi-telephone"></i> {{ item.student.parent_contact_2 }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Unpaid Fee Badge warning -->
+          {% if item.is_unpaid %}
+            <div class="unpaid-badge" title="Reste à payer">
+              <i class="bi bi-exclamation-triangle-fill"></i>
+              <span>Reste: {{ item.remaining|floatformat:0 }} DH</span>
+            </div>
+          {% endif %}
+        </div>
+      {% empty %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-inbox" style="font-size:2rem; opacity:0.3; display:block; margin-bottom:8px;"></i>
+          Aucun élève inscrit dans ce groupe
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Sticky Bottom Bar -->
+    <div class="sticky-action-bar">
+      <div class="counter-text">
+        <span id="presentCount">0</span> / {{ students_list|length }} présents
+      </div>
+      
+      <button type="submit" class="btn-submit-attendance" id="saveBtn">
+        <i class="bi bi-check-circle-fill"></i> Enregistrer
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function toggleRow(row) {
+    const cb = row.querySelector('.student-cb');
+    const toggle = row.querySelector('.toggle-box');
+    const icon = toggle.querySelector('i');
+    
+    if (event.target === cb) return;
+    
+    cb.checked = !cb.checked;
+    
+    if (cb.checked) {
+      row.classList.remove('absent');
+      row.classList.add('present');
+      icon.className = 'bi bi-check-lg';
+    } else {
+      row.classList.remove('present');
+      row.classList.add('absent');
+      icon.className = 'bi bi-x-lg';
+    }
+    
+    updateCounter();
+  }
+
+  function updateCounter() {
+    const presentCount = document.querySelectorAll('.student-cb:checked').length;
+    document.getElementById('presentCount').textContent = presentCount;
+  }
+
+  // Bulk Actions
+  document.getElementById('selectAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.student-row').forEach(row => {
+      const cb = row.querySelector('.student-cb');
+      if (!cb.checked) {
+        toggleRow(row);
+      }
+    });
+  });
+
+  document.getElementById('clearAllBtn').addEventListener('click', () => {
+    document.querySelectorAll('.student-row').forEach(row => {
+      const cb = row.querySelector('.student-cb');
+      if (cb.checked) {
+        toggleRow(row);
+      }
+    });
+  });
+
+  // Handle Form Submission Loading State
+  document.getElementById('attendanceForm').addEventListener('submit', function() {
+    const btn = document.getElementById('saveBtn');
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Enregistrement...';
+    btn.disabled = true;
+  });
+
+  // Initial load
+  updateCounter();
+</script>
+{% endblock %}

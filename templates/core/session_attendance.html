@@ -1,0 +1,334 @@
+{% extends 'core/base.html' %}
+{% block title %}Présences — {{ session.group.name }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:sessions_today' %}"><i class="bi bi-calendar2-event-fill"></i> Sessions</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-clipboard-check"></i> Présences — {{ session.group.name }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ─── Attendance student rows ─────────────────────────────── */
+  .att-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.12s;
+    user-select: none;
+    min-height: 64px;
+    position: relative;
+  }
+  .att-row:last-child { border-bottom: none; }
+  .att-row:hover { background: var(--surface-alt); }
+  .att-row.present {
+    background: #f0fdf4;
+    border-left: 5px solid #10b981;
+  }
+  .att-row.absent {
+    background: #fff;
+    border-left: 5px solid transparent;
+  }
+  .att-row.unpaid-row { border-right: 4px solid #fca5a5; }
+
+  .att-toggle {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 18px;
+    color: var(--text-secondary); /* WCAG AA contrast boost */
+    background: var(--surface);
+    transition: all 0.15s;
+  }
+  .att-row.present .att-toggle {
+    background: #10b981;
+    border-color: #10b981;
+    color: #fff;
+    box-shadow: 0 2px 8px rgba(16,185,129,0.35);
+  }
+
+  .att-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text-primary);
+    flex: 1;
+  }
+  .att-contact {
+    font-size: 13px;
+    color: var(--text-secondary); /* WCAG AA contrast boost */
+    margin-top: 2px;
+  }
+  .att-unpaid-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12.5px;
+    font-weight: 700;
+    background: #fee2e2;
+    color: #b91c1c; /* Boosted contrast from #dc2626 */
+    border: 1px solid #fca5a5;
+    border-radius: 6px;
+    padding: 3px 9px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* ─── Mini avatar ─────────────────────────────────────────── */
+  .mini-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-size: 14px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ─── Sticky footer ───────────────────────────────────────── */
+  .att-sticky-footer {
+    position: sticky;
+    bottom: 0;
+    background: var(--surface);
+    border-top: 1.5px solid var(--border);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    z-index: 100;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+    flex-wrap: wrap;
+  }
+  .att-counter {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-left: auto;
+    white-space: nowrap;
+  }
+  .att-counter strong { color: var(--text-primary); font-size: 16px; }
+
+  /* ─── Session info strip ──────────────────────────────────── */
+  .session-info-strip {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-xs);
+    align-items: center;
+  }
+  .sinfo-item { display: flex; flex-direction: column; gap: 2px; }
+  .sinfo-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-secondary); } /* Boosted contrast/size */
+  .sinfo-val { font-size: 15px; font-weight: 600; color: var(--text-primary); }
+
+  @media (max-width: 576px) {
+    .att-row { padding: 12px 14px; min-height: 56px; }
+    .att-name { font-size: 15px; }
+    .att-sticky-footer { padding: 12px 14px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ─────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-clipboard-check me-2" style="color:var(--primary);"></i>Feuille de présence
+    </h1>
+    <p class="page-subtitle">{{ session.group.name }} — {{ session.date|date:"l d F Y" }}</p>
+  </div>
+  <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary flex-shrink-0">
+    <i class="bi bi-arrow-left"></i> Retour aux sessions
+  </a>
+</div>
+
+<!-- ── Session info strip ──────────────────────────────────────────── -->
+<div class="session-info-strip">
+  <div class="sinfo-item">
+    <span class="sinfo-label">Groupe</span>
+    <span class="sinfo-val">{{ session.group.name }}</span>
+  </div>
+  <div class="sinfo-item">
+    <span class="sinfo-label">Matière</span>
+    <span class="sinfo-val">{{ session.group.subject }}</span>
+  </div>
+  <div class="sinfo-item">
+    <span class="sinfo-label">Date</span>
+    <span class="sinfo-val">{{ session.date|date:"d/m/Y" }}</span>
+  </div>
+  <div class="sinfo-item">
+    <span class="sinfo-label">Horaire</span>
+    <span class="sinfo-val" style="color:var(--primary);">
+      {{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}
+    </span>
+  </div>
+  <div class="sinfo-item">
+    <span class="sinfo-label">Salle</span>
+    <span class="sinfo-val"><i class="bi bi-door-open text-secondary" aria-hidden="true"></i> {{ session.room.name }}</span>
+  </div>
+</div>
+
+<!-- ── Attendance form ─────────────────────────────────────────────── -->
+<div class="card" style="overflow:visible;">
+  <!-- Card header with bulk actions -->
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <span class="fw-600" style="font-size:15px;">
+      <i class="bi bi-people me-2"></i>Élèves inscrits
+      <span class="badge badge-secondary ms-1">{{ students_list|length }}</span>
+    </span>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="selectAll" style="min-height: 40px;">
+        <i class="bi bi-check-all" aria-hidden="true"></i> Tous présents
+      </button>
+      <button type="button" class="btn btn-sm btn-outline-secondary" id="clearAll" style="min-height: 40px;">
+        <i class="bi bi-x" aria-hidden="true"></i> Effacer
+      </button>
+    </div>
+  </div>
+
+  <form method="post" id="attendance-form">
+    {% csrf_token %}
+
+    <!-- Attendance rows -->
+    <div id="student-list">
+      {% for item in students_list %}
+        <div class="att-row {% if item.checked %}present{% else %}absent{% endif %}{% if item.is_unpaid %} unpaid-row{% endif %}"
+             onclick="toggleAttendance(this)"
+             role="button" tabindex="0"
+             onkeydown="if(event.key==='Enter'||event.key===' '){toggleAttendance(this);event.preventDefault();}">
+
+          <!-- Hidden checkbox (submitted in form) -->
+          <input type="checkbox"
+                 name="present_{{ item.student.id }}"
+                 {% if item.checked %}checked{% endif %}
+                 class="attendance-cb"
+                 style="display:none;">
+
+          <!-- Visual toggle indicator -->
+          <div class="att-toggle">
+            <i class="bi {% if item.checked %}bi-check-lg{% else %}bi-circle{% endif %}" aria-hidden="true"></i>
+          </div>
+
+          <!-- Avatar -->
+          <div class="mini-avatar">{{ item.student.name|slice:":1"|upper }}</div>
+
+          <!-- Name & contact -->
+          <div style="flex:1;min-width:0;">
+            <div class="att-name">{{ item.student.name }}</div>
+            <div class="att-contact">
+              <i class="bi bi-telephone" aria-hidden="true"></i> {{ item.student.parent_contact|default:"—" }}
+              {% if item.student.parent_contact_2 %}
+                <span style="font-size:11px;color:var(--text-secondary);display:block;"><i class="bi bi-telephone" aria-hidden="true"></i> {{ item.student.parent_contact_2 }}</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Unpaid warning -->
+          {% if item.is_unpaid %}
+            <div class="att-unpaid-badge">
+              <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+              Impayé : {{ item.remaining|floatformat:0 }} DH
+            </div>
+          {% endif %}
+        </div>
+      {% empty %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-inbox" style="font-size:2rem;opacity:0.3;display:block;margin-bottom:8px;"></i>
+          Aucun élève inscrit dans ce groupe
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Sticky footer with save button -->
+    <div class="att-sticky-footer">
+      <button type="submit" class="btn btn-success" style="font-size:15px;padding:10px 28px;min-height:44px;" id="save-btn">
+        <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Enregistrer les présences
+      </button>
+      <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary" style="min-height:44px;display:inline-flex;align-items:center;">
+        Annuler
+      </a>
+      <div class="att-counter">
+        <strong id="presentCount">0</strong> / {{ students_list|length }} présents
+      </div>
+    </div>
+  </form>
+</div>
+
+<script>
+  function toggleAttendance(row) {
+    const cb = row.querySelector('.attendance-cb');
+    const toggle = row.querySelector('.att-toggle');
+    const icon = toggle.querySelector('i');
+    if (event.target === cb) return;
+    cb.checked = !cb.checked;
+    if (cb.checked) {
+      row.classList.replace('absent', 'present');
+      toggle.style.background = '#10b981';
+      toggle.style.borderColor = '#10b981';
+      toggle.style.color = '#fff';
+      icon.className = 'bi bi-check-lg';
+    } else {
+      row.classList.replace('present', 'absent');
+      toggle.style.background = '';
+      toggle.style.borderColor = '';
+      toggle.style.color = '';
+      icon.className = 'bi bi-circle';
+    }
+    updateCount();
+  }
+
+  function updateCount() {
+    const n = document.querySelectorAll('.attendance-cb:checked').length;
+    document.getElementById('presentCount').textContent = n;
+  }
+
+  document.getElementById('selectAll').addEventListener('click', () => {
+    document.querySelectorAll('.att-row').forEach(row => {
+      const cb = row.querySelector('.attendance-cb');
+      if (!cb.checked) toggleAttendance(row);
+    });
+  });
+
+  document.getElementById('clearAll').addEventListener('click', () => {
+    document.querySelectorAll('.att-row').forEach(row => {
+      const cb = row.querySelector('.attendance-cb');
+      if (cb.checked) toggleAttendance(row);
+    });
+  });
+
+  // Real checkbox change (if any direct interaction)
+  document.querySelectorAll('.attendance-cb').forEach(cb => {
+    cb.addEventListener('change', updateCount);
+  });
+
+  // Toast on save
+  document.getElementById('attendance-form').addEventListener('submit', function() {
+    const btn = document.getElementById('save-btn');
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Enregistrement…';
+    btn.disabled = true;
+  });
+
+  updateCount();
+</script>
+
+<style>
+  .fw-600 { font-weight: 600; }
+</style>
+{% endblock %}

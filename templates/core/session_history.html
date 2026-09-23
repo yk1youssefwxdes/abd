@@ -1,0 +1,97 @@
+{% extends 'core/base.html' %}
+{% load extras %}
+{% block title %}Historique des modifications — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:sessions_schedule' %}"><i class="bi bi-calendar3"></i> Planning</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Historique de la séance</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-center justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-clock-history me-2" style="color:var(--primary);"></i>Historique des modifications
+    </h1>
+    <p class="page-subtitle">Séance du {{ session.date|date:"d/m/Y" }} pour le groupe <strong>{{ session.group.name }}</strong></p>
+  </div>
+  <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour au planning
+  </a>
+</div>
+
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <span class="fw-600">Journal des modifications</span>
+    <span class="badge bg-secondary">{{ history|length }} entrées</span>
+  </div>
+  <div class="card-body">
+    {% if not history %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-info-circle" style="font-size: 32px; color: var(--primary);"></i>
+        <p class="mt-2 mb-0">Aucun historique de modification enregistré pour cette séance.</p>
+      </div>
+    {% else %}
+      <div class="timeline" style="position:relative; padding-left: 2rem; border-left: 2px solid var(--border); margin-left: 10px;">
+        {% for log in history %}
+          <div class="timeline-item mb-4" style="position:relative;">
+            <div class="timeline-marker" style="position:absolute; left: -2.6rem; top: 0.25rem; width: 12px; height: 12px; border-radius: 50%; background: var(--primary); border: 2px solid #fff; box-shadow: 0 0 0 2px var(--primary-light);"></div>
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-2">
+              <div>
+                <span class="badge {% if log.action == 'create' %}bg-success{% elif log.action == 'delete' %}bg-danger{% elif log.action == 'attendance_reset' %}bg-warning text-dark{% else %}bg-primary{% endif %} mb-2">
+                  {{ log.action|upper }}
+                </span>
+                <span class="text-muted ms-2" style="font-size: 13px;">{{ log.timestamp|date:"d/m/Y H:i:s" }}</span>
+                {% if log.user %}
+                  <span class="text-muted ms-2" style="font-size: 13px;">par <strong>{{ log.user.username }}</strong></span>
+                {% endif %}
+                {% if log.ip_address %}
+                  <span class="text-muted ms-2" style="font-size: 12px; font-family: monospace;">(IP: {{ log.ip_address }})</span>
+                {% endif %}
+              </div>
+            </div>
+
+            {% if log.change_reason %}
+              <div class="mt-2 p-2 rounded" style="background: var(--surface-2, #f8fafc); font-size: 13px; border-left: 3px solid var(--primary); color: var(--text-2);">
+                <strong>Motif :</strong> {{ log.change_reason }}
+              </div>
+            {% endif %}
+
+            {% if log.previous_values or log.new_values %}
+              <div class="mt-3 table-responsive">
+                <table class="table table-bordered table-sm" style="font-size: 12.5px; max-width: 600px; background:#fff;">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Champ</th>
+                      <th>Valeur précédente</th>
+                      <th>Nouvelle valeur</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for key, val in log.new_values.items %}
+                      <tr>
+                        <td><strong>{{ key }}</strong></td>
+                        <td class="text-danger">
+                          {{ log.previous_values|dict_key:key|default:"—" }}
+                        </td>
+                        <td class="text-success">{{ val|default:"—" }}</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </div>
+</div>
+
+<style>
+.timeline-item:last-child { margin-bottom: 0 !important; }
+.fw-600 { font-weight: 600; }
+</style>
+{% endblock %}

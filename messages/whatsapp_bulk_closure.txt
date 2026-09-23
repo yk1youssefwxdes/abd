@@ -1,0 +1,1 @@
+Bonjour {name}, l'établissement sera fermé du [DATE] au [DATE]. Les cours reprendront le [DATE].

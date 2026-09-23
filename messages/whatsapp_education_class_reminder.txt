@@ -1,0 +1,2 @@
+Bonjour {student_name},
+Petit rappel : votre cours de {subject} est prévu le {date}.

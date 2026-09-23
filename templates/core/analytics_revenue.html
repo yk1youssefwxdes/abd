@@ -1,0 +1,469 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Analyse des Revenus — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="context-bar-sep">›</span>
+<a href="{% url 'core:analytics_dashboard' %}"><i class="bi bi-speedometer2"></i> Cockpit</a>
+<span class="context-bar-sep">›</span>
+<span class="context-bar-current">Analyse des Revenus</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .rev-hero {
+    position: relative;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #111827 0%, #1e293b 100%);
+    color: #fff;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .rev-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .rev-kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  .rev-kpi-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+  }
+
+  .rev-kpi-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+
+  .rev-kpi-val {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+
+  .rev-kpi-lbl {
+    font-size: 11.5px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .rev-kpi-sub {
+    font-size: 12px;
+    color: var(--text-muted);
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+    padding-top: 8px;
+  }
+
+  .rev-grid-2-1 {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .rev-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .rev-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
+
+  .rev-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .rev-method-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--surface-alt);
+    border-radius: var(--radius-md);
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+  }
+
+  .rev-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+
+  @media (max-width: 992px) {
+    .rev-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .rev-grid-2-1 { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 576px) {
+    .rev-kpi-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+  <!-- ── HERO HEADER ── -->
+  <div class="rev-hero d-flex flex-wrap align-items-center justify-content-between gap-3">
+    <div>
+      <h1 class="h3 fw-bold mb-1 text-white">Analyse Financière &amp; Revenus</h1>
+      <p class="mb-0 text-white-50" style="font-size: 13.5px;">Tableau de bord de recouvrement, modes de paiement et historique de facturation</p>
+    </div>
+    
+    <div class="d-flex align-items-center gap-2">
+      <form method="get" id="monthsForm" class="d-flex align-items-center gap-2">
+        <select name="months" class="form-select form-select-sm" onchange="this.form.submit()" style="width: 150px;">
+          <option value="3" {% if months == 3 %}selected{% endif %}>3 derniers mois</option>
+          <option value="6" {% if months == 6 %}selected{% endif %}>6 derniers mois</option>
+          <option value="12" {% if months == 12 %}selected{% endif %}>12 derniers mois</option>
+          <option value="24" {% if months == 24 %}selected{% endif %}>24 derniers mois</option>
+        </select>
+      </form>
+
+      <a href="{% url 'core:export_revenue_pdf' %}?months={{ months }}" class="btn btn-primary btn-sm fw-bold">
+        <i class="bi bi-file-earmark-pdf me-1"></i> Exporter PDF
+      </a>
+      <a href="{% url 'core:export_csv_view' %}?type=revenue" class="btn btn-outline-light btn-sm fw-bold text-dark border-secondary">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exporter CSV
+      </a>
+    </div>
+  </div>
+
+  <!-- ── KPI GRID ── -->
+  <div class="rev-kpi-grid">
+    <!-- Current Month Collected -->
+    <div class="rev-kpi-card">
+      <div>
+        <div class="rev-kpi-top">
+          <span class="rev-kpi-lbl">Recouvré ce mois</span>
+          <div class="rev-kpi-icon" style="background:#d1fae5; color:#10b981;"><i class="bi bi-cash-stack"></i></div>
+        </div>
+        <div class="rev-kpi-val">{{ current_month.collected|floatformat:0 }} DH</div>
+      </div>
+      <div class="rev-kpi-sub">
+        Taux: <strong>{{ current_month.collection_rate }}%</strong> de l'attendu
+      </div>
+    </div>
+
+    <!-- Current Month Outstanding -->
+    <div class="rev-kpi-card">
+      <div>
+        <div class="rev-kpi-top">
+          <span class="rev-kpi-lbl">Reste à recouvrer</span>
+          <div class="rev-kpi-icon" style="background:#fee2e2; color:#ef4444;"><i class="bi bi-hourglass-split"></i></div>
+        </div>
+        <div class="rev-kpi-val">{{ current_month.outstanding|floatformat:0 }} DH</div>
+      </div>
+      <div class="rev-kpi-sub">
+        Sur un attendu de <strong>{{ current_month.expected|floatformat:0 }} DH</strong>
+      </div>
+    </div>
+
+    <!-- YTD Summary -->
+    <div class="rev-kpi-card">
+      <div>
+        <div class="rev-kpi-top">
+          <span class="rev-kpi-lbl">Cumul YTD (Année)</span>
+          <div class="rev-kpi-icon" style="background:#e0f2fe; color:#0284c7;"><i class="bi bi-piggy-bank"></i></div>
+        </div>
+        <div class="rev-kpi-val">{{ ytd.ytd|floatformat:0 }} DH</div>
+      </div>
+      <div class="rev-kpi-sub">
+        Depuis le <strong>{{ ytd.ytd_start|date:"d/m/Y" }}</strong>
+      </div>
+    </div>
+
+    <!-- YTD growth -->
+    <div class="rev-kpi-card">
+      <div>
+        <div class="rev-kpi-top">
+          <span class="rev-kpi-lbl">Croissance Annuelle</span>
+          <div class="rev-kpi-icon" style="background:#fef3c7; color:#d97706;"><i class="bi bi-graph-up"></i></div>
+        </div>
+        <div class="rev-kpi-val">
+          {% if ytd.growth_pct is not None %}
+            {{ ytd.growth_pct|floatformat:1 }}%
+          {% else %}
+            N/A
+          {% endif %}
+        </div>
+      </div>
+      <div class="rev-kpi-sub">
+        Vs même période l'an dernier (<strong>{{ ytd.last_year_same_period|floatformat:0 }} DH</strong>)
+      </div>
+    </div>
+  </div>
+
+  <!-- ── CHARTS & BREAKDOWNS ── -->
+  <div class="rev-grid-2-1">
+    <!-- Chart: Expected vs Collected -->
+    <div class="rev-card">
+      <div class="rev-card-header">
+        <h2 class="rev-card-title"><i class="bi bi-bar-chart-fill me-2" style="color:var(--primary);"></i>Évolution comparée attendu / perçu</h2>
+      </div>
+      <div style="position: relative; height: 320px;">
+        <canvas id="revComparisonChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Payment methods breakdown -->
+    <div class="rev-card">
+      <div class="rev-card-header">
+        <h2 class="rev-card-title"><i class="bi bi-wallet2 me-2" style="color:var(--primary);"></i>Modes de paiements</h2>
+      </div>
+      <div style="position: relative; height: 160px; margin-bottom: 20px;">
+        <canvas id="revMethodChart"></canvas>
+      </div>
+      
+      <div class="rev-methods">
+        {% for m in methods %}
+        <div class="rev-method-item">
+          <div class="d-flex align-items-center gap-2">
+            <span class="rev-dot" style="background: {% if m.method == 'CASH' %}#10b981{% elif m.method == 'TRANSFER' %}#3b82f6{% else %}#f59e0b{% endif %};"></span>
+            <span class="fw-bold" style="font-size:13px;">{{ m.label }}</span>
+          </div>
+          <div style="text-align: right;">
+            <span class="fw-bold" style="font-size:13.5px; color:var(--text-primary);">{{ m.total|floatformat:0 }} DH</span>
+            <div style="font-size: 11px; color:var(--text-muted);">{{ m.count }} transactions ({{ m.pct }}%)</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- ── REVENUE BY COURSE GROUP ── -->
+  <div class="rev-card mb-4">
+    <div class="rev-card-header">
+      <h2 class="rev-card-title"><i class="bi bi-journals me-2" style="color:var(--primary);"></i>Revenus par Groupe de Cours — {{ current_month.month_start|date:"F Y" }}</h2>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table table-hover align-middle" style="font-size: 13.5px;">
+        <thead class="table-light">
+          <tr>
+            <th>Groupe de Cours</th>
+            <th>Matière</th>
+            <th>Professeur</th>
+            <th class="text-center">Élèves actifs</th>
+            <th class="text-end">Attendu théorique</th>
+            <th class="text-end">Recouvré</th>
+            <th class="text-end">Reste à payer</th>
+            <th class="text-center" style="width: 150px;">Taux de recouvrement</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in by_group %}
+          <tr>
+            <td class="fw-bold"><a href="{% url 'core:group_detail' r.group_id %}">{{ r.group_name }}</a></td>
+            <td>{{ r.subject }}</td>
+            <td>{{ r.teacher }}</td>
+            <td class="text-centerfw-bold">{{ r.enrolled_count }}</td>
+            <td class="text-end fw-bold">{{ r.expected|floatformat:0 }} DH</td>
+            <td class="text-end fw-bold text-success">{{ r.collected|floatformat:0 }} DH</td>
+            <td class="text-end fw-bold {% if r.outstanding > 0 %}text-warning{% else %}text-muted{% endif %}">{{ r.outstanding|floatformat:0 }} DH</td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="cp-progress-bar flex-grow-1" style="height:6px;">
+                  <div class="cp-progress-fill" style="width: {{ r.collection_rate }}%; background: {% if r.collection_rate >= 80 %}#10b981{% elif r.collection_rate >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                </div>
+                <span class="fw-bold" style="font-size:12px;">{{ r.collection_rate }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center py-3 text-muted">Aucune donnée disponible.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── MONTHLY SERIES DETAILS TABLE ── -->
+  <div class="rev-card">
+    <div class="rev-card-header">
+      <h2 class="rev-card-title"><i class="bi bi-calendar-check me-2" style="color:var(--primary);"></i>Historique mensuel consolidé</h2>
+    </div>
+    
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" style="font-size: 13.5px;">
+        <thead class="table-light">
+          <tr>
+            <th>Mois</th>
+            <th class="text-end">Encaissé</th>
+            <th class="text-end">Attendu théorique</th>
+            <th class="text-center">Taux recouvrement</th>
+            <th class="text-center">Paiements enregistrés</th>
+            <th class="text-center">Payeurs uniques</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in monthly_series reversed %}
+          <tr>
+            <td class="fw-bold">{{ r.month_label }}</td>
+            <td class="text-end fw-bold text-success">{{ r.revenue_paid|floatformat:0 }} DH</td>
+            <td class="text-end fw-bold">{{ r.revenue_expected|floatformat:0 }} DH</td>
+            <td class="text-center">
+              <span class="cp-alert-pill {% if r.collection_rate >= 80 %}cp-alert-green{% elif r.collection_rate >= 50 %}cp-alert-orange{% else %}cp-alert-red{% endif %}">
+                {{ r.collection_rate }}%
+              </span>
+            </td>
+            <td class="text-center">{{ r.payment_count }}</td>
+            <td class="text-center">{{ r.unique_payers }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+  (function() {
+    // Parsing monthly data
+    const monthlySeries = [
+      {% for m in monthly_series %}
+      {
+        month: "{{ m.month_label }}",
+        expected: {{ m.revenue_expected }},
+        paid: {{ m.revenue_paid }}
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
+
+    const labels = monthlySeries.map(x => x.month);
+    const expectedData = monthlySeries.map(x => x.expected);
+    const paidData = monthlySeries.map(x => x.paid);
+
+    const ctx = document.getElementById('revComparisonChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Attendu Théorique (DH)',
+            data: expectedData,
+            backgroundColor: 'rgba(99, 102, 241, 0.25)',
+            borderColor: 'rgba(99, 102, 241, 0.9)',
+            borderWidth: 1.5,
+            borderRadius: 6
+          },
+          {
+            label: 'Encaissé Réel (DH)',
+            data: paidData,
+            backgroundColor: 'rgba(16, 185, 129, 0.8)',
+            borderColor: 'rgba(16, 185, 129, 1)',
+            borderWidth: 1.5,
+            borderRadius: 6
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top' },
+          tooltip: { padding: 12, cornerRadius: 8 }
+        },
+        scales: {
+          x: { grid: { display: false } },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(v) { return v.toLocaleString('fr-FR') + ' DH'; }
+            }
+          }
+        }
+      }
+    });
+
+    // Parsing methods
+    const methodData = {
+      labels: [{% for m in methods %}"{{ m.label }}",{% endfor %}],
+      data: [{% for m in methods %}{{ m.total }},{% endfor %}],
+      colors: [{% for m in methods %}{% if m.method == 'CASH' %}'#10b981'{% elif m.method == 'TRANSFER' %}'#3b82f6'{% else %}'#f59e0b'{% endif %},{% endfor %}]
+    };
+
+    const ctxMethod = document.getElementById('revMethodChart').getContext('2d');
+    new Chart(ctxMethod, {
+      type: 'doughnut',
+      data: {
+        labels: methodData.labels,
+        datasets: [{
+          data: methodData.data,
+          backgroundColor: methodData.colors,
+          borderWidth: 2,
+          hoverOffset: 4
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: function(c) {
+                return ` ${c.label}: ${c.raw.toLocaleString('fr-FR')} DH`;
+              }
+            }
+          }
+        },
+        cutout: '65%'
+      }
+    });
+
+  })();
+</script>
+{% endblock %}

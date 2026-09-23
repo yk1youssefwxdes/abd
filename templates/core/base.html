@@ -1,0 +1,1147 @@
+{% load static nav_active %}
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Système de gestion scolaire — {{ SCHOOL_NAME }}">
+  <title>{% block title %}{{ SCHOOL_NAME }}{% endblock %}</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+
+  <!-- Google Fonts — Inter -->
+  <link rel="stylesheet" href="{% static 'fonts/fonts.css' %}">
+
+  <!-- Vendor CSS -->
+  <link href="{% static 'bootstrap.min.css' %}" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'bootstrap-icons.css' %}">
+  <link href="{% static 'select2.min.css' %}" rel="stylesheet">
+
+  <!-- NOTE: Vendor JS moved to bottom of <body> for faster page paint -->
+
+  <!-- Application Core CSS (cached and served via WhiteNoise) -->
+  <link rel="stylesheet" href="{% static 'css/app_shell.css' %}">
+
+  {% block extra_css %}{% endblock %}
+</head>
+
+<!-- Page load progress bar -->
+<div id="page-progress" role="progressbar" aria-hidden="true"></div>
+
+<body>
+  <a class="visually-hidden" href="#main-content">Aller au contenu principal</a>
+
+  <div class="app-shell">
+
+    <!-- ── Top Navigation Bar ──────────────────────────────────────── -->
+    <header class="top-navbar">
+
+      <!-- Brand -->
+      <a class="navbar-brand-link" href="{% url 'core:cockpit' %}">
+        <div class="navbar-brand-icon">
+          <i class="bi bi-mortarboard-fill" aria-hidden="true"></i>
+        </div>
+        <span class="navbar-brand-text">{{ SCHOOL_NAME }}</span>
+      </a>
+
+      <!-- Mobile hamburger (shown on small screens) -->
+      <button type="button" class="mobile-menu-btn" id="mobileMenuBtn" aria-label="Ouvrir le menu" aria-expanded="false"
+        aria-controls="mobileNavDrawer">
+        <i class="bi bi-list" aria-hidden="true"></i>
+      </button>
+
+      <!-- Desktop navigation links -->
+      <nav class="navbar-nav-main" id="desktopNav" aria-label="Navigation principale">
+
+        <!-- Quotidien : les 4 actions les plus fréquentes restent à plat -->
+        <a class="nav-item-link {% active_if 'cockpit' %}" href="{% url 'core:cockpit' %}" title="Dashboard">
+          <i class="bi bi-speedometer2" aria-hidden="true"></i>
+          <span class="nav-label-text">Dashboard</span>
+        </a>
+
+        <a class="nav-item-link {% active_if 'students_list' 'student_page' %}" href="{% url 'core:students_list' %}"
+          title="Élèves">
+          <i class="bi bi-people-fill" aria-hidden="true"></i>
+          <span class="nav-label-text">Élèves</span>
+        </a>
+
+        <a class="nav-item-link {% active_if 'payment_create' 'student_search' 'student_detail' %}"
+          href="{% url 'core:payment_create' %}" title="Caisse">
+          <i class="bi bi-cash-coin" aria-hidden="true"></i>
+          <span class="nav-label-text">Caisse</span>
+        </a>
+
+        <a class="nav-item-link {% active_if 'sessions_today' 'session_attendance' %}"
+          href="{% url 'core:sessions_today' %}" title="Sessions du jour" style="position:relative;">
+          <i class="bi bi-calendar2-event-fill" aria-hidden="true"></i>
+          <span class="nav-label-text">Sessions du jour</span>
+          {% if past_uncompleted_count %}
+          <span class="nav-badge-danger nav-badge-sm">{{ past_uncompleted_count }}</span>
+          <span class="visually-hidden">séances passées non traitées</span>
+          {% endif %}
+        </a>
+
+        <div class="nav-section-divider"></div>
+
+        <!-- Planification Dropdown -->
+        <div class="nav-dropdown">
+          <button type="button"
+            class="nav-item-link {% active_if 'sessions_schedule' 'sessions_monthly' 'schedule_conflicts' 'session_exceptions_list' 'attendance_report' 'create_makeup_session' %}"
+            title="Planification" aria-haspopup="true" aria-expanded="false" aria-controls="planning-menu">
+            <i class="bi bi-calendar3" aria-hidden="true"></i>
+            <span class="nav-label-text">Planning</span>
+            <i class="bi bi-chevron-down" style="font-size: 0.9em;" aria-hidden="true"></i>
+            {% if conflict_count > 0 %}
+            <span class="nav-badge-danger nav-badge-sm">{{ conflict_count }}</span>
+            <span class="visually-hidden">conflits en attente</span>
+            {% endif %}
+          </button>
+          <div class="nav-dropdown-menu" id="planning-menu">
+            <a class="nav-dropdown-item {% active_if 'sessions_schedule' %}" href="{% url 'core:sessions_schedule' %}">
+              <i class="bi bi-calendar3" style="color: var(--primary);" aria-hidden="true"></i> Planification hebdo.
+            </a>
+            <a class="nav-dropdown-item {% active_if 'sessions_monthly' %}" href="{% url 'core:sessions_monthly' %}">
+              <i class="bi bi-calendar-month-fill" style="color: var(--info);" aria-hidden="true"></i> Vue mensuelle
+            </a>
+            <a class="nav-dropdown-item {% active_if 'schedule_conflicts' %}"
+              href="{% url 'core:schedule_conflicts' %}">
+              <i class="bi bi-exclamation-triangle-fill" style="color: var(--warning);" aria-hidden="true"></i>
+              Conflits d'horaires
+              {% if conflict_count > 0 %}
+              <span class="nav-badge-danger">{{ conflict_count }}</span>
+              <span class="visually-hidden">conflits en attente</span>
+              {% endif %}
+            </a>
+            <a class="nav-dropdown-item {% active_if 'session_exceptions_list' %}"
+              href="{% url 'core:session_exceptions_list' %}">
+              <i class="bi bi-slash-circle" style="color: var(--danger);" aria-hidden="true"></i> Exceptions de séances
+            </a>
+
+          </div>
+        </div>
+
+        <!-- Pédagogie & RH Dropdown -->
+        <div class="nav-dropdown">
+          <button type="button"
+            class="nav-item-link {% active_if 'courses_list' 'levels_list' 'level_categories_list' 'teachers_list' 'teacher_detail' 'rooms_list' 'teacher_payroll' 'payroll_calculator' %}"
+            title="Pédagogie" aria-haspopup="true" aria-expanded="false" aria-controls="pedagogie-menu">
+            <i class="bi bi-mortarboard-fill" aria-hidden="true"></i>
+            <span class="nav-label-text">Pédagogie</span>
+            <i class="bi bi-chevron-down" style="font-size: 0.9em;" aria-hidden="true"></i>
+          </button>
+          <div class="nav-dropdown-menu" id="pedagogie-menu">
+            <a class="nav-dropdown-item {% active_if 'courses_list' %}" href="{% url 'core:courses_list' %}">
+              <i class="bi bi-book-fill" style="color: var(--primary);" aria-hidden="true"></i> Groupes de cours
+            </a>
+            <a class="nav-dropdown-item {% active_if 'levels_list' %}" href="{% url 'core:levels_list' %}">
+              <i class="bi bi-layers-fill" style="color: var(--info);" aria-hidden="true"></i> Niveaux scolaires
+            </a>
+            {% comment %} <a class="nav-dropdown-item {% active_if 'level_categories_list' %}"
+              href="{% url 'core:level_categories_list' %}">
+              <i class="bi bi-diagram-3-fill" style="color: #6366f1;" aria-hidden="true"></i> Catégories de niveaux
+            </a> {% endcomment %}
+            <div class="dropdown-divider"></div>
+            <a class="nav-dropdown-item {% active_if 'teachers_list' 'teacher_detail' %}"
+              href="{% url 'core:teachers_list' %}">
+              <i class="bi bi-person-workspace" style="color: var(--success);" aria-hidden="true"></i> Professeurs
+            </a>
+            {% comment %} <a class="nav-dropdown-item {% active_if 'rooms_list' %}" href="{% url 'core:rooms_list' %}">
+              <i class="bi bi-door-open-fill" style="color: var(--warning);" aria-hidden="true"></i> Salles
+            </a> {% endcomment %}
+            <a class="nav-dropdown-item {% active_if 'teacher_payroll' %}" href="{% url 'core:teacher_payroll' %}">
+              <i class="bi bi-calculator-fill" style="color: var(--danger);" aria-hidden="true"></i> Paie professeurs
+            </a>
+            <a class="nav-dropdown-item {% active_if 'payroll_calculator' %}" href="{% url 'core:payroll_calculator' %}">
+              <i class="bi bi-calculator" style="color: #6366f1;" aria-hidden="true"></i> Simulateur / Calculateur de paie
+            </a>
+            <a class="nav-dropdown-item {% active_if 'attendance_report' %}" href="{% url 'core:attendance_report' %}">
+              <i class="bi bi-clipboard2-check-fill" style="color: var(--success);" aria-hidden="true"></i> Rapport de
+              présence
+            </a>
+          </div>
+        </div>
+
+        <!-- WhatsApp Dropdown -->
+        <!-- WhatsApp Dashboard Button -->
+        <a class="nav-item-link {% active_if 'whatsapp_dashboard' 'whatsapp_payment_reminders' 'whatsapp_absence_notifications' 'whatsapp_bulk_announcements' %}"
+          href="{% url 'core:whatsapp_dashboard' %}" title="WhatsApp Dashboard" id="whatsappBtn">
+          <i class="bi bi-whatsapp" style="position: relative;" aria-hidden="true">
+            {% if whatsapp_connected %}
+            <span
+              style="position: absolute; top: -1px; right: -2px; width: 7px; height: 7px; background-color: #25d366; border-radius: 50%; display: inline-block;"></span>
+            {% else %}
+            <span
+              style="position: absolute; top: -1px; right: -2px; width: 7px; height: 7px; background-color: #9ca3af; border-radius: 50%; display: inline-block;"></span>
+            {% endif %}
+          </i>
+          <span class="nav-label-text">WhatsApp</span>
+          <span class="visually-hidden">{% if whatsapp_connected %}(connecté){% else %}(déconnecté){% endif %}</span>
+        </a>
+
+        {% if user.is_staff %}
+        <a class="nav-item-link {% active_if 'system_settings' %}" href="{% url 'core:system_settings' %}"
+          title="Paramètres du système">
+          <i class="bi bi-sliders" aria-hidden="true"></i>
+          <span class="nav-label-text">Paramètres</span>
+        </a>
+        {% endif %}
+
+
+        <!-- Analytiques & Rapports Dropdown -->
+        {% comment %} <div class="nav-dropdown">
+          <button type="button"
+            class="nav-item-link {% active_if 'analytics_dashboard' 'analytics_revenue' 'analytics_attendance' 'analytics_students' 'analytics_rooms' 'analytics_teachers' 'analytics_operational' 'admin_statistics' %}"
+            title="Analytiques & Rapports" aria-haspopup="true" aria-expanded="false" aria-controls="analytics-menu">
+            <i class="bi bi-bar-chart-line-fill" aria-hidden="true"></i>
+            <span class="nav-label-text">Analytiques</span>
+            <i class="bi bi-chevron-down" style="font-size: 0.9em;" aria-hidden="true"></i>
+          </button>
+          <div class="nav-dropdown-menu" id="analytics-menu">
+            <a class="nav-dropdown-item {% active_if 'analytics_dashboard' %}"
+              href="{% url 'core:analytics_dashboard' %}">
+              <i class="bi bi-speedometer2" style="color: var(--primary);" aria-hidden="true"></i> Cockpit Directeur
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_revenue' %}" href="{% url 'core:analytics_revenue' %}">
+              <i class="bi bi-cash-stack" style="color: var(--success);" aria-hidden="true"></i> Analyse de revenus
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_attendance' %}"
+              href="{% url 'core:analytics_attendance' %}">
+              <i class="bi bi-person-x-fill" style="color: var(--danger);" aria-hidden="true"></i> Suivi des absences
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_students' %}"
+              href="{% url 'core:analytics_students' %}">
+              <i class="bi bi-person-bounding-box" style="color: var(--info);" aria-hidden="true"></i> Rétention &
+              départs
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_rooms' %}" href="{% url 'core:analytics_rooms' %}">
+              <i class="bi bi-house-door" style="color: #6366f1;" aria-hidden="true"></i> Occupation des salles
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_teachers' %}"
+              href="{% url 'core:analytics_teachers' %}">
+              <i class="bi bi-calculator" style="color: #10b981;" aria-hidden="true"></i> Paie enseignants
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_operational' %}"
+              href="{% url 'core:analytics_operational' %}">
+              <i class="bi bi-activity" style="color: var(--warning);" aria-hidden="true"></i> Santé opérationnelle
+            </a>
+            <div class="dropdown-divider"></div>
+            <a class="nav-dropdown-item {% active_if 'admin_statistics' %}" href="{% url 'core:admin_statistics' %}">
+              <i class="bi bi-graph-up" style="color: var(--text-secondary);" aria-hidden="true"></i> Statistiques
+              générales
+            </a>
+          </div>
+        </div> {% endcomment %}
+
+      </nav>
+
+      <!-- Right cluster: search + clock + admin -->
+      <div class="navbar-right">
+        <!-- Global search -->
+        <div class="navbar-search">
+          <i class="bi bi-search navbar-search-icon" aria-hidden="true"></i>
+          <label for="global-search" class="visually-hidden">Rechercher un élève</label>
+          <input type="text" id="global-search" class="navbar-search-input" placeholder="Ctrl+K — Rechercher…"
+            autocomplete="off" role="combobox" aria-expanded="false" aria-controls="global-search-results"
+            aria-autocomplete="list">
+          <div id="global-search-results" class="navbar-search-results" role="listbox"></div>
+        </div>
+
+        <!-- Clock -->
+        {% comment %} <div class="navbar-clock">
+          <i class="bi bi-clock" aria-hidden="true"></i>
+          <span id="current-time"></span>
+        </div> {% endcomment %}
+
+        <!-- Admin shortcut (staff only) -->
+        {% if user.is_staff %}
+        <a class="navbar-admin-link" href="/admin/" target="_blank" rel="noopener noreferrer" title="Administration">
+          <i class="bi bi-gear-fill" aria-hidden="true"></i>
+          <span class="nav-label-text">Admin</span>
+        </a>
+        {% endif %}
+
+        <!-- Mobile search icon button (visible < 820px) -->
+        <button type="button" class="mobile-search-toggle" id="mobileSearchToggle" aria-label="Rechercher">
+          <i class="bi bi-search" aria-hidden="true"></i>
+        </button>
+      </div>
+
+    </header>
+
+    <!-- ── Mobile navigation drawer ─────────────────────────────────── -->
+    <div class="mobile-nav-drawer" id="mobileNavDrawer" aria-label="Navigation mobile">
+      <div class="mobile-nav-section-label">Principal</div>
+      <a class="mobile-nav-link {% active_if 'cockpit' %}" href="{% url 'core:cockpit' %}">
+        <i class="bi bi-speedometer2" aria-hidden="true"></i> Dashboard
+      </a>
+      <a class="mobile-nav-link {% active_if 'students_list' 'student_page' %}" href="{% url 'core:students_list' %}">
+        <i class="bi bi-people-fill" aria-hidden="true"></i> Élèves
+      </a>
+      <a class="mobile-nav-link {% active_if 'payment_create' 'student_search' 'student_detail' %}"
+        href="{% url 'core:payment_create' %}">
+        <i class="bi bi-cash-coin" aria-hidden="true"></i> Caisse
+      </a>
+      <a class="mobile-nav-link {% active_if 'sessions_today' 'session_attendance' %}"
+        href="{% url 'core:sessions_today' %}">
+        <i class="bi bi-calendar2-event-fill" aria-hidden="true"></i> Sessions du jour
+        {% if past_uncompleted_count %}
+        <span class="nav-badge-danger nav-badge-sm">{{ past_uncompleted_count }}</span>
+        {% endif %}
+      </a>
+
+      <div class="mobile-nav-section-label">Planning</div>
+      <a class="mobile-nav-link {% active_if 'sessions_schedule' %}" href="{% url 'core:sessions_schedule' %}">
+        <i class="bi bi-calendar3" aria-hidden="true"></i> Planification hebdo.
+      </a>
+      <a class="mobile-nav-link {% active_if 'sessions_monthly' %}" href="{% url 'core:sessions_monthly' %}">
+        <i class="bi bi-calendar-month-fill" aria-hidden="true"></i> Vue mensuelle
+      </a>
+      <a class="mobile-nav-link {% active_if 'schedule_conflicts' %}" href="{% url 'core:schedule_conflicts' %}">
+        <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i> Conflits d'horaires
+        {% if conflict_count > 0 %}
+        <span class="nav-badge-danger nav-badge-sm">{{ conflict_count }}</span>
+        {% endif %}
+      </a>
+      <a class="mobile-nav-link {% active_if 'session_exceptions_list' %}"
+        href="{% url 'core:session_exceptions_list' %}">
+        <i class="bi bi-slash-circle" aria-hidden="true"></i> Exceptions de séances
+      </a>
+      <a class="mobile-nav-link {% active_if 'attendance_report' %}" href="{% url 'core:attendance_report' %}">
+        <i class="bi bi-clipboard2-check-fill" aria-hidden="true"></i> Rapport de présence
+      </a>
+
+      <div class="mobile-nav-section-label">Pédagogie</div>
+      <a class="mobile-nav-link {% active_if 'courses_list' %}" href="{% url 'core:courses_list' %}">
+        <i class="bi bi-book-fill" aria-hidden="true"></i> Groupes de cours
+      </a>
+      <a class="mobile-nav-link {% active_if 'levels_list' %}" href="{% url 'core:levels_list' %}">
+        <i class="bi bi-layers-fill" aria-hidden="true"></i> Niveaux scolaires
+      </a>
+      <a class="mobile-nav-link {% active_if 'level_categories_list' %}" href="{% url 'core:level_categories_list' %}">
+        <i class="bi bi-diagram-3-fill" aria-hidden="true"></i> Catégories de niveaux
+      </a>
+      <a class="mobile-nav-link {% active_if 'teachers_list' 'teacher_detail' %}" href="{% url 'core:teachers_list' %}">
+        <i class="bi bi-person-workspace" aria-hidden="true"></i> Professeurs
+      </a>
+      {% comment %} <a class="mobile-nav-link {% active_if 'rooms_list' %}" href="{% url 'core:rooms_list' %}">
+        <i class="bi bi-door-open-fill" aria-hidden="true"></i> Salles
+      </a> {% endcomment %}
+      <a class="mobile-nav-link {% active_if 'teacher_payroll' %}" href="{% url 'core:teacher_payroll' %}">
+        <i class="bi bi-calculator-fill" aria-hidden="true"></i> Paie professeurs
+      </a>
+
+      <div class="mobile-nav-section-label">Communication</div>
+      <a class="mobile-nav-link {% active_if 'whatsapp_dashboard' %}" href="{% url 'core:whatsapp_dashboard' %}">
+        <i class="bi bi-whatsapp" aria-hidden="true"></i> Tableau de bord WhatsApp
+      </a>
+      <a class="mobile-nav-link {% active_if 'whatsapp_payment_reminders' %}"
+        href="{% url 'core:whatsapp_payment_reminders' %}">
+        <i class="bi bi-cash-coin" aria-hidden="true"></i> Rappels de paiement
+      </a>
+      <a class="mobile-nav-link {% active_if 'whatsapp_absence_notifications' %}"
+        href="{% url 'core:whatsapp_absence_notifications' %}">
+        <i class="bi bi-person-x-fill" aria-hidden="true"></i> Notifications d'absence
+      </a>
+      <a class="mobile-nav-link {% active_if 'whatsapp_bulk_announcements' %}"
+        href="{% url 'core:whatsapp_bulk_announcements' %}">
+        <i class="bi bi-megaphone-fill" aria-hidden="true"></i> Annonces groupées
+      </a>
+
+      <div class="mobile-nav-section-label">Analytiques</div>
+      <a class="mobile-nav-link {% active_if 'analytics_dashboard' %}" href="{% url 'core:analytics_dashboard' %}">
+        <i class="bi bi-speedometer2" aria-hidden="true"></i> Cockpit Directeur
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_revenue' %}" href="{% url 'core:analytics_revenue' %}">
+        <i class="bi bi-cash-stack" aria-hidden="true"></i> Analyse de revenus
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_attendance' %}" href="{% url 'core:analytics_attendance' %}">
+        <i class="bi bi-person-x-fill" aria-hidden="true"></i> Suivi des absences
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_students' %}" href="{% url 'core:analytics_students' %}">
+        <i class="bi bi-person-bounding-box" aria-hidden="true"></i> Rétention & départs
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_rooms' %}" href="{% url 'core:analytics_rooms' %}">
+        <i class="bi bi-house-door" aria-hidden="true"></i> Occupation des salles
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_teachers' %}" href="{% url 'core:analytics_teachers' %}">
+        <i class="bi bi-calculator" aria-hidden="true"></i> Paie enseignants
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_operational' %}" href="{% url 'core:analytics_operational' %}">
+        <i class="bi bi-activity" aria-hidden="true"></i> Santé opérationnelle
+      </a>
+      <a class="mobile-nav-link {% active_if 'admin_statistics' %}" href="{% url 'core:admin_statistics' %}">
+        <i class="bi bi-graph-up" aria-hidden="true"></i> Statistiques générales
+      </a>
+
+      <div class="mobile-nav-section-label">Système</div>
+      {% if user.is_staff %}
+      <a class="mobile-nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">
+        <i class="bi bi-gear-fill" aria-hidden="true"></i> Administration
+      </a>
+      {% endif %}
+
+      <!-- Search in mobile -->
+      <div class="mobile-search-wrap" style="padding: 8px 4px 4px;">
+        <i class="bi bi-search" aria-hidden="true"
+          style="position:absolute;left:16px;top:12px;color:rgba(255,255,255,0.4);font-size:13px;"></i>
+        <label for="mobile-search" class="visually-hidden">Rechercher un élève</label>
+        <input type="text" id="mobile-search" class="navbar-search-input"
+          style="width:100%;background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.15);"
+          placeholder="Rechercher un élève…" autocomplete="off" role="combobox" aria-expanded="false"
+          aria-controls="mobile-search-results" aria-autocomplete="list">
+        <div id="mobile-search-results" class="mobile-search-results" role="listbox"></div>
+      </div>
+    </div>
+
+    <!-- ── Main area ──────────────────────────────────────────────── -->
+    <div class="main-area">
+
+      <!-- Context bar (breadcrumb) -->
+      <nav class="context-bar d-flex align-items-center justify-content-between" aria-label="Fil d'Ariane">
+        <div class="d-flex align-items-center gap-2">
+          <a href="{% url 'core:cockpit' %}">
+            <i class="bi bi-house-fill" style="font-size:13px;" aria-hidden="true"></i>
+            Accueil
+          </a>
+          {% block breadcrumb %}
+          {% endblock %}
+        </div>
+        <div class="d-none d-md-flex align-items-center gap-2">
+          <button type="button"
+            class="btn btn-link p-0 text-decoration-none text-muted small d-flex align-items-center gap-1"
+            id="openShortcutsBtn" title="Raccourcis clavier (Appuyez sur ?)">
+            <i class="bi bi-keyboard text-primary"></i> <span style="font-size:11.5px;">Raccourcis <kbd
+                class="bg-light border text-dark px-1 py-0 rounded" style="font-size:10px;">?</kbd></span>
+          </button>
+        </div>
+      </nav>
+
+      <!-- Page content -->
+      <main class="page-content" id="main-content">
+        {% include 'core/_messages.html' %}
+        {% block content %}{% endblock %}
+      </main>
+
+      <!-- Footer -->
+      <footer class="app-footer">
+        <div style="margin-bottom: 4px;">&copy; {% now "Y" %} {{ SCHOOL_NAME }} — Système de Gestion Scolaire</div>
+        <div style="font-size: 11px; opacity: 0.8;">
+          Construit par <a target="_blank" href="https://youssef-digital-card.vercel.app/"
+            style="color: var(--primary); text-decoration: none;"><strong>Youssef Kotari</strong></a> &amp; ·
+          Développeur: <a href="tel:0715125245"
+            style="color: var(--primary); text-decoration: none; font-weight: 600;">0715125245</a>
+        </div>
+      </footer>
+
+    </div><!-- /main-area -->
+  </div><!-- /app-shell -->
+
+  <!-- Floating Action Button — New Payment -->
+  <div class="fab-wrap">
+    <span class="fab-label" aria-hidden="true">💰 Nouveau paiement</span>
+    <a class="fab-payment" href="{% url 'core:payment_create' %}" title="Nouveau paiement (raccourci)"
+      aria-label="Nouveau paiement">
+      <i class="bi bi-cash-coin" aria-hidden="true"></i>
+    </a>
+  </div>
+
+  <!-- Back to Top button -->
+  <button type="button" class="back-to-top-btn" id="backToTopBtn" aria-label="Remonter en haut de page"
+    title="Remonter en haut">
+    <i class="bi bi-chevron-up" aria-hidden="true"></i>
+  </button>
+
+  <!-- Command Palette Modal (Ctrl+K) -->
+  <div class="cmd-palette-backdrop" id="cmdPaletteBackdrop" role="dialog" aria-modal="true"
+    aria-label="Centre de commandes">
+    <div class="cmd-palette-modal">
+      <div class="cmd-palette-header">
+        <i class="bi bi-search text-primary fs-5"></i>
+        <input type="text" id="cmdPaletteInput" class="cmd-palette-input"
+          placeholder="Rechercher élève, page, action rapide..." autocomplete="off">
+        <button type="button" class="btn-close btn-sm" id="cmdPaletteCloseBtn" aria-label="Fermer"></button>
+      </div>
+      <div class="cmd-palette-tabs">
+        <button type="button" class="cmd-tab-btn active" data-tab="all">Tout</button>
+        <button type="button" class="cmd-tab-btn" data-tab="students"><i class="bi bi-people me-1"></i>Élèves</button>
+        <button type="button" class="cmd-tab-btn" data-tab="nav"><i class="bi bi-compass me-1"></i>Navigation</button>
+        <button type="button" class="cmd-tab-btn" data-tab="actions"><i class="bi bi-lightning-charge me-1"></i>Actions
+          rapides</button>
+      </div>
+      <div class="cmd-palette-results" id="cmdPaletteResults" role="listbox">
+        <!-- Dynamic results -->
+      </div>
+      <div class="cmd-palette-footer">
+        <div class="d-flex align-items-center gap-3">
+          <span><kbd class="kbd-chip">↑</kbd> <kbd class="kbd-chip">↓</kbd> Naviguer</span>
+          <span><kbd class="kbd-chip">↵</kbd> Ouvrir</span>
+          <span><kbd class="kbd-chip">Esc</kbd> Fermer</span>
+        </div>
+        <span><strong>{{ SCHOOL_NAME }}</strong> — Centre Rapide</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Keyboard Shortcuts Cheat Sheet Modal -->
+  <div class="modal fade" id="shortcutsHelpModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg" style="border-radius:18px;">
+        <div class="modal-header border-bottom py-3" style="background:#0f172a;color:#fff;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-keyboard fs-4 text-primary"></i>
+            <h5 class="modal-title fw-bold text-white mb-0">Raccourcis Clavier du Système</h5>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+        </div>
+        <div class="modal-body p-4">
+          <p class="small text-muted mb-3">Utilisez ces combinaisons pour travailler plus vite sans quitter le clavier :
+          </p>
+          <div class="d-flex flex-column gap-2">
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i class="bi bi-search me-2 text-primary"></i>Palette de
+                commandes & Recherche</span>
+              <div><kbd class="kbd-chip">Ctrl</kbd> + <kbd class="kbd-chip">K</kbd></div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i class="bi bi-cash-coin me-2 text-success"></i>Nouveau
+                paiement (Caisse)</span>
+              <div><kbd class="kbd-chip">Alt</kbd> + <kbd class="kbd-chip">P</kbd></div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i class="bi bi-person-plus-fill me-2 text-info"></i>Ajouter un
+                élève</span>
+              <div><kbd class="kbd-chip">Alt</kbd> + <kbd class="kbd-chip">N</kbd></div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i class="bi bi-calendar2-event me-2 text-warning"></i>Sessions
+                du jour</span>
+              <div><kbd class="kbd-chip">Alt</kbd> + <kbd class="kbd-chip">T</kbd></div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i class="bi bi-calendar3 me-2 text-primary"></i>Planification
+                hebdomadaire</span>
+              <div><kbd class="kbd-chip">Alt</kbd> + <kbd class="kbd-chip">S</kbd></div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i class="bi bi-whatsapp me-2 text-success"></i>Centre WhatsApp
+                & Alertes</span>
+              <div><kbd class="kbd-chip">Alt</kbd> + <kbd class="kbd-chip">W</kbd></div>
+            </div>
+            <div class="d-flex align-items-center justify-content-between p-2 rounded bg-light border">
+              <span class="small fw-semibold text-dark"><i
+                  class="bi bi-question-circle me-2 text-secondary"></i>Afficher cette aide</span>
+              <div><kbd class="kbd-chip">?</kbd> ou <kbd class="kbd-chip">Shift</kbd> + <kbd class="kbd-chip">?</kbd>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notification container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Vendor JS (placed here so jQuery is available for the inline script below) -->
+  <script src="{% static 'jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'select2.min.js' %}"></script>
+
+  <script>
+    $(function () {
+      // ── Global search (shared by desktop + mobile inputs) ───────────
+      // Keeps a per-input in-flight request so a slow earlier response
+      // can't clobber a faster, later one (out-of-order race fix).
+      function setupSearch($input, $results, itemClass) {
+        let timeout = null;
+        let activeIndex = -1;
+        let currentXhr = null;
+
+        function closeResults() {
+          $results.removeClass('show').hide().empty();
+          $input.attr('aria-expanded', 'false');
+          activeIndex = -1;
+        }
+
+        $input.on('input', function () {
+          const query = $(this).val().trim();
+          clearTimeout(timeout);
+          if (currentXhr) {
+            currentXhr.abort();
+            currentXhr = null;
+          }
+          activeIndex = -1;
+
+          if (query.length < 1) {
+            closeResults();
+            return;
+          }
+
+          timeout = setTimeout(function () {
+            currentXhr = $.ajax({
+              url: '{% url "core:student_search" %}',
+              data: { q: query },
+              dataType: 'json',
+              success: function (data) {
+                $results.empty();
+                if (data.results && data.results.length > 0) {
+                  data.results.forEach(function (item) {
+                    $results.append(
+                      $('<a></a>')
+                        .addClass(itemClass)
+                        .attr({ href: '/students/' + item.id + '/', role: 'option' })
+                        .text(item.text)
+                    );
+                  });
+                } else {
+                  $results.append('<div class="navbar-search-no-results">Aucun élève trouvé</div>');
+                }
+                $results.addClass('show').show();
+                $input.attr('aria-expanded', 'true');
+              },
+              error: function (jqXHR) {
+                if (jqXHR.statusText === 'abort') return;
+                $results.empty()
+                  .append('<div class="navbar-search-error">Erreur de recherche, réessayez</div>')
+                  .addClass('show').show();
+                $input.attr('aria-expanded', 'true');
+              }
+            });
+          }, 150);
+        });
+
+        $input.on('keydown', function (e) {
+          const $items = $results.find('a');
+          if (!$items.length) return;
+
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = (activeIndex + 1) % $items.length;
+            $items.removeClass('active').eq(activeIndex).addClass('active');
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = (activeIndex - 1 + $items.length) % $items.length;
+            $items.removeClass('active').eq(activeIndex).addClass('active');
+          } else if (e.key === 'Enter' && activeIndex > -1) {
+            e.preventDefault();
+            window.location.href = $items.eq(activeIndex).attr('href');
+          } else if (e.key === 'Escape') {
+            closeResults();
+          }
+        });
+
+        $input.on('focus', function () {
+          if ($(this).val().trim().length >= 1 && $results.children().length > 0) {
+            $results.addClass('show').show();
+            $input.attr('aria-expanded', 'true');
+          }
+        });
+
+        return closeResults;
+      }
+
+      const closeDesktopSearch = setupSearch($('#global-search'), $('#global-search-results'), 'navbar-search-item');
+      const closeMobileSearch = setupSearch($('#mobile-search'), $('#mobile-search-results'), 'mobile-search-item');
+
+      $(document).on('click', function (e) {
+        if (!$(e.target).closest('.navbar-search').length) {
+          closeDesktopSearch();
+        }
+        if (!$(e.target).closest('.mobile-search-wrap').length) {
+          closeMobileSearch();
+        }
+      });
+
+      // ── Live clock ──────────────────────────────────────────────────
+      function updateTime() {
+        $('#current-time').text(new Date().toLocaleTimeString('fr-FR'));
+      }
+      updateTime();
+      setInterval(updateTime, 1000);
+
+      // ── Auto-open WhatsApp dashboard on cockpit page ─────────────────
+      if ($('body').attr('data-page') === 'cockpit' || window.location.href.includes('/cockpit/')) {
+        const whatsappBtn = document.getElementById('whatsappBtn');
+        if (whatsappBtn) {
+          setTimeout(function () {
+            window.location.href = whatsappBtn.href;
+          }, 500);
+        }
+      }
+
+      // ── Nav dropdowns (Planning / Pédagogie / WhatsApp / Analytiques) ──
+      // Click-only dropdown functionality for all devices
+
+      function openDropdown($dropdown) {
+        const $menu = $dropdown.find('.nav-dropdown-menu');
+        const $trigger = $dropdown.find('> .nav-item-link');
+        $('.nav-dropdown-menu.open').not($menu).removeClass('open');
+        $('.nav-dropdown > .nav-item-link').attr('aria-expanded', 'false');
+        $('.nav-dropdown').removeAttr('data-open');
+        $menu.addClass('open');
+        $trigger.attr('aria-expanded', 'true');
+        $dropdown.attr('data-open', 'true');
+      }
+
+      function closeDropdown($dropdown) {
+        $dropdown.find('.nav-dropdown-menu').removeClass('open');
+        $dropdown.find('> .nav-item-link').attr('aria-expanded', 'false');
+        $dropdown.removeAttr('data-open');
+      }
+
+      function closeAllDropdowns() {
+        $('.nav-dropdown-menu.open').removeClass('open');
+        $('.nav-dropdown > .nav-item-link').attr('aria-expanded', 'false');
+        $('.nav-dropdown').removeAttr('data-open');
+      }
+
+      // Click to toggle dropdown (no hover)
+      $(document).on('click', '.nav-dropdown > .nav-item-link', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const $dropdown = $(this).closest('.nav-dropdown');
+        const isOpen = $dropdown.find('.nav-dropdown-menu').hasClass('open');
+        if (isOpen) {
+          closeDropdown($dropdown);
+        } else {
+          openDropdown($dropdown);
+        }
+      });
+
+      // ArrowDown on the trigger moves focus into the first menu item
+      $(document).on('keydown', '.nav-dropdown > .nav-item-link', function (e) {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          const $dropdown = $(this).closest('.nav-dropdown');
+          openDropdown($dropdown);
+          $dropdown.find('.nav-dropdown-item').first().trigger('focus');
+        }
+      });
+
+      // Arrow-key navigation between items inside an open menu
+      $(document).on('keydown', '.nav-dropdown-item', function (e) {
+        const $items = $(this).closest('.nav-dropdown-menu').find('.nav-dropdown-item');
+        const idx = $items.index(this);
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          $items.eq((idx + 1) % $items.length).trigger('focus');
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          $items.eq((idx - 1 + $items.length) % $items.length).trigger('focus');
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          const $dropdown = $(this).closest('.nav-dropdown');
+          closeDropdown($dropdown);
+          $dropdown.find('> .nav-item-link').trigger('focus');
+        }
+      });
+
+      // Keep clicks inside the dropdown from closing it immediately
+      $(document).on('click', '.nav-dropdown, .nav-dropdown-menu', function (e) {
+        e.stopPropagation();
+      });
+
+      // Close dropdown when clicking outside
+      $(document).on('click', function (e) {
+        if (!$(e.target).closest('.nav-dropdown').length) {
+          closeAllDropdowns();
+        }
+      });
+
+      // Close dropdown on Escape (from anywhere)
+      $(document).on('keydown', function (e) {
+        if (e.key === 'Escape') {
+          closeAllDropdowns();
+        }
+      });
+
+      // Close dropdown when a menu item is clicked (navigates away anyway)
+      $(document).on('click', '.nav-dropdown-menu a', function () {
+        closeAllDropdowns();
+      });
+
+      // ── Mobile menu toggle ──────────────────────────────────────────
+      $('#mobileMenuBtn').on('click', function () {
+        const $drawer = $('#mobileNavDrawer');
+        $drawer.toggleClass('open');
+        const isOpen = $drawer.hasClass('open');
+        $(this).attr('aria-expanded', isOpen ? 'true' : 'false');
+        $(this).find('i').removeClass('bi-list bi-x').addClass(isOpen ? 'bi-x' : 'bi-list');
+      });
+
+      // ── Mobile search icon toggle ────────────────────────────────────
+      $('#mobileSearchToggle').on('click', function () {
+        const $drawer = $('#mobileNavDrawer');
+        if (!$drawer.hasClass('open')) {
+          $drawer.addClass('open');
+          $('#mobileMenuBtn').attr('aria-expanded', 'true')
+            .find('i').removeClass('bi-list').addClass('bi-x');
+        }
+        setTimeout(function () {
+          const $ms = $('#mobile-search');
+          $ms.focus().select();
+          $ms[0].scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }, 50);
+      });
+
+      // Close drawer when a link inside it is clicked
+      $('#mobileNavDrawer a').on('click', function () {
+        $('#mobileNavDrawer').removeClass('open');
+        $('#mobileMenuBtn').attr('aria-expanded', 'false')
+          .find('i').removeClass('bi-x').addClass('bi-list');
+      });
+
+      // Close drawer on outside click
+      $(document).on('click', function (e) {
+        if (!$(e.target).closest('#mobileNavDrawer, #mobileMenuBtn, #mobileSearchToggle').length) {
+          $('#mobileNavDrawer').removeClass('open');
+          $('#mobileMenuBtn').attr('aria-expanded', 'false')
+            .find('i').removeClass('bi-x').addClass('bi-list');
+        }
+      });
+
+      // ── Back to Top Button ───────────────────────────────────────
+      const $backToTop = $('#backToTopBtn');
+      $(window).on('scroll', function () {
+        if ($(this).scrollTop() > 280) {
+          $backToTop.addClass('visible');
+        } else {
+          $backToTop.removeClass('visible');
+        }
+      });
+      $backToTop.on('click', function () {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+
+      // ── Global Keyboard Shortcuts Modal ──────────────────────────
+      $('#openShortcutsBtn').on('click', function () {
+        const modal = new bootstrap.Modal(document.getElementById('shortcutsHelpModal'));
+        modal.show();
+      });
+
+      // ── Command Palette (Ctrl+K) Data & Logic ────────────────────
+      const navItems = [
+        { title: 'Tableau de bord', subtitle: 'Cockpit & Métriques principales', icon: 'bi-speedometer2', url: '{% url "core:cockpit" %}', category: 'nav', shortcut: '' },
+        { title: 'Élèves', subtitle: 'Gestion et annuaire des élèves', icon: 'bi-people-fill', url: '{% url "core:students_list" %}', category: 'nav', shortcut: '' },
+        { title: 'Caisse & Paiements', subtitle: 'Enregistrer des règlements', icon: 'bi-cash-coin', url: '{% url "core:payment_create" %}', category: 'nav', shortcut: 'Alt+P' },
+        { title: 'Sessions du jour', subtitle: 'Appel et suivi des séances du jour', icon: 'bi-calendar2-event-fill', url: '{% url "core:sessions_today" %}', category: 'nav', shortcut: 'Alt+T' },
+        { title: 'Planification hebdomadaire', subtitle: 'Emploi du temps par salle / prof', icon: 'bi-calendar3', url: '{% url "core:sessions_schedule" %}', category: 'nav', shortcut: 'Alt+S' },
+        { title: 'Vue mensuelle', subtitle: 'Calendrier global des cours', icon: 'bi-calendar-month-fill', url: '{% url "core:sessions_monthly" %}', category: 'nav', shortcut: '' },
+        { title: 'Conflits d\'horaires', subtitle: 'Détection des chevauchements', icon: 'bi-exclamation-triangle-fill', url: '{% url "core:schedule_conflicts" %}', category: 'nav', shortcut: '' },
+        { title: 'Hub WhatsApp', subtitle: 'Centre d\'alertes et diffusion', icon: 'bi-whatsapp', url: '{% url "core:whatsapp_dashboard" %}', category: 'nav', shortcut: 'Alt+W' },
+        { title: 'Notifications Planning WhatsApp', subtitle: 'Alertes des modifications de cours', icon: 'bi-bell-fill', url: '{% url "core:whatsapp_schedule_notifications" %}', category: 'nav', shortcut: '' },
+        { title: 'Rappels de paiement WhatsApp', subtitle: 'Relances automatiques aux parents', icon: 'bi-credit-card-fill', url: '{% url "core:whatsapp_payment_reminders" %}', category: 'nav', shortcut: '' },
+        { title: 'Notifications d\'absence WhatsApp', subtitle: 'Avis immédiat aux familles', icon: 'bi-person-x-fill', url: '{% url "core:whatsapp_absence_notifications" %}', category: 'nav', shortcut: '' },
+        { title: 'Groupes de cours', subtitle: 'Matières, niveaux et effectifs', icon: 'bi-book-fill', url: '{% url "core:courses_list" %}', category: 'nav', shortcut: '' },
+        { title: 'Professeurs', subtitle: 'Corps enseignant et affectations', icon: 'bi-person-workspace', url: '{% url "core:teachers_list" %}', category: 'nav', shortcut: '' },
+        { title: 'Paie professeurs', subtitle: 'Décompte des heures et rémunérations', icon: 'bi-calculator-fill', url: '{% url "core:teacher_payroll" %}', category: 'nav', shortcut: '' },
+        { title: 'Cockpit Directeur Analytique', subtitle: 'Analyses stratégiques et statistiques', icon: 'bi-graph-up-arrow', url: '{% url "core:analytics_dashboard" %}', category: 'nav', shortcut: '' }
+      ];
+
+      const actionItems = [
+        { title: 'Nouveau paiement', subtitle: 'Enregistrer une cotisation / mensualité', icon: 'bi-cash-coin', url: '{% url "core:payment_create" %}', category: 'actions', shortcut: 'Alt+P' },
+        { title: 'Ajouter un nouvel élève', subtitle: 'Créer une fiche d\'inscription', icon: 'bi-person-plus-fill', url: '{% url "core:student_create" %}', category: 'actions', shortcut: 'Alt+N' },
+        { title: 'Créer un groupe de cours', subtitle: 'Nouvelle classe ou matière', icon: 'bi-folder-plus', url: '{% url "core:course_group_create" %}', category: 'actions', shortcut: '' },
+        { title: 'Créer une nouvelle séance', subtitle: 'Planifier une session ponctuelle', icon: 'bi-calendar-plus-fill', url: '{% url "core:session_create" %}', category: 'actions', shortcut: '' },
+        { title: 'Raccourcis clavier (?)', subtitle: 'Guide des touches d\'accès rapide', icon: 'bi-keyboard', action: 'showShortcuts', category: 'actions', shortcut: '?' }
+      ];
+
+      let cmdActiveTab = 'all';
+      let cmdSelectedIndex = 0;
+      let cmdStudentXhr = null;
+
+      function openCommandPalette(initialQuery = '') {
+        $('#cmdPaletteBackdrop').addClass('open');
+        $('#cmdPaletteInput').val(initialQuery).focus().select();
+        renderCommandResults();
+      }
+
+      function closeCommandPalette() {
+        $('#cmdPaletteBackdrop').removeClass('open');
+        if (cmdStudentXhr) {
+          cmdStudentXhr.abort();
+          cmdStudentXhr = null;
+        }
+      }
+
+      function renderCommandResults() {
+        const query = $('#cmdPaletteInput').val().trim().toLowerCase();
+        const $container = $('#cmdPaletteResults');
+        $container.empty();
+        cmdSelectedIndex = 0;
+
+        let matchingNav = [];
+        let matchingActions = [];
+
+        if (cmdActiveTab === 'all' || cmdActiveTab === 'nav') {
+          matchingNav = navItems.filter(item => !query || item.title.toLowerCase().includes(query) || item.subtitle.toLowerCase().includes(query));
+        }
+        if (cmdActiveTab === 'all' || cmdActiveTab === 'actions') {
+          matchingActions = actionItems.filter(item => !query || item.title.toLowerCase().includes(query) || item.subtitle.toLowerCase().includes(query));
+        }
+
+        // Render Actions
+        if (matchingActions.length > 0) {
+          $container.append('<div class="cmd-group-label"><i class="bi bi-lightning-charge me-1"></i>Actions Rapides</div>');
+          matchingActions.forEach((item, idx) => {
+            const $el = $(`
+              <div class="cmd-item" data-url="${item.url || ''}" data-action="${item.action || ''}">
+                <div class="cmd-item-left">
+                  <div class="cmd-item-icon" style="background:rgba(16,185,129,0.1);color:#10b981;"><i class="bi ${item.icon}"></i></div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">${item.title}</span>
+                    <span class="cmd-item-subtitle">${item.subtitle}</span>
+                  </div>
+                </div>
+                <div class="cmd-item-right">
+                  ${item.shortcut ? `<span class="cmd-shortcut-badge">${item.shortcut}</span>` : ''}
+                  <i class="bi bi-chevron-right text-muted small"></i>
+                </div>
+              </div>
+            `);
+            $container.append($el);
+          });
+        }
+
+        // Render Nav Items
+        if (matchingNav.length > 0) {
+          $container.append('<div class="cmd-group-label"><i class="bi bi-compass me-1"></i>Navigation</div>');
+          matchingNav.slice(0, query ? 8 : 6).forEach((item) => {
+            const $el = $(`
+              <div class="cmd-item" data-url="${item.url}">
+                <div class="cmd-item-left">
+                  <div class="cmd-item-icon"><i class="bi ${item.icon}"></i></div>
+                  <div class="cmd-item-text">
+                    <span class="cmd-item-title">${item.title}</span>
+                    <span class="cmd-item-subtitle">${item.subtitle}</span>
+                  </div>
+                </div>
+                <div class="cmd-item-right">
+                  ${item.shortcut ? `<span class="cmd-shortcut-badge">${item.shortcut}</span>` : ''}
+                  <i class="bi bi-arrow-return-left text-muted small"></i>
+                </div>
+              </div>
+            `);
+            $container.append($el);
+          });
+        }
+
+        // If searching students and tab allows it
+        if ((cmdActiveTab === 'all' || cmdActiveTab === 'students') && query.length >= 1) {
+          if (cmdStudentXhr) cmdStudentXhr.abort();
+          $container.append('<div id="cmdStudentGroupLabel" class="cmd-group-label"><i class="bi bi-people me-1"></i>Élèves</div>');
+          $container.append('<div id="cmdStudentLoading" class="p-3 text-center text-muted small"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Recherche des élèves...</div>');
+
+          cmdStudentXhr = $.ajax({
+            url: '{% url "core:student_search" %}',
+            data: { q: query },
+            dataType: 'json',
+            success: function (data) {
+              $('#cmdStudentLoading').remove();
+              if (data.results && data.results.length > 0) {
+                data.results.forEach(student => {
+                  const $el = $(`
+                    <div class="cmd-item" data-url="/students/${student.id}/">
+                      <div class="cmd-item-left">
+                        <div class="cmd-item-icon" style="background:rgba(99,102,241,0.1);color:#6366f1;">
+                          <i class="bi bi-person-fill"></i>
+                        </div>
+                        <div class="cmd-item-text">
+                          <span class="cmd-item-title">${student.text}</span>
+                          <span class="cmd-item-subtitle">Fiche élève · Inscriptions & Paiements</span>
+                        </div>
+                      </div>
+                      <div class="cmd-item-right">
+                        <a href="{% url 'core:payment_create' %}?student=${student.id}" class="btn btn-xs btn-success py-1 px-2 text-white rounded-pill small" style="font-size:11px;" title="Nouveau paiement direct" onclick="event.stopPropagation();">
+                          <i class="bi bi-cash-coin me-1"></i>Payer
+                        </a>
+                        <i class="bi bi-chevron-right text-muted small ms-1"></i>
+                      </div>
+                    </div>
+                  `);
+                  $container.append($el);
+                });
+              } else {
+                $container.append('<div class="p-3 text-center text-muted small">Aucun élève trouvé pour cette recherche.</div>');
+              }
+              highlightSelectedItem();
+            }
+          });
+        }
+
+        highlightSelectedItem();
+      }
+
+      function highlightSelectedItem() {
+        const $items = $('#cmdPaletteResults .cmd-item');
+        $items.removeClass('selected');
+        if ($items.length > 0) {
+          if (cmdSelectedIndex >= $items.length) cmdSelectedIndex = $items.length - 1;
+          if (cmdSelectedIndex < 0) cmdSelectedIndex = 0;
+          $items.eq(cmdSelectedIndex).addClass('selected');
+        }
+      }
+
+      // Input events on Command Palette
+      $('#cmdPaletteInput').on('input', function () {
+        renderCommandResults();
+      });
+
+      // Tabs click
+      $('.cmd-tab-btn').on('click', function () {
+        $('.cmd-tab-btn').removeClass('active');
+        $(this).addClass('active');
+        cmdActiveTab = $(this).data('tab');
+        renderCommandResults();
+      });
+
+      // Keyboard navigation in Command Palette
+      $('#cmdPaletteInput').on('keydown', function (e) {
+        const $items = $('#cmdPaletteResults .cmd-item');
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          if ($items.length > 0) {
+            cmdSelectedIndex = (cmdSelectedIndex + 1) % $items.length;
+            highlightSelectedItem();
+            $items.eq(cmdSelectedIndex)[0].scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          if ($items.length > 0) {
+            cmdSelectedIndex = (cmdSelectedIndex - 1 + $items.length) % $items.length;
+            highlightSelectedItem();
+            $items.eq(cmdSelectedIndex)[0].scrollIntoView({ block: 'nearest' });
+          }
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          if ($items.length > 0 && cmdSelectedIndex >= 0) {
+            const $selected = $items.eq(cmdSelectedIndex);
+            const action = $selected.data('action');
+            const url = $selected.data('url');
+            if (action === 'showShortcuts') {
+              closeCommandPalette();
+              const modal = new bootstrap.Modal(document.getElementById('shortcutsHelpModal'));
+              modal.show();
+            } else if (url) {
+              window.location.href = url;
+            }
+          }
+        } else if (e.key === 'Escape') {
+          closeCommandPalette();
+        }
+      });
+
+      // Click on results
+      $(document).on('click', '#cmdPaletteResults .cmd-item', function () {
+        const action = $(this).data('action');
+        const url = $(this).data('url');
+        if (action === 'showShortcuts') {
+          closeCommandPalette();
+          const modal = new bootstrap.Modal(document.getElementById('shortcutsHelpModal'));
+          modal.show();
+        } else if (url) {
+          window.location.href = url;
+        }
+      });
+
+      $('#cmdPaletteCloseBtn').on('click', closeCommandPalette);
+      $('#cmdPaletteBackdrop').on('click', function (e) {
+        if ($(e.target).is('#cmdPaletteBackdrop')) closeCommandPalette();
+      });
+
+      // Intercept Global search click to open Palette
+      $('#global-search').on('focus click', function (e) {
+        e.preventDefault();
+        openCommandPalette($(this).val());
+      });
+      $('#mobileSearchToggle').on('click', function (e) {
+        e.preventDefault();
+        openCommandPalette();
+      });
+
+      // ── Global Hotkeys ────────────────────────────────────────────
+      $(document).on('keydown', function (e) {
+        const isInput = $(e.target).is('input, textarea, select, [contenteditable="true"]');
+
+        // Ctrl+K / Cmd+K
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+          e.preventDefault();
+          if ($('#cmdPaletteBackdrop').hasClass('open')) {
+            closeCommandPalette();
+          } else {
+            openCommandPalette();
+          }
+          return;
+        }
+
+        // Global hotkeys with Alt
+        if (e.altKey && !e.ctrlKey && !e.metaKey) {
+          const key = e.key.toLowerCase();
+          if (key === 'p') {
+            e.preventDefault();
+            window.location.href = '{% url "core:payment_create" %}';
+          } else if (key === 'n') {
+            e.preventDefault();
+            window.location.href = '{% url "core:student_create" %}';
+          } else if (key === 't') {
+            e.preventDefault();
+            window.location.href = '{% url "core:sessions_today" %}';
+          } else if (key === 's') {
+            e.preventDefault();
+            window.location.href = '{% url "core:sessions_schedule" %}';
+          } else if (key === 'w') {
+            e.preventDefault();
+            window.location.href = '{% url "core:whatsapp_dashboard" %}';
+          }
+        }
+
+        // '?' hotkey for shortcuts modal (when not typing in an input)
+        if (e.key === '?' && !isInput && !e.ctrlKey && !e.metaKey && !e.altKey) {
+          e.preventDefault();
+          const modal = new bootstrap.Modal(document.getElementById('shortcutsHelpModal'));
+          modal.show();
+        }
+
+        // Escape
+        if (e.key === 'Escape') {
+          if ($('#cmdPaletteBackdrop').hasClass('open')) {
+            closeCommandPalette();
+          }
+        }
+      });
+
+      // ── Page progress bar ────────────────────────────────────────
+      const $bar = $('#page-progress');
+      $(document).on('click', 'a[href]:not([target="_blank"]):not([href^="#"]):not([href^="javascript"])', function () {
+        $bar.addClass('loading').css('width', '30%');
+        setTimeout(() => $bar.css('width', '75%'), 180);
+        setTimeout(() => $bar.css('width', '92%'), 500);
+      });
+      // Mark complete on load
+      $bar.addClass('loading').css('width', '100%');
+      setTimeout(() => $bar.css('opacity', '0'), 300);
+      setTimeout(() => { $bar.css('width', '0').removeClass('loading'); $bar.css('opacity', ''); }, 700);
+
+    });
+
+    // ── Global toast utility (window.erpToast) ──────────────────────
+    window.erpToast = function (msg, type = 'info', duration = 3200) {
+      const icons = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', info: 'bi-info-circle-fill', warning: 'bi-exclamation-triangle-fill' };
+      const el = document.createElement('div');
+      el.className = 'erp-toast ' + type;
+      el.setAttribute('role', 'status');
+      el.innerHTML = `<i class="bi ${icons[type] || icons.info}" aria-hidden="true"></i> <span>${msg}</span>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => {
+        el.style.animation = 'toast-out 0.25s ease forwards';
+        setTimeout(() => el.remove(), 260);
+      }, duration);
+    };
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+
+</html>

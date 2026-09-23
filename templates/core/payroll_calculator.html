@@ -1,0 +1,1290 @@
+{% extends 'core/base.html' %}
+{% block title %}Simulateur & Calculateur de Paie — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teacher_payroll' %}" class="text-decoration-none text-muted">Paie des professeurs</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-calculator"></i> Calculateur & Simulateur</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .calc-hero {
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-radius: var(--radius-lg, 12px);
+    padding: 24px;
+    color: #fff;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.2);
+  }
+  .calc-tab-btn {
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+  }
+  .calc-tab-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+  }
+  .calc-tab-btn.active {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #60a5fa;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.35);
+  }
+  .kpi-card {
+    background: #fff;
+    border: 1px solid var(--border, #e2e8f0);
+    border-radius: 12px;
+    padding: 18px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.07);
+  }
+  .kpi-label {
+    font-size: 12.5px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary, #64748b);
+    margin-bottom: 6px;
+  }
+  .kpi-val {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1.1;
+    color: var(--text-primary, #0f172a);
+  }
+  .kpi-val-highlight {
+    color: #059669;
+  }
+  .calc-table thead th {
+    background: #f8fafc;
+    color: #475569;
+    font-size: 12.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 12px 14px;
+    border-bottom: 2px solid #e2e8f0;
+  }
+  .calc-table tbody td {
+    padding: 10px 14px;
+    vertical-align: middle;
+  }
+  .calc-input {
+    border: 1.5px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #0f172a;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    background-color: #fff;
+    width: 100%;
+  }
+  .calc-input:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+    outline: none;
+  }
+  .progress-sm {
+    height: 6px;
+    border-radius: 4px;
+    background: #e2e8f0;
+    overflow: hidden;
+  }
+  .badge-level {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    background: #e0e7ff;
+    color: #3730a3;
+    font-weight: 600;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="payroll-calculator-container pb-5">
+
+  <!-- ── HERO SECTION ────────────────────────────────────────────────── -->
+  <div class="calc-hero">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <span class="badge bg-primary px-3 py-1 fs-7">Outil Interactif</span>
+          <span class="text-white-50 small"><i class="bi bi-shield-check"></i> Calcul en temps réel (sans écriture automatique en base)</span>
+        </div>
+        <h1 class="h2 text-white fw-bold mb-1">
+          <i class="bi bi-calculator me-2 text-info"></i>Simulateur & Calculateur de Paie
+        </h1>
+        <p class="text-slate-300 text-light mb-0 small" style="max-width: 680px; color:#cbd5e1;">
+          Simulez et calculez la rémunération d'un professeur ou d'un intervenant en direct. Modifiez les élèves, présences, recettes et pourcentages sans affecter vos données jusqu'à confirmation explicite.
+        </p>
+      </div>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'core:teacher_payroll' %}" class="btn btn-outline-light btn-sm d-flex align-items-center gap-1">
+          <i class="bi bi-arrow-left"></i> Retour à la paie standard
+        </a>
+        <button type="button" class="btn btn-success fw-bold d-flex align-items-center gap-2 shadow-sm" onclick="openSaveModal()">
+          <i class="bi bi-check2-circle fs-5"></i> Enregistrer ce paiement
+        </button>
+      </div>
+    </div>
+
+    <!-- Mode Selector Tabs inside hero -->
+    <div class="d-flex flex-wrap gap-2 mt-4 pt-3 border-top border-secondary">
+      <button type="button" class="calc-tab-btn active" id="tabPercentage" onclick="switchMode('PERCENTAGE')">
+        <i class="bi bi-pie-chart-fill"></i> Part des gains (%)
+        <span class="badge bg-white text-dark ms-1" style="font-size:10px;">Le plus fréquent</span>
+      </button>
+      <button type="button" class="calc-tab-btn" id="tabHourly" onclick="switchMode('HOURLY')">
+        <i class="bi bi-clock-history"></i> Taux horaire (Par heure)
+      </button>
+      <button type="button" class="calc-tab-btn" id="tabFixed" onclick="switchMode('FIXED')">
+        <i class="bi bi-cash-stack"></i> Salaire fixe convenu
+      </button>
+    </div>
+  </div>
+
+  <!-- ── CONTROLS & SELECTION BAR ────────────────────────────────────── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-3 p-md-4">
+      <div class="row g-3 align-items-end">
+        <!-- Teacher Select -->
+        <div class="col-12 col-md-4">
+          <label for="calcTeacherSelect" class="form-label fw-bold small text-dark mb-1">
+            <i class="bi bi-person-workspace text-primary me-1"></i> Professeur / Enseignant
+          </label>
+          <select id="calcTeacherSelect" class="form-select" onchange="onTeacherChange()">
+            <option value="">-- Mode Libre (Personnalisé) --</option>
+            {% for t in teachers %}
+              <option value="{{ t.id }}"
+                      data-method="{{ t.payment_method }}"
+                      data-pct="{{ t.payment_percentage|default:'50.00' }}"
+                      data-rate="{{ t.hourly_rate|default:'100.00' }}">
+                {{ t.name }}
+                ({% if t.payment_method == 'PERCENTAGE' %}{{ t.payment_percentage|floatformat:0 }}% part{% elif t.payment_method == 'SESSION' %}{{ t.session_rate|floatformat:0 }} DH/séance{% else %}{{ t.hourly_rate|floatformat:0 }} DH/h{% endif %})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Month Select -->
+        <div class="col-12 col-md-3">
+          <label for="calcMonthSelect" class="form-label fw-bold small text-dark mb-1">
+            <i class="bi bi-calendar-event text-primary me-1"></i> Période / Mois
+          </label>
+          <select id="calcMonthSelect" class="form-select" onchange="reloadGroupData()">
+            {% for m in months_list %}
+              <option value="{{ m.value }}" data-month="{{ m.month }}" data-year="{{ m.year }}" {% if m.value == current_month_str %}selected{% endif %}>
+                {{ m.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Groups Multi-Filter Dropdown / Search -->
+        <div class="col-12 col-md-5">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <label class="form-label fw-bold small text-dark mb-0">
+              <i class="bi bi-collection text-primary me-1"></i> Groupes à inclure
+            </label>
+            <div class="small">
+              <a href="javascript:void(0)" onclick="selectAllGroups(true)" class="text-decoration-none me-2">Tous</a>
+              <a href="javascript:void(0)" onclick="selectAllGroups(false)" class="text-decoration-none text-muted">Aucun</a>
+            </div>
+          </div>
+          <div class="dropdown">
+            <button class="btn btn-outline-secondary w-100 text-start d-flex justify-content-between align-items-center" type="button" id="groupsDropdownBtn" data-bs-toggle="dropdown" data-bs-auto-close="outside">
+              <span id="groupsDropdownLabel">Sélectionner les groupes...</span>
+              <i class="bi bi-chevron-down"></i>
+            </button>
+            <div class="dropdown-menu p-2 shadow" style="max-height: 280px; overflow-y: auto; width: 100%;">
+              <input type="text" class="form-control form-control-sm mb-2" id="groupFilterSearch" placeholder="Filtrer les groupes..." onkeyup="filterGroupDropdown(this.value)">
+              <div id="groupCheckboxesList">
+                {% for g in course_groups %}
+                  <div class="form-check py-1 group-checkbox-item" data-teacher-id="{{ g.teacher_id|default:'' }}" data-group-name="{{ g.name|lower }}">
+                    <input class="form-check-input group-select-chk" type="checkbox" value="{{ g.id }}" id="chkGroup{{ g.id }}" onchange="onGroupCheckChange()">
+                    <label class="form-check-label small d-flex justify-content-between w-100" for="chkGroup{{ g.id }}">
+                      <span><strong>{{ g.name }}</strong> ({{ g.subject }})</span>
+                      <span class="badge bg-light text-dark ms-1">{{ g.levels_display|truncatechars:20 }}</span>
+                    </label>
+                    <div class="d-none group-embedded-students" data-group-id="{{ g.id }}">
+                      {% for st in g.students.all %}
+                        {% if st.is_active %}
+                          <span class="embedded-student-item" data-id="{{ st.id }}" data-name="{{ st.name }}" data-matricule="{{ st.matricule|default:'' }}" data-fee="{{ g.monthly_price|default:0 }}"></span>
+                        {% endif %}
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── KPI METRICS CARDS (LIVE TOTALS) ─────────────────────────────── -->
+  <div class="row g-3 mb-4">
+    <!-- Total Students -->
+    <div class="col-6 col-lg-3">
+      <div class="kpi-card h-100">
+        <div class="kpi-label"><i class="bi bi-people me-1"></i> Nombre d'élèves</div>
+        <div class="kpi-val" id="kpiTotalStudents">0</div>
+        <div class="small text-muted mt-2 d-flex justify-content-between">
+          <span class="text-success"><strong id="kpiPaidStudents">0</strong> payés</span>
+          <span class="text-danger"><strong id="kpiUnpaidStudents">0</strong> impayés</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recovery Rate (%) -->
+    <div class="col-6 col-lg-3">
+      <div class="kpi-card h-100">
+        <div class="kpi-label"><i class="bi bi-pie-chart me-1"></i> Taux de Recouvrement</div>
+        <div class="kpi-val text-primary" id="kpiPaidPct">0%</div>
+        <div class="progress progress-sm mt-2">
+          <div class="progress-bar bg-success" id="kpiProgressBar" style="width: 0%"></div>
+        </div>
+        <div class="small text-muted mt-1 d-flex justify-content-between">
+          <span class="text-success" id="kpiPaidPctDetail">0% payé</span>
+          <span class="text-danger" id="kpiUnpaidPctDetail">0% impayé</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Revenue Collected -->
+    <div class="col-6 col-lg-3">
+      <div class="kpi-card h-100">
+        <div class="kpi-label"><i class="bi bi-cash-coin me-1"></i> Recettes Réelles</div>
+        <div class="kpi-val" id="kpiCollectedRev">0 <small style="font-size:14px;">DH</small></div>
+        <div class="small text-muted mt-2">
+          Potentiel théorique : <span id="kpiPotentialRev" class="fw-bold">0 DH</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Final Amount Owed to Teacher -->
+    <div class="col-6 col-lg-3">
+      <div class="kpi-card h-100 border-success" style="border-width: 2px;">
+        <div class="kpi-label text-success"><i class="bi bi-wallet2 me-1"></i> Montant Net Dû au Prof</div>
+        <div class="kpi-val kpi-val-highlight" id="kpiNetOwed">0 <small style="font-size:16px;">DH</small></div>
+        <div class="small text-muted mt-2" id="kpiTeacherParamDesc">
+          Part calculée en direct
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 1. PERCENTAGE MODE TABLE ────────────────────────────────────── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4" id="modePercentageCard">
+    <div class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-table text-primary fs-5"></i>
+        <h5 class="mb-0 fw-bold">Détail des Groupes & Part des Gains</h5>
+        <span class="badge bg-primary-subtle text-primary border border-primary-subtle" id="tableRowCountBadge">0 groupe(s)</span>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <!-- Quick simulation & client-side override buttons -->
+        <button type="button" class="btn btn-outline-warning btn-sm" onclick="resetToDbData()" title="Réinitialiser toutes les modifications manuelles et restaurer les chiffres exacts de la base">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Données BDD initiales
+        </button>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="simulateFullPayment()" title="Simuler comme si tous les élèves avaient payé">
+          <i class="bi bi-magic me-1"></i> Simuler 100% payé
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addCustomRow()">
+          <i class="bi bi-plus-lg me-1"></i> Ajouter une ligne libre
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Percentage Quick-Override Bar -->
+    <div class="p-3 bg-light border-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <label for="globalTeacherPct" class="fw-bold small text-dark mb-0">
+          <i class="bi bi-percent text-primary me-1"></i>Part Professeur Globale :
+        </label>
+        <div class="input-group input-group-sm" style="width: 135px;">
+          <input type="number" id="globalTeacherPct" class="form-control text-center fw-bold" value="50" step="0.5" min="0" max="100">
+          <span class="input-group-text fw-bold">%</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary fw-semibold" onclick="applyGlobalPercentage()">
+          <i class="bi bi-check2-all me-1"></i>Appliquer à tous
+        </button>
+        <div class="btn-group btn-group-sm ms-md-2" role="group">
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetPct(30)">30%</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetPct(40)">40%</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetPct(50)">50%</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetPct(60)">60%</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetPct(70)">70%</button>
+        </div>
+      </div>
+      <div class="text-muted small">
+        <i class="bi bi-pencil-square text-info me-1"></i>Toutes les valeurs (pourcentages, effectifs, prix, recettes) sont 100% modifiables en direct.
+      </div>
+    </div>
+
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 calc-table">
+        <thead>
+          <tr>
+            <th style="min-width: 190px;">Groupe / Matière</th>
+            <th style="min-width: 90px;">Niveau(x)</th>
+            <th style="width: 95px;" class="text-center">Élèves</th>
+            <th style="width: 95px;" class="text-center">Payés</th>
+            <th style="width: 95px;" class="text-center">Impayés</th>
+            <th style="min-width: 130px;">Statut Recouvrement</th>
+            <th style="width: 105px;" class="text-end">Tarif/m</th>
+            <th style="width: 125px;" class="text-end">Recettes (DH)</th>
+            <th style="width: 100px;" class="text-center">Part Prof (%)</th>
+            <th style="width: 125px;" class="text-end">Montant Dû</th>
+            <th style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody id="percentageTableBody">
+          <!-- Rows dynamically populated by JS -->
+        </tbody>
+        <tfoot class="table-light fw-bold">
+          <tr>
+            <td colspan="2">TOTAL GÉNÉRAL</td>
+            <td class="text-center" id="footTotalStudents">0</td>
+            <td class="text-center text-success" id="footPaidStudents">0</td>
+            <td class="text-center text-danger" id="footUnpaidStudents">0</td>
+            <td id="footRecoveryPct">0%</td>
+            <td>—</td>
+            <td class="text-end" id="footCollectedRevenue">0 DH</td>
+            <td>—</td>
+            <td class="text-end text-success fs-6" id="footTotalOwed">0 DH</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 2. HOURLY RATE MODE ─────────────────────────────────────────── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4" id="modeHourlyCard" style="display: none;">
+    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+      <h5 class="mb-0 fw-bold"><i class="bi bi-clock-history text-primary me-2"></i>Calcul au Taux Horaire</h5>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-warning btn-sm" onclick="resetToDbData()" title="Réinitialiser">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Données BDD initiales
+        </button>
+        <button type="button" class="btn btn-outline-primary btn-sm" onclick="addCustomHourlyRow()">
+          <i class="bi bi-plus-lg me-1"></i> Ajouter une ligne d'heures
+        </button>
+      </div>
+    </div>
+
+    <!-- Global Hourly Rate Quick-Override Bar -->
+    <div class="p-3 bg-light border-bottom d-flex flex-wrap align-items-center justify-content-between gap-3">
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <label for="globalHourlyRate" class="fw-bold small text-dark mb-0">
+          <i class="bi bi-clock-history text-primary me-1"></i>Taux Horaire Global :
+        </label>
+        <div class="input-group input-group-sm" style="width: 140px;">
+          <input type="number" id="globalHourlyRate" class="form-control text-end fw-bold" value="100" step="5" min="0">
+          <span class="input-group-text fw-bold">DH/h</span>
+        </div>
+        <button type="button" class="btn btn-sm btn-primary fw-semibold" onclick="applyGlobalHourlyRate()">
+          <i class="bi bi-check2-all me-1"></i>Appliquer à tous
+        </button>
+        <div class="btn-group btn-group-sm ms-md-2" role="group">
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetHourly(80)">80 DH</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetHourly(100)">100 DH</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetHourly(120)">120 DH</button>
+          <button type="button" class="btn btn-outline-secondary" onclick="quickSetHourly(150)">150 DH</button>
+        </div>
+      </div>
+      <div class="text-muted small">
+        <i class="bi bi-pencil-square text-info me-1"></i>Heures prévues, heures réelles et taux modifiables en direct ci-dessous.
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0 calc-table">
+        <thead>
+          <tr>
+            <th style="min-width: 200px;">Groupe / Description</th>
+            <th style="width: 130px;" class="text-center">Heures Prévues</th>
+            <th style="width: 140px;" class="text-center">Heures Effectuées</th>
+            <th style="width: 140px;" class="text-end">Taux Horaire (DH)</th>
+            <th style="width: 160px;" class="text-end">Montant Dû (DH)</th>
+            <th style="width: 50px;"></th>
+          </tr>
+        </thead>
+        <tbody id="hourlyTableBody">
+          <!-- Populated by JS -->
+        </tbody>
+        <tfoot class="table-light fw-bold">
+          <tr>
+            <td>TOTAL HEURES & RÉMUNÉRATION</td>
+            <td class="text-center" id="footHourlyScheduled">0 h</td>
+            <td class="text-center text-primary" id="footHourlyTaught">0 h</td>
+            <td>—</td>
+            <td class="text-end text-success fs-6" id="footHourlyTotalOwed">0 DH</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+
+  <!-- ── 3. FIXED SALARY MODE ────────────────────────────────────────── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4" id="modeFixedCard" style="display: none;">
+    <div class="card-header bg-white py-3">
+      <h5 class="mb-0 fw-bold"><i class="bi bi-cash-stack text-primary me-2"></i>Rémunération par Salaire Fixe & Primes</h5>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-4">
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold small text-dark">Salaire de Base Convenu (DH)</label>
+          <input type="number" step="0.01" class="calc-input fs-5" id="fixedBaseSalary" value="4000.00" oninput="recalculateFixed()">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold small text-dark text-success">+ Primes / Bonus (DH)</label>
+          <input type="number" step="0.01" class="calc-input fs-5 text-success" id="fixedBonus" value="0.00" oninput="recalculateFixed()">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold small text-dark text-danger">- Déductions / Retenues / Avances (DH)</label>
+          <input type="number" step="0.01" class="calc-input fs-5 text-danger" id="fixedDeduction" value="0.00" oninput="recalculateFixed()">
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-bold small text-dark text-primary">= Net à Payer (DH)</label>
+          <div class="p-2 border rounded bg-light fw-bold fs-4 text-success text-end" id="fixedNetSalary">
+            4 000.00 DH
+          </div>
+        </div>
+      </div>
+      <div class="mt-3">
+        <label class="form-label small text-muted">Notes / Justification du salaire fixe</label>
+        <textarea id="fixedNotes" class="form-control" rows="2" placeholder="Détails du contrat, prime d'assiduité, etc."></textarea>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── SAVE CONFIRMATION MODAL ─────────────────────────────────────── -->
+<div class="modal fade" id="savePaymentModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold"><i class="bi bi-check-circle-fill text-success me-2"></i>Enregistrer le Paiement</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'core:payroll_calculator' %}">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="save_payment">
+        <input type="hidden" name="teacher_id" id="modalTeacherId">
+        <input type="hidden" name="period_month" id="modalPeriodMonth">
+        <input type="hidden" name="period_year" id="modalPeriodYear">
+
+        <div class="modal-body">
+          <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i> Ce versement sera officiellement consigné dans l'historique des règlements de salaire (<code>TeacherPayment</code>).
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Professeur / Bénéficiaire</label>
+            <input type="text" id="modalTeacherName" class="form-control" readonly>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-bold">Période concernée</label>
+              <input type="text" id="modalPeriodLabel" class="form-control" readonly>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold">Date de paiement</label>
+              <input type="date" name="payment_date" id="modalPaymentDate" class="form-control" value="{{ today|date:'Y-m-d' }}" required>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold text-success fs-6">Montant Final à Verser (DH)</label>
+            <input type="number" step="0.01" name="amount" id="modalAmount" class="form-control form-control-lg fw-bold text-success" required>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-bold">Moyen de paiement</label>
+              <select name="payment_method" class="form-select">
+                <option value="CASH" selected>Espèces</option>
+                <option value="TRANSFER">Virement bancaire</option>
+                <option value="CHECK">Chèque</option>
+              </select>
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-bold">Type de paiement</label>
+              <select name="payment_type" class="form-select">
+                <option value="SALARY" selected>Règlement de salaire</option>
+                <option value="ADVANCE">Avance / Acompte</option>
+                <option value="ADJUSTMENT">Régularisation</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-bold">Notes & Détails du calcul</label>
+            <textarea name="notes" id="modalNotes" class="form-control" rows="3"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-success fw-bold px-4">
+            <i class="bi bi-save me-1"></i> Valider et enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// State management
+let currentMode = 'PERCENTAGE'; // 'PERCENTAGE', 'HOURLY', 'FIXED'
+let groupsData = [];
+let dbGroupsData = []; // Cached initial DB data for 1-click restore
+let customRowCounter = 1;
+
+function switchMode(mode) {
+  currentMode = mode;
+  document.getElementById('tabPercentage').classList.toggle('active', mode === 'PERCENTAGE');
+  document.getElementById('tabHourly').classList.toggle('active', mode === 'HOURLY');
+  document.getElementById('tabFixed').classList.toggle('active', mode === 'FIXED');
+
+  document.getElementById('modePercentageCard').style.display = (mode === 'PERCENTAGE') ? '' : 'none';
+  document.getElementById('modeHourlyCard').style.display = (mode === 'HOURLY') ? '' : 'none';
+  document.getElementById('modeFixedCard').style.display = (mode === 'FIXED') ? '' : 'none';
+
+  recalculateAll();
+}
+
+function onTeacherChange() {
+  const teacherSelect = document.getElementById('calcTeacherSelect');
+  const opt = teacherSelect.options[teacherSelect.selectedIndex];
+  const teacherId = teacherSelect.value;
+
+  if (opt && teacherId) {
+    const method = opt.dataset.method;
+    if (method === 'HOURLY') {
+      switchMode('HOURLY');
+    } else {
+      switchMode('PERCENTAGE');
+    }
+  }
+
+  // Pre-filter group checkboxes for this teacher
+  const chks = document.querySelectorAll('.group-select-chk');
+  chks.forEach(chk => {
+    const item = chk.closest('.group-checkbox-item');
+    if (!teacherId) {
+      chk.checked = false;
+      item.style.display = '';
+    } else {
+      const match = item.dataset.teacherId === teacherId;
+      chk.checked = match;
+      item.style.display = '';
+    }
+  });
+
+  updateGroupsDropdownLabel();
+  reloadGroupData();
+}
+
+function filterGroupDropdown(q) {
+  q = q.toLowerCase().trim();
+  document.querySelectorAll('.group-checkbox-item').forEach(item => {
+    const name = item.dataset.groupName || '';
+    item.style.display = (!q || name.includes(q)) ? '' : 'none';
+  });
+}
+
+function selectAllGroups(select) {
+  document.querySelectorAll('.group-select-chk').forEach(chk => {
+    const item = chk.closest('.group-checkbox-item');
+    if (item.style.display !== 'none') {
+      chk.checked = select;
+    }
+  });
+  updateGroupsDropdownLabel();
+  reloadGroupData();
+}
+
+function onGroupCheckChange() {
+  updateGroupsDropdownLabel();
+  reloadGroupData();
+}
+
+function updateGroupsDropdownLabel() {
+  const checked = document.querySelectorAll('.group-select-chk:checked');
+  const label = document.getElementById('groupsDropdownLabel');
+  if (checked.length === 0) {
+    label.textContent = "Aucun groupe sélectionné";
+  } else if (checked.length === 1) {
+    label.textContent = "1 groupe sélectionné";
+  } else {
+    label.textContent = `${checked.length} groupes sélectionnés`;
+  }
+}
+
+async function reloadGroupData() {
+  const teacherId = document.getElementById('calcTeacherSelect').value;
+  const monthVal = document.getElementById('calcMonthSelect').value;
+  const selectedGroupIds = Array.from(document.querySelectorAll('.group-select-chk:checked')).map(c => c.value);
+
+  const params = new URLSearchParams();
+  if (teacherId) params.append('teacher_id', teacherId);
+  if (monthVal) params.append('month', monthVal);
+  selectedGroupIds.forEach(id => params.append('group_ids[]', id));
+
+  try {
+    const res = await fetch(`{% url 'core:payroll_calculator_data_ajax' %}?${params.toString()}`);
+    const data = await res.json();
+    groupsData = data.groups || [];
+    dbGroupsData = JSON.parse(JSON.stringify(groupsData));
+
+    if (data.teacher && data.teacher.payment_percentage != null) {
+      const gPct = document.getElementById('globalTeacherPct');
+      if (gPct) gPct.value = data.teacher.payment_percentage;
+    }
+    if (data.teacher && data.teacher.hourly_rate != null) {
+      const gRate = document.getElementById('globalHourlyRate');
+      if (gRate) gRate.value = data.teacher.hourly_rate;
+    }
+
+    renderTables();
+    recalculateAll();
+  } catch (e) {
+    console.error("Error loading group data:", e);
+  }
+}
+
+function resetToDbData() {
+  if (dbGroupsData && dbGroupsData.length > 0) {
+    groupsData = JSON.parse(JSON.stringify(dbGroupsData));
+    renderTables();
+    recalculateAll();
+  } else {
+    reloadGroupData();
+  }
+}
+
+function applyGlobalPercentage() {
+  const pct = parseFloat(document.getElementById('globalTeacherPct').value) || 0;
+  groupsData.forEach((g, idx) => {
+    g.teacher_percentage = pct;
+    const row = document.getElementById(`pctRow_${idx}`);
+    if (row) {
+      const input = row.querySelector('.row-teacher-pct');
+      if (input) input.value = pct;
+    }
+  });
+  recalculateAll();
+}
+
+function quickSetPct(val) {
+  const el = document.getElementById('globalTeacherPct');
+  if (el) el.value = val;
+  applyGlobalPercentage();
+}
+
+function applyGlobalHourlyRate() {
+  const rate = parseFloat(document.getElementById('globalHourlyRate').value) || 0;
+  groupsData.forEach((g, idx) => {
+    g.hourly_rate = rate;
+    const row = document.getElementById(`hourlyRow_${idx}`);
+    if (row) {
+      const input = row.querySelector('.row-hourly-rate');
+      if (input) input.value = rate;
+    }
+  });
+  recalculateHourly();
+}
+
+function quickSetHourly(val) {
+  const el = document.getElementById('globalHourlyRate');
+  if (el) el.value = val;
+  applyGlobalHourlyRate();
+}
+
+function onGroupNameChange(idx, val) {
+  if (groupsData[idx]) groupsData[idx].name = val;
+}
+
+function onGroupSubjectChange(idx, val) {
+  if (groupsData[idx]) groupsData[idx].subject = val;
+}
+
+function toggleStudentDrawer(idx) {
+  const drawer = document.getElementById(`studentDrawer_${idx}`);
+  const chevron = document.getElementById(`drawerChevron_${idx}`);
+  if (!drawer) return;
+  const isHidden = drawer.style.display === 'none';
+  drawer.style.display = isHidden ? '' : 'none';
+  if (chevron) {
+    chevron.className = isHidden ? 'bi bi-chevron-up small' : 'bi bi-chevron-down small';
+  }
+}
+
+function getEmbeddedStudentsForGroup(groupId) {
+  const container = document.querySelector(`.group-embedded-students[data-group-id="${groupId}"]`);
+  if (!container) return [];
+  const items = container.querySelectorAll('.embedded-student-item');
+  const students = [];
+  items.forEach(el => {
+    students.push({
+      id: parseInt(el.dataset.id),
+      name: el.dataset.name,
+      student_id: el.dataset.matricule,
+      monthly_fee: parseFloat(el.dataset.fee) || 0,
+      paid_amount: 0,
+      is_paid: false,
+      is_partial: false,
+      status: 'UNPAID',
+      payment_date: null,
+      payment_method: null,
+    });
+  });
+  return students;
+}
+
+function onStudentCheckToggle(idx) {
+  const chks = document.querySelectorAll(`.student-chk-${idx}`);
+  const checked = document.querySelectorAll(`.student-chk-${idx}:checked`).length;
+  const row = document.getElementById(`pctRow_${idx}`);
+  if (!row) return;
+
+  if (groupsData[idx] && groupsData[idx].students) {
+    chks.forEach((chk, sIdx) => {
+      if (groupsData[idx].students[sIdx]) {
+        groupsData[idx].students[sIdx].is_paid = chk.checked;
+        groupsData[idx].students[sIdx].status = chk.checked ? 'PAID' : 'UNPAID';
+        groupsData[idx].students[sIdx].paid_amount = chk.checked ? (groupsData[idx].students[sIdx].monthly_fee || groupsData[idx].monthly_price) : 0;
+      }
+    });
+  }
+
+  const paidInput = row.querySelector('.row-paid');
+  if (paidInput) {
+    paidInput.value = checked;
+    if (groupsData[idx]) groupsData[idx].paid_count = checked;
+    onRowInputChange(idx, false);
+  }
+}
+
+function toggleAllStudentsInGroup(idx, checkAll) {
+  const chks = document.querySelectorAll(`.student-chk-${idx}`);
+  chks.forEach(c => c.checked = checkAll);
+  onStudentCheckToggle(idx);
+}
+
+function renderTables() {
+  // Render Percentage Table
+  const tbody = document.getElementById('percentageTableBody');
+  tbody.innerHTML = '';
+
+  if (groupsData.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="11" class="text-center py-4 text-muted">
+      <i class="bi bi-inbox fs-3 d-block mb-1 opacity-50"></i> Aucun groupe sélectionné. Choisissez un professeur ou cochez des groupes.
+    </td></tr>`;
+  } else {
+    groupsData.forEach((g, idx) => {
+      const tr = document.createElement('tr');
+      tr.id = `pctRow_${idx}`;
+      tr.dataset.idx = idx;
+
+      const levelsBadges = (g.levels && g.levels.length > 0)
+        ? g.levels.map(l => `<span class="badge-level me-1">${l}</span>`).join('')
+        : `<span class="text-muted small">Standard</span>`;
+
+      let stList = (g.students && g.students.length > 0)
+        ? g.students
+        : getEmbeddedStudentsForGroup(g.id);
+
+      if ((!g.students || g.students.length === 0) && stList.length > 0) {
+        const paidCount = parseInt(g.paid_count) || 0;
+        stList.forEach((st, sIdx) => {
+          if (sIdx < paidCount) {
+            st.is_paid = true;
+            st.paid_amount = st.monthly_fee || g.monthly_price;
+            st.status = 'PAID';
+          }
+        });
+        g.students = stList;
+      }
+
+      tr.innerHTML = `
+        <td>
+          <input type="text" class="calc-input fw-bold row-name mb-1" value="${g.name}" oninput="onGroupNameChange(${idx}, this.value)" style="font-size:13.5px; padding: 4px 8px;">
+          <input type="text" class="calc-input row-subject small text-muted py-0 mb-1" value="${g.subject}" oninput="onGroupSubjectChange(${idx}, this.value)" style="font-size:11.5px; height:22px; padding: 2px 6px;">
+          <button type="button" class="btn btn-link btn-xs p-0 text-decoration-none text-primary small d-inline-flex align-items-center gap-1" onclick="toggleStudentDrawer(${idx})" id="drawerBtn_${idx}">
+            <i class="bi bi-people-fill"></i> <span>Élèves (${stList.length || g.student_count})</span> <i class="bi bi-chevron-down small" id="drawerChevron_${idx}"></i>
+          </button>
+        </td>
+        <td>${levelsBadges}</td>
+        <td>
+          <input type="number" min="0" class="calc-input text-center row-students" value="${g.student_count}" oninput="onRowInputChange(${idx}, false)">
+        </td>
+        <td>
+          <input type="number" min="0" class="calc-input text-center text-success fw-bold row-paid" value="${g.paid_count}" oninput="onRowInputChange(${idx}, false)">
+        </td>
+        <td>
+          <input type="number" min="0" class="calc-input text-center text-danger fw-bold row-unpaid" value="${g.unpaid_count}" oninput="onRowUnpaidChange(${idx})">
+        </td>
+        <td>
+          <div class="d-flex justify-content-between small mb-1">
+            <span class="text-success fw-bold row-pct-paid-badge">${g.paid_pct}%</span>
+            <span class="text-danger small row-pct-unpaid-badge">${g.unpaid_pct}%</span>
+          </div>
+          <div class="progress progress-sm">
+            <div class="progress-bar bg-success row-progress" style="width: ${g.paid_pct}%;"></div>
+          </div>
+        </td>
+        <td class="text-end">
+          <input type="number" step="0.01" class="calc-input text-end row-price" value="${g.monthly_price}" oninput="onRowInputChange(${idx}, false)">
+        </td>
+        <td class="text-end">
+          <input type="number" step="0.01" class="calc-input text-end fw-bold row-rev" value="${g.collected_revenue}" oninput="onRowRevChange(${idx})">
+        </td>
+        <td class="text-center">
+          <input type="number" step="0.5" class="calc-input text-center fw-bold row-teacher-pct" value="${g.teacher_percentage}" oninput="onRowInputChange(${idx}, false)">
+        </td>
+        <td class="text-end fw-bold text-success fs-6 row-owed">
+          0.00 DH
+        </td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="removeRow(${idx})"><i class="bi bi-x-circle fs-5"></i></button>
+        </td>
+      `;
+      tbody.appendChild(tr);
+
+      // Collapsible Student Drawer Row
+      const drawerTr = document.createElement('tr');
+      drawerTr.id = `studentDrawer_${idx}`;
+      drawerTr.style.display = 'none';
+      drawerTr.className = 'bg-light-subtle';
+
+      let studentsHtml = '';
+      if (stList.length > 0) {
+        studentsHtml = `
+          <div class="p-3 bg-white border rounded shadow-2xs">
+            <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+              <span class="fw-bold small text-dark"><i class="bi bi-person-lines-fill text-primary me-1"></i> Élèves inscrits dans <strong>${g.name}</strong> (${stList.length})</span>
+              <div class="small">
+                <a href="javascript:void(0)" onclick="toggleAllStudentsInGroup(${idx}, true)" class="text-decoration-none me-2 fw-semibold">Tout cocher (Payés)</a>
+                <a href="javascript:void(0)" onclick="toggleAllStudentsInGroup(${idx}, false)" class="text-decoration-none text-muted">Tout décocher (Impayés)</a>
+              </div>
+            </div>
+            <div class="row g-2" style="max-height: 220px; overflow-y: auto;">
+              ${stList.map((st, sIdx) => `
+                <div class="col-12 col-md-6 col-lg-4">
+                  <div class="p-2 border rounded d-flex align-items-center justify-content-between bg-light small">
+                    <div class="form-check mb-0">
+                      <input class="form-check-input student-chk-${idx}" type="checkbox" id="stchk_${idx}_${sIdx}" ${st.is_paid ? 'checked' : ''} onchange="onStudentCheckToggle(${idx})">
+                      <label class="form-check-label fw-semibold text-dark cursor-pointer" for="stchk_${idx}_${sIdx}">
+                        ${st.name}
+                      </label>
+                      <small class="text-muted d-block" style="font-size:11px;">ID: ${st.student_id || '—'}</small>
+                    </div>
+                    <div class="text-end ms-2">
+                      <span class="badge ${st.is_paid ? 'bg-success-subtle text-success' : (st.is_partial ? 'bg-warning-subtle text-warning-emphasis' : 'bg-danger-subtle text-danger')} border" style="font-size:10.5px;">
+                        ${st.is_paid ? 'Réglé' : (st.is_partial ? 'Partiel' : 'Impayé')}
+                      </span>
+                      <small class="text-muted d-block fw-bold">${st.paid_amount || 0} / ${st.monthly_fee || g.monthly_price} DH</small>
+                    </div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      } else {
+        studentsHtml = `
+          <div class="p-2 text-center text-muted small">
+            Aucun élève chargé pour ce groupe ou groupe personnalisé.
+          </div>
+        `;
+      }
+
+      drawerTr.innerHTML = `<td colspan="11" class="p-3">${studentsHtml}</td>`;
+      tbody.appendChild(drawerTr);
+    });
+  }
+
+  // Render Hourly Table
+  const hourlyTbody = document.getElementById('hourlyTableBody');
+  hourlyTbody.innerHTML = '';
+  if (groupsData.length === 0) {
+    hourlyTbody.innerHTML = `<tr><td colspan="6" class="text-center py-4 text-muted">Aucun groupe sélectionné pour le calcul horaire.</td></tr>`;
+  } else {
+    groupsData.forEach((g, idx) => {
+      const tr = document.createElement('tr');
+      tr.id = `hourlyRow_${idx}`;
+      tr.innerHTML = `
+        <td>
+          <input type="text" class="calc-input fw-bold mb-1" value="${g.name}" oninput="onGroupNameChange(${idx}, this.value)" style="font-size:13.5px; padding: 4px 8px;">
+          <input type="text" class="calc-input small text-muted py-0" value="${g.subject}" oninput="onGroupSubjectChange(${idx}, this.value)" style="font-size:11.5px; height:22px; padding: 2px 6px;">
+        </td>
+        <td class="text-center">
+          <input type="number" step="0.5" min="0" class="calc-input text-center row-hourly-scheduled" value="${g.hours_scheduled || g.hours_taught || 0}" oninput="recalculateHourly()">
+        </td>
+        <td class="text-center">
+          <input type="number" step="0.5" min="0" class="calc-input text-center fw-bold text-primary row-hourly-taught" value="${g.hours_taught || 0}" oninput="recalculateHourly()">
+        </td>
+        <td class="text-end">
+          <input type="number" step="1" min="0" class="calc-input text-end fw-bold row-hourly-rate" value="${g.hourly_rate || 100}" oninput="recalculateHourly()">
+        </td>
+        <td class="text-end fw-bold text-success fs-6 row-hourly-owed">0.00 DH</td>
+        <td class="text-center">
+          <button type="button" class="btn btn-sm btn-link text-danger p-0" onclick="removeHourlyRow(${idx})"><i class="bi bi-x-circle fs-5"></i></button>
+        </td>
+      `;
+      hourlyTbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById('tableRowCountBadge').textContent = `${groupsData.length} groupe(s)`;
+}
+
+function onRowInputChange(idx, fromUnpaid = false) {
+  const row = document.getElementById(`pctRow_${idx}`);
+  if (!row) return;
+
+  const totalSt = parseFloat(row.querySelector('.row-students').value) || 0;
+  let paidSt = parseFloat(row.querySelector('.row-paid').value) || 0;
+  if (paidSt > totalSt) paidSt = totalSt;
+
+  if (!fromUnpaid) {
+    const unpaidSt = Math.max(0, totalSt - paidSt);
+    row.querySelector('.row-unpaid').value = unpaidSt;
+  }
+
+  const paidPct = totalSt > 0 ? ((paidSt / totalSt) * 100).toFixed(1) : 0;
+  const unpaidPct = totalSt > 0 ? (100 - paidPct).toFixed(1) : 0;
+
+  row.querySelector('.row-pct-paid-badge').textContent = `${paidPct}%`;
+  row.querySelector('.row-pct-unpaid-badge').textContent = `${unpaidPct}%`;
+  row.querySelector('.row-progress').style.width = `${paidPct}%`;
+
+  const price = parseFloat(row.querySelector('.row-price').value) || 0;
+  const rev = (paidSt * price).toFixed(2);
+  row.querySelector('.row-rev').value = rev;
+
+  recalculateAll();
+}
+
+function onRowUnpaidChange(idx) {
+  const row = document.getElementById(`pctRow_${idx}`);
+  if (!row) return;
+
+  const totalSt = parseFloat(row.querySelector('.row-students').value) || 0;
+  const unpaidSt = parseFloat(row.querySelector('.row-unpaid').value) || 0;
+  const paidSt = Math.max(0, totalSt - unpaidSt);
+
+  row.querySelector('.row-paid').value = paidSt;
+  onRowInputChange(idx, true);
+}
+
+function onRowRevChange(idx) {
+  // Directly edited revenue: update owed and recalculate
+  const row = document.getElementById(`pctRow_${idx}`);
+  if (!row) return;
+  const rev = parseFloat(row.querySelector('.row-rev').value) || 0;
+  const teacherPct = parseFloat(row.querySelector('.row-teacher-pct').value) || 0;
+  const owed = rev * (teacherPct / 100);
+  row.querySelector('.row-owed').textContent = `${owed.toFixed(2)} DH`;
+  recalculatePercentage();
+}
+
+function addCustomRow() {
+  const customObj = {
+    id: `custom_${customRowCounter++}`,
+    name: "Ligne Libre / Activité",
+    subject: "Personnalisé",
+    levels: ["Libre"],
+    student_count: 10,
+    paid_count: 10,
+    unpaid_count: 0,
+    paid_pct: 100.0,
+    unpaid_pct: 0.0,
+    monthly_price: 300.00,
+    collected_revenue: 3000.00,
+    potential_revenue: 3000.00,
+    hours_taught: 4.0,
+    teacher_percentage: 50.0,
+    hourly_rate: 100.0,
+    students: [],
+  };
+  groupsData.push(customObj);
+  renderTables();
+  recalculateAll();
+}
+
+function addCustomHourlyRow() {
+  const customObj = {
+    id: `custom_h_${customRowCounter++}`,
+    name: "Heures supplémentaires / Atelier",
+    subject: "Autre",
+    levels: [],
+    student_count: 0,
+    paid_count: 0,
+    unpaid_count: 0,
+    paid_pct: 0,
+    unpaid_pct: 0,
+    monthly_price: 0,
+    collected_revenue: 0,
+    potential_revenue: 0,
+    hours_taught: 5.0,
+    hours_scheduled: 5.0,
+    teacher_percentage: 50.0,
+    hourly_rate: 120.0,
+  };
+  groupsData.push(customObj);
+  renderTables();
+  recalculateAll();
+}
+
+function removeRow(idx) {
+  groupsData.splice(idx, 1);
+  renderTables();
+  recalculateAll();
+}
+
+function removeHourlyRow(idx) {
+  groupsData.splice(idx, 1);
+  renderTables();
+  recalculateAll();
+}
+
+function simulateFullPayment() {
+  document.querySelectorAll('#percentageTableBody tr').forEach(row => {
+    const stInput = row.querySelector('.row-students');
+    const paidInput = row.querySelector('.row-paid');
+    if (stInput && paidInput) {
+      paidInput.value = stInput.value;
+      const idx = row.dataset.idx;
+      onRowInputChange(idx, false);
+    }
+  });
+}
+
+function recalculateAll() {
+  if (currentMode === 'PERCENTAGE') {
+    recalculatePercentage();
+  } else if (currentMode === 'HOURLY') {
+    recalculateHourly();
+  } else if (currentMode === 'FIXED') {
+    recalculateFixed();
+  }
+}
+
+function recalculatePercentage() {
+  let totalStudents = 0;
+  let totalPaid = 0;
+  let totalUnpaid = 0;
+  let totalCollectedRev = 0;
+  let totalPotentialRev = 0;
+  let totalOwed = 0;
+
+  document.querySelectorAll('#percentageTableBody tr').forEach(row => {
+    const studentsEl = row.querySelector('.row-students');
+    if (!studentsEl) return;
+
+    const st = parseFloat(studentsEl.value) || 0;
+    const paid = parseFloat(row.querySelector('.row-paid').value) || 0;
+    const unpaid = parseFloat(row.querySelector('.row-unpaid').value) || 0;
+    const price = parseFloat(row.querySelector('.row-price').value) || 0;
+    const rev = parseFloat(row.querySelector('.row-rev').value) || 0;
+    const teacherPct = parseFloat(row.querySelector('.row-teacher-pct').value) || 0;
+
+    const owed = (rev * (teacherPct / 100));
+    row.querySelector('.row-owed').textContent = `${owed.toFixed(2)} DH`;
+
+    totalStudents += st;
+    totalPaid += paid;
+    totalUnpaid += unpaid;
+    totalCollectedRev += rev;
+    totalPotentialRev += (st * price);
+    totalOwed += owed;
+  });
+
+  const globalPaidPct = totalStudents > 0 ? ((totalPaid / totalStudents) * 100).toFixed(1) : "0.0";
+  const globalUnpaidPct = totalStudents > 0 ? (100 - parseFloat(globalPaidPct)).toFixed(1) : "0.0";
+
+  // Update Footer
+  const footSt = document.getElementById('footTotalStudents');
+  if (footSt) footSt.textContent = totalStudents;
+  const footPaid = document.getElementById('footPaidStudents');
+  if (footPaid) footPaid.textContent = totalPaid;
+  const footUnpaid = document.getElementById('footUnpaidStudents');
+  if (footUnpaid) footUnpaid.textContent = totalUnpaid;
+  const footRec = document.getElementById('footRecoveryPct');
+  if (footRec) footRec.textContent = `${globalPaidPct}% payé`;
+  const footRev = document.getElementById('footCollectedRevenue');
+  if (footRev) footRev.textContent = `${totalCollectedRev.toFixed(2)} DH`;
+  const footOwed = document.getElementById('footTotalOwed');
+  if (footOwed) footOwed.textContent = `${totalOwed.toFixed(2)} DH`;
+
+  // Update Grand KPIs
+  updateKpis({
+    students: totalStudents,
+    paid: totalPaid,
+    unpaid: totalUnpaid,
+    paidPct: globalPaidPct,
+    unpaidPct: globalUnpaidPct,
+    collectedRev: totalCollectedRev,
+    potentialRev: totalPotentialRev,
+    netOwed: totalOwed,
+    modeLabel: "Part des gains (%)"
+  });
+}
+
+function recalculateHourly() {
+  let totalHours = 0;
+  let totalOwed = 0;
+
+  document.querySelectorAll('#hourlyTableBody tr').forEach(row => {
+    const taughtEl = row.querySelector('.row-hourly-taught');
+    if (!taughtEl) return;
+
+    const taught = parseFloat(taughtEl.value) || 0;
+    const rate = parseFloat(row.querySelector('.row-hourly-rate').value) || 0;
+    const owed = taught * rate;
+
+    row.querySelector('.row-hourly-owed').textContent = `${owed.toFixed(2)} DH`;
+    totalHours += taught;
+    totalOwed += owed;
+  });
+
+  const footTaught = document.getElementById('footHourlyTaught');
+  if (footTaught) footTaught.textContent = `${totalHours.toFixed(1)} h`;
+  const footOwed = document.getElementById('footHourlyTotalOwed');
+  if (footOwed) footOwed.textContent = `${totalOwed.toFixed(2)} DH`;
+
+  updateKpis({
+    students: "—",
+    paid: "—",
+    unpaid: "—",
+    paidPct: "100",
+    unpaidPct: "0",
+    collectedRev: totalOwed,
+    potentialRev: totalOwed,
+    netOwed: totalOwed,
+    modeLabel: `Taux horaire (${totalHours.toFixed(1)} heures)`
+  });
+}
+
+function recalculateFixed() {
+  const base = parseFloat(document.getElementById('fixedBaseSalary').value) || 0;
+  const bonus = parseFloat(document.getElementById('fixedBonus').value) || 0;
+  const deduction = parseFloat(document.getElementById('fixedDeduction').value) || 0;
+  const net = Math.max(0, base + bonus - deduction);
+
+  document.getElementById('fixedNetSalary').textContent = `${net.toFixed(2)} DH`;
+
+  updateKpis({
+    students: "—",
+    paid: "—",
+    unpaid: "—",
+    paidPct: "100",
+    unpaidPct: "0",
+    collectedRev: base,
+    potentialRev: base + bonus,
+    netOwed: net,
+    modeLabel: "Salaire fixe mensuel"
+  });
+}
+
+function updateKpis(data) {
+  document.getElementById('kpiTotalStudents').textContent = data.students;
+  document.getElementById('kpiPaidStudents').textContent = data.paid;
+  document.getElementById('kpiUnpaidStudents').textContent = data.unpaid;
+  document.getElementById('kpiPaidPct').textContent = `${data.paidPct}%`;
+  document.getElementById('kpiProgressBar').style.width = `${data.paidPct}%`;
+  document.getElementById('kpiPaidPctDetail').textContent = `${data.paidPct}% payé`;
+  document.getElementById('kpiUnpaidPctDetail').textContent = `${data.unpaidPct}% impayé`;
+  document.getElementById('kpiCollectedRev').innerHTML = `${Number(data.collectedRev).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <small style="font-size:14px;">DH</small>`;
+  document.getElementById('kpiPotentialRev').textContent = `${Number(data.potentialRev).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} DH`;
+  document.getElementById('kpiNetOwed').innerHTML = `${Number(data.netOwed).toLocaleString('fr-FR', {minimumFractionDigits: 2, maximumFractionDigits: 2})} <small style="font-size:16px;">DH</small>`;
+  document.getElementById('kpiTeacherParamDesc').textContent = `Mode : ${data.modeLabel}`;
+}
+
+function openSaveModal() {
+  const teacherSelect = document.getElementById('calcTeacherSelect');
+  const teacherId = teacherSelect.value;
+  if (!teacherId) {
+    alert("Veuillez sélectionner un professeur dans la liste déroulante avant d'enregistrer le paiement.");
+    teacherSelect.focus();
+    return;
+  }
+  const teacherName = teacherSelect.options[teacherSelect.selectedIndex].text;
+  const monthSelect = document.getElementById('calcMonthSelect');
+  const monthOpt = monthSelect.options[monthSelect.selectedIndex];
+  const monthStr = monthOpt.text;
+  const pMonth = monthOpt.dataset.month;
+  const pYear = monthOpt.dataset.year;
+
+  let netAmount = 0;
+  let notesDetail = "";
+
+  if (currentMode === 'PERCENTAGE') {
+    const footOwed = document.getElementById('footTotalOwed').textContent;
+    netAmount = parseFloat(footOwed.replace('DH', '').replace(/\s/g, '').trim()) || 0;
+    const paidCount = document.getElementById('footPaidStudents').textContent;
+    const totalCount = document.getElementById('footTotalStudents').textContent;
+    const revTotal = document.getElementById('footCollectedRevenue').textContent;
+    notesDetail = `Calculateur de paie (Part des gains %) : ${groupsData.length} groupe(s), ${paidCount}/${totalCount} élèves payés. Recettes collectées: ${revTotal}.`;
+  } else if (currentMode === 'HOURLY') {
+    const footHourly = document.getElementById('footHourlyTotalOwed').textContent;
+    netAmount = parseFloat(footHourly.replace('DH', '').replace(/\s/g, '').trim()) || 0;
+    const totalH = document.getElementById('footHourlyTaught').textContent;
+    notesDetail = `Calculateur de paie (Taux horaire) : Total de ${totalH} effectuées.`;
+  } else if (currentMode === 'FIXED') {
+    const base = document.getElementById('fixedBaseSalary').value;
+    const bonus = document.getElementById('fixedBonus').value;
+    const deduction = document.getElementById('fixedDeduction').value;
+    const netEl = document.getElementById('fixedNetSalary').textContent;
+    netAmount = parseFloat(netEl.replace('DH', '').replace(/\s/g, '').trim()) || 0;
+    const customNotes = document.getElementById('fixedNotes').value;
+    notesDetail = `Calculateur de paie (Salaire Fixe) : Base: ${base} DH, Primes: ${bonus} DH, Déductions: ${deduction} DH. ${customNotes}`;
+  }
+
+  document.getElementById('modalTeacherId').value = teacherId;
+  document.getElementById('modalTeacherName').value = teacherName;
+  document.getElementById('modalPeriodMonth').value = pMonth;
+  document.getElementById('modalPeriodYear').value = pYear;
+  document.getElementById('modalPeriodLabel').value = monthStr;
+  document.getElementById('modalAmount').value = netAmount.toFixed(2);
+  document.getElementById('modalNotes').value = notesDetail;
+
+  new bootstrap.Modal(document.getElementById('savePaymentModal')).show();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  updateGroupsDropdownLabel();
+  reloadGroupData();
+});
+</script>
+{% endblock %}

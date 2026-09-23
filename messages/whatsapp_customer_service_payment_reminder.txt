@@ -1,0 +1,3 @@
+Bonjour {name},
+Nous vous rappelons qu'un paiement de {amount} concernant la facture n°{invoice_id} est toujours en attente.
+N'hésitez pas à nous contacter si vous avez besoin d'assistance.

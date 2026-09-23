@@ -1,0 +1,324 @@
+{% extends 'core/base.html' %}
+{% block title %}Encaissement — Caisse{% endblock %}
+
+{% block breadcrumb %}
+<span class="context-bar-sep">›</span>
+<span class="context-bar-current"><i class="bi bi-cash-coin"></i> Caisse — Encaissement</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .fw-700 {
+    font-weight: 700;
+  }
+
+  .student-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  #student-dropdown-list li {
+    padding: 9px 14px;
+    cursor: pointer;
+    font-size: 14px;
+    border-bottom: 1px solid #d1d5db;
+    /* ↑ from #f0f0f0 — WCAG 1.4.11 */
+    transition: background 0.15s;
+  }
+
+  #student-dropdown-list li:last-child {
+    border-bottom: none;
+  }
+
+  #student-dropdown-list li:hover {
+    background: var(--primary-light, #ede9fe);
+    color: var(--primary, #6366f1);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1 class="page-title"><i class="bi bi-cash-coin me-2" style="color:var(--primary);"></i>Encaissement de paiement</h1>
+  <p class="page-subtitle">Enregistrez le paiement d'un élève et générez le reçu PDF</p>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-header d-flex align-items-center gap-2">
+        <div class="stat-card-icon" style="width:28px;height:28px;font-size:13px;background:#d1fae5;">
+          <i class="bi bi-cash-coin" style="color:#10b981;"></i>
+        </div>
+        <span class="fw-700">Nouveau paiement</span>
+      </div>
+      <div class="card-body">
+        <form method="post" id="payment-form">
+          {% csrf_token %}
+
+          <!-- Student search -->
+          <div class="mb-4">
+            <label for="student-search-input" class="form-label">
+              <i class="bi bi-person-fill me-1" style="color:var(--primary);"></i>
+              Élève
+            </label>
+            <div class="position-relative" id="student-search-wrapper">
+              <div class="input-group">
+                <input type="text" id="student-search-input" class="form-control"
+                  placeholder="Tapez le nom de l'élève..." autocomplete="off">
+
+                <button type="button" class="btn btn-outline-secondary" id="clear-student" title="Effacer"
+                  style="display:none;">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </div>
+
+              <input type="hidden" name="student_id" id="student-hidden">
+              <div id="student-dropdown" class="position-absolute w-100 bg-white border rounded shadow-sm"
+                style="z-index:1050; display:none; max-height:240px; overflow-y:auto; top:calc(100% + 2px); left:0;">
+                <div id="student-dropdown-status" class="px-3 py-2"
+                  style="font-size:13.5px;color:var(--text-secondary);">Tapez pour rechercher...</div>
+                <!-- ↑ text-muted+small → explicit size+color — WCAG AA -->
+                <ul id="student-dropdown-list" class="list-unstyled mb-0"></ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student info -->
+          <div id="student-info" style="display:none;" class="mb-4 p-3 rounded" style="background:var(--surface-alt);">
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="student-avatar" id="student-avatar">?</div>
+              <div>
+                <strong id="student-name" class="d-block"></strong>
+                <span id="student-matricule" class="badge"
+                  style="font-size:12.5px;background:var(--primary-light);color:#1d4ed8;display:none;"></span><!-- ↑ 11px→12.5px, primary→#1d4ed8 (4.8:1) — WCAG AA -->
+                <span class="d-block" style="font-size:13px;color:var(--text-secondary);">Groupes
+                  inscrits</span><!-- ↑ small+text-muted → explicit — WCAG AA -->
+              </div>
+            </div>
+            <div id="student-groups" class="d-flex flex-column gap-1"></div>
+          </div>
+
+          <!-- Month covered -->
+          <div class="mb-4">
+            <label for="month_covered" class="form-label">
+              <i class="bi bi-calendar-event me-1" style="color:var(--primary);"></i>
+              Mois couvert
+            </label>
+            <select name="month_covered" id="month_covered" class="form-select">
+              {% for m in months_choices %}
+              <option value="{{ m.value }}" {% if m.value == current_month_str %}selected{% endif %}>{{ m.label }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <!-- Amount -->
+          <div class="mb-4">
+            <label for="amount" class="form-label">
+              <i class="bi bi-currency-dollar me-1" style="color:var(--primary);"></i>
+              Montant à payer (DH)
+            </label>
+            <input type="number" step="1" name="amount" id="amount" class="form-control" placeholder="0" required>
+            <div class="form-text">Montant suggéré basé sur les inscriptions de l'élève</div>
+          </div>
+
+          <!-- Payment method -->
+          <div class="mb-4">
+            <label for="payment_method" class="form-label">
+              <i class="bi bi-credit-card me-1" style="color:var(--primary);"></i>
+              Mode de paiement
+            </label>
+            <select name="payment_method" id="payment_method" class="form-select">
+              <option value="CASH">💵 Espèces</option>
+              <option value="TRANSFER">🏦 Virement bancaire</option>
+              <option value="CHECK">📋 Chèque</option>
+            </select>
+          </div>
+
+          <!-- WhatsApp checkbox -->
+          <div class="mb-4 p-3 rounded d-flex align-items-center gap-3" style="background:var(--surface-alt);">
+            <input class="form-check-input m-0" checked type="checkbox" name="send_whatsapp" id="sendWhatsApp"
+              style="width:20px;height:20px;flex-shrink:0;"><!-- min size — WCAG 2.5.5 -->
+            <label class="form-check-label mb-0" for="sendWhatsApp">
+              <i class="bi bi-whatsapp me-1" style="color:#25d366;"></i>
+              Envoyer confirmation WhatsApp après paiement
+            </label>
+          </div>
+
+          <!-- Submit -->
+          <button type="submit" class="btn btn-success w-100"
+            style="min-height:52px;font-size:16px;"><!-- prominent CTA — WCAG 2.5.5 -->
+            <i class="bi bi-check-circle-fill" aria-hidden="true"></i> Confirmer et générer reçu PDF
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  $(document).ready(function () {
+    var searchTimeout = null;
+
+    var $input = $('#student-search-input');
+    var $hidden = $('#student-hidden');
+    var $dropdown = $('#student-dropdown');
+    var $list = $('#student-dropdown-list');
+    var $status = $('#student-dropdown-status');
+
+    /* ── helpers ───────────────────────────────────────── */
+    function openDropdown() { $dropdown.show(); }
+    function closeDropdown() { $dropdown.hide(); }
+
+    function renderResults(results) {
+      $list.empty();
+      if (!results || results.length === 0) {
+        $status.show().text('Aucun résultat trouvé.');
+        return;
+      }
+      $status.hide();
+      results.forEach(function (r) {
+        var $li = $('<li>').text(r.text).attr('data-id', r.id);
+        $li.on('mousedown', function (e) {
+          e.preventDefault();           // keep focus on input
+          selectStudent(r.id, r.text);
+        });
+        $list.append($li);
+      });
+    }
+
+    function selectStudent(id, label) {
+      $hidden.val(id);
+      $input.val(label);
+      $('#clear-student').show();
+      closeDropdown();
+      loadStudentInfo(id);
+    }
+
+    function doSearch(q) {
+      $.get('/cashier/student-unpaid-search/', {
+        q: q,
+        month: $('#month_covered').val()
+      }, function (data) {
+        renderResults(data.results || []);
+      }).fail(function () {
+        $status.show().text('Erreur lors de la recherche.');
+      });
+    }
+
+    /* ── events ────────────────────────────────────────── */
+
+    // Type in the input → search
+    $input.on('input', function () {
+      var q = $(this).val().trim();
+      $hidden.val('');
+      $('#clear-student').toggle($(this).val().length > 0);
+      clearTimeout(searchTimeout);
+      $status.show().text('Recherche...');
+      $list.empty();
+      openDropdown();
+      searchTimeout = setTimeout(function () { doSearch(q); }, 250);
+    });
+
+    $('#clear-student').on('click', function () {
+      $input.val('');
+      $hidden.val('');
+
+      $('#student-info').hide();
+      $('#student-groups').empty();
+      $('#amount').val('');
+
+      $(this).hide();
+
+      $input.focus();
+    });
+
+    $('#month_covered').on('change', function () {
+      var studentId = $hidden.val();
+
+      if (studentId) {
+        loadStudentInfo(studentId);
+      }
+
+      doSearch($input.val().trim());
+    });
+
+    // Click / focus → open + load if empty
+    $input.on('focus click', function () {
+      openDropdown();
+      if ($list.children().length === 0) {
+        $status.show().text('Recherche...');
+        doSearch($input.val().trim());
+      }
+    });
+
+    // Click outside → close
+    $(document).on('mousedown', function (e) {
+      if (!$('#student-search-wrapper').is(e.target) &&
+        $('#student-search-wrapper').has(e.target).length === 0) {
+        closeDropdown();
+      }
+    });
+
+    /* ── student info loader ───────────────────────────── */
+    function loadStudentInfo(studentId) {
+      var selectedMonth = $('#month_covered').val();
+      $.get('/cashier/student-detail/', { id: studentId, month: selectedMonth }, function (data) {
+        $('#student-info').show();
+        $('#student-avatar').text(data.name.charAt(0).toUpperCase());
+        $('#student-name').text(data.name + ' — ' + data.parent_contact + (data.parent_contact_2 ? ' / ' + data.parent_contact_2 : ''));
+        if (data.matricule) {
+          $('#student-matricule').text('Matricule : ' + data.matricule).show();
+        } else {
+          $('#student-matricule').hide();
+        }
+        $('#student-groups').html('');
+        data.groups.forEach(function (g) {
+          var badgeClass = g.is_prorated ? 'badge bg-warning text-dark' : 'badge badge-primary';
+          var priceText = g.is_prorated ? g.prorated_price : g.price;
+          var infoText = g.is_prorated
+            ? ' <span style="font-size:12.5px;color:#92400e;font-weight:500;">(Proratisé : '/* ↑ text-warning(1.07:1)→#92400e(7.2:1) — WCAG AA */
+            + g.remaining_sessions + '/' + g.total_sessions
+            + ' sessions à ' + parseFloat(g.session_price).toFixed(2) + ' DH)</span>'
+            : '';
+          $('#student-groups').append(
+            '<div class="d-flex justify-content-between align-items-center px-2 py-1 rounded mb-2"'
+            + ' style="background:#fff; border-left: 4px solid ' + (g.is_prorated ? '#ffc107' : '#6366f1') + ';">'
+            + '<span><i class="bi bi-book text-muted me-1"></i>' + g.name + infoText + '</span>'
+            + '<strong class="' + badgeClass + '">' + priceText + ' DH</strong></div>'
+          );
+        });
+        $('#amount').val(data.required);
+      });
+    }
+
+    $('#month_covered').on('change', function () {
+      var studentId = $hidden.val();
+      if (studentId) { loadStudentInfo(studentId); }
+    });
+
+    /* ── pre-select default student (from URL param) ──── */
+    var defaultStudentId = "{{ default_student_id|default:'' }}";
+    if (defaultStudentId) {
+      $.get('/cashier/student-detail/', { id: defaultStudentId, month: $('#month_covered').val() }, function (data) {
+        $input.val(data.name);
+        $hidden.val(data.id);
+        loadStudentInfo(data.id);
+      });
+    }
+  });
+</script>
+{% endblock %}

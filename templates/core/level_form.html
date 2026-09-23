@@ -1,0 +1,76 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ action }} un Niveau — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:levels_list' %}"><i class="bi bi-layers-fill"></i> Niveaux</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ action }} un niveau</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title"><i class="bi bi-layers-fill me-2" style="color:var(--primary);"></i>{{ action }} un Niveau</h1>
+    <p class="page-subtitle">Configurez le niveau académique</p>
+  </div>
+  <a href="{% url 'core:levels_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour
+  </a>
+</div>
+
+<div class="row">
+  <div class="col-lg-8">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+          
+          <div class="mb-4">
+            <label for="{{ form.name.id_for_label }}" class="form-label">
+              {{ form.name.label }} <span style="color:var(--danger);">*</span>
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="invalid-feedback d-block">{% for e in form.name.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+          
+          <div class="mb-4">
+            <label for="{{ form.category.id_for_label }}" class="form-label">
+              {{ form.category.label }} <span style="color:var(--danger);">*</span>
+            </label>
+            {{ form.category }}
+            {% if form.category.errors %}<div class="invalid-feedback d-block">{% for e in form.category.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <label for="{{ form.order.id_for_label }}" class="form-label">
+                <i class="bi bi-sort-numeric-down text-primary me-1"></i> Ordre de progression
+              </label>
+              {{ form.order }}
+              {% if form.order.errors %}<div class="invalid-feedback d-block">{% for e in form.order.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              <div class="form-text">Ordre numérique pour le classement et la progression (1, 2, 3...).</div>
+            </div>
+            <div class="col-md-6">
+              <label for="{{ form.next_level.id_for_label }}" class="form-label">
+                <i class="bi bi-arrow-up-right-circle text-success me-1"></i> Niveau suivant
+              </label>
+              {{ form.next_level }}
+              {% if form.next_level.errors %}<div class="invalid-feedback d-block">{% for e in form.next_level.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              <div class="form-text">Le niveau supérieur vers lequel l'élève progresse automatiquement.</div>
+            </div>
+          </div>
+
+          <hr class="my-4" style="border-color:var(--border);">
+          <div class="d-flex justify-content-end gap-2">
+            <a href="{% url 'core:levels_list' %}" class="btn btn-outline-secondary">Annuler</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> Enregistrer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

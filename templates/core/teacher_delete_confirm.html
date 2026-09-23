@@ -1,0 +1,64 @@
+{% extends 'core/base.html' %}
+{% block title %}Supprimer {{ teacher.name }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teachers_list' %}"><i class="bi bi-person-badge-fill"></i> Professeurs</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teacher_detail' teacher.id %}">{{ teacher.name }}</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Supprimer</span>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+
+    <div class="card border-danger">
+      <div class="card-header" style="background:#fee2e2;border-bottom:1px solid #fca5a5;">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#dc2626;font-size:20px;"></i>
+          <span class="fw-700" style="color:#dc2626;">Confirmer la suppression</span>
+        </div>
+      </div>
+      <div class="card-body">
+
+        <p class="mb-2">Vous êtes sur le point de supprimer le professeur :</p>
+        <div class="p-3 rounded mb-4" style="background:var(--surface-alt);border:1px solid var(--border);">
+          <div class="fw-700" style="font-size:16px;">{{ teacher.name }}</div>
+          {% if teacher.phone %}<div class="text-muted small"><i class="bi bi-telephone"></i> {{ teacher.phone }}</div>{% endif %}
+          {% if teacher.email %}<div class="text-muted small"><i class="bi bi-envelope"></i> {{ teacher.email }}</div>{% endif %}
+        </div>
+
+        {% if groups_count > 0 %}
+          <div class="alert alert-danger">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+            Ce professeur est affecté à <strong>{{ groups_count }} groupe{{ groups_count|pluralize }}</strong> de cours.
+            La suppression est bloquée. Réaffectez d'abord ses groupes avant de continuer.
+          </div>
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'core:teacher_detail' teacher.id %}" class="btn btn-outline-secondary">
+              <i class="bi bi-arrow-left"></i> Retour
+            </a>
+          </div>
+        {% else %}
+          <p class="text-muted">Cette action est <strong>irréversible</strong>. Toutes les disponibilités et les congés associés seront également supprimés.</p>
+          <div class="d-flex gap-2 justify-content-end">
+            <a href="{% url 'core:teacher_detail' teacher.id %}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg"></i> Annuler
+            </a>
+            <form method="post" action="{% url 'core:teacher_delete' teacher.id %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-danger">
+                <i class="bi bi-trash-fill"></i> Supprimer définitivement
+              </button>
+            </form>
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

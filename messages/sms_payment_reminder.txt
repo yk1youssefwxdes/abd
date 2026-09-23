@@ -1,0 +1,3 @@
+Bonjour {student_name},
+Rappel : Un montant de {amount} DH reste à régler pour {student_name}.
+{school_name}

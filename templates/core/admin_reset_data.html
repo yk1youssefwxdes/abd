@@ -1,0 +1,180 @@
+{% extends 'core/base.html' %}
+{% block title %}Réinitialisation des Données — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:system_settings' %}" class="context-bar-link"><i class="bi bi-sliders"></i> Paramètres</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current text-danger"><i class="bi bi-trash3-fill"></i> Réinitialisation</span>
+{% endblock %}
+
+{% block content %}
+<div class="admin-reset-data-page pb-5">
+
+  <!-- Header -->
+  <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+      <h1 class="page-title d-flex align-items-center gap-2 mb-1 text-danger">
+        <i class="bi bi-shield-slash-fill text-danger"></i> Réinitialisation des Données
+      </h1>
+      <p class="page-subtitle text-muted mb-0">
+        Purger l'ensemble des données opérationnelles, élèves, professeurs, cours et paiements du centre.
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'core:system_settings' %}" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-arrow-left me-1"></i> Retour aux Paramètres
+      </a>
+    </div>
+  </div>
+
+  <!-- Danger Alert Banner -->
+  <div class="alert alert-danger d-flex align-items-start gap-3 p-4 mb-4 border-danger shadow-sm rounded-3" style="border-left: 6px solid #dc2626 !important;">
+    <div class="fs-2 text-danger flex-shrink-0">
+      <i class="bi bi-exclamation-octagon-fill"></i>
+    </div>
+    <div>
+      <h5 class="fw-bold text-danger mb-1">Zone de Danger — Suppression Définitive</h5>
+      <p class="mb-2 text-dark">
+        Cette opération va purger irréversiblement toutes les données du système :
+      </p>
+      <ul class="mb-0 text-muted small">
+        <li>Élèves, Inscriptions, Historique de présence et Logs WhatsApp</li>
+        <li>Paiements élèves, Reçus et Règlements / Paie des professeurs</li>
+        <li>Groupes de cours, Emplois du temps et Séances de cours</li>
+        <li>Niveaux scolaires, Professeurs et Salles</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Current Data Overview -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-header bg-white py-3 border-bottom d-flex align-items-center justify-content-between">
+      <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+        <i class="bi bi-database text-primary"></i> Données actuellement enregistrées dans la base
+      </h6>
+      <span class="badge bg-secondary rounded-pill">{{ total_records }} enregistrements au total</span>
+    </div>
+    <div class="card-body p-4">
+      <div class="row g-3">
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.students }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Élèves</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.teachers }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Professeurs</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.course_groups }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Groupes de cours</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.sessions }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Séances planifiées</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.payments }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Paiements élèves</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.attendances }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Pointages présences</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.levels }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Niveaux scolaires</div>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="p-3 border rounded-3 text-center bg-light">
+            <div class="fs-3 fw-bold text-dark">{{ counts.rooms }}</div>
+            <div class="small text-muted text-uppercase fw-semibold">Salles de cours</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Action Trigger Card -->
+  <div class="card border-danger shadow-sm rounded-3">
+    <div class="card-body p-4 text-center">
+      <h5 class="fw-bold text-danger mb-2">Confirmer la réinitialisation complète</h5>
+      <p class="text-muted mb-3" style="max-width: 600px; margin: 0 auto;">
+        Pour exécuter la suppression de toutes les entités ci-dessus, cliquez sur le bouton ci-dessous puis tapez <strong>SUPPRIMER</strong> dans la boîte de dialogue.
+      </p>
+      <button type="button" class="btn btn-danger btn-lg px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#confirmResetModal">
+        <i class="bi bi-trash3-fill me-2"></i> Réinitialiser toutes les données
+      </button>
+    </div>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div class="modal fade" id="confirmResetModal" tabindex="-1" aria-labelledby="confirmResetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow-lg">
+        <form method="post" action="{% url 'core:admin_reset_data' %}">
+          {% csrf_token %}
+          <div class="modal-header bg-danger text-white">
+            <h5 class="modal-title fw-bold" id="confirmResetModalLabel">
+              <i class="bi bi-exclamation-triangle-fill me-2"></i> Confirmation requise
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body p-4">
+            <p class="fw-bold text-dark mb-2">
+              Êtes-vous absolument certain de vouloir effacer l'intégralité des données de l'établissement ?
+            </p>
+            <p class="text-danger small mb-3">
+              <i class="bi bi-exclamation-circle-fill me-1"></i> Cette action ne peut pas être annulée.
+            </p>
+            <div class="mb-3">
+              <label for="confirmInput" class="form-label small fw-semibold text-dark">
+                Tapez le mot <strong>SUPPRIMER</strong> pour déverrouiller l'action :
+              </label>
+              <input type="text" name="confirm_text" id="confirmInput" class="form-control form-control-lg text-center font-monospace fw-bold"
+                     placeholder="SUPPRIMER" autocomplete="off" required>
+            </div>
+          </div>
+          <div class="modal-footer bg-light">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+            <button type="submit" class="btn btn-danger fw-bold" id="deleteSubmitBtn" disabled>
+              <i class="bi bi-trash3-fill me-1"></i> Purger définitivement
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const input = document.getElementById('confirmInput');
+  const btn = document.getElementById('deleteSubmitBtn');
+  if (input && btn) {
+    input.addEventListener('input', function() {
+      if (input.value.trim() === 'SUPPRIMER') {
+        btn.disabled = false;
+      } else {
+        btn.disabled = true;
+      }
+    });
+  }
+});
+</script>
+{% endblock %}

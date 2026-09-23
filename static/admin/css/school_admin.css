@@ -1,0 +1,1313 @@
+/* =====================================================
+   School ERP – PREMIUM Admin Styles (layers on Unfold)
+   Afnane center — 2026 Redesign
+   ===================================================== */
+
+/* ---------- Google Fonts ---------- */
+@import url('../../fonts/fonts.css');
+
+/* ---------- CSS Custom Properties ---------- */
+:root {
+  /* Primary palette */
+  --school-primary:        #4f46e5;
+  --school-primary-light:  #6366f1;
+  --school-primary-dark:   #3730a3;
+  --school-primary-glow:   rgba(99, 102, 241, .25);
+
+  /* Accent colors */
+  --school-accent:         #06b6d4;
+  --school-accent-light:   #22d3ee;
+  --school-success:        #10b981;
+  --school-success-light:  #34d399;
+  --school-warning:        #f59e0b;
+  --school-warning-light:  #fbbf24;
+  --school-danger:         #ef4444;
+  --school-danger-light:   #f87171;
+
+  /* Surfaces */
+  --school-bg:             #f4f6fb;
+  --school-surface:        #ffffff;
+  --school-surface-hover:  #f8faff;
+  --school-border:         rgba(0, 0, 0, .06);
+  --school-border-hover:   rgba(79, 70, 229, .15);
+
+  /* Text */
+  --school-text:           #0f172a;
+  --school-text-secondary: #475569;
+  --school-text-muted:     #94a3b8;
+
+  /* Layout */
+  --school-sidebar-w:      260px;
+  --school-radius:         12px;
+  --school-radius-lg:      16px;
+  --school-radius-xl:      20px;
+
+  /* Shadows */
+  --school-shadow:         0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.03);
+  --school-shadow-md:      0 4px 12px rgba(0,0,0,.08), 0 8px 24px rgba(0,0,0,.04);
+  --school-shadow-lg:      0 8px 30px rgba(0,0,0,.1), 0 2px 8px rgba(0,0,0,.04);
+  --school-shadow-glow:    0 0 20px var(--school-primary-glow);
+
+  /* Transitions */
+  --school-ease:           cubic-bezier(.4, 0, .2, 1);
+  --school-bounce:         cubic-bezier(.34, 1.56, .64, 1);
+}
+
+/* Dark mode variables */
+.dark {
+  --school-bg:             #0c1222;
+  --school-surface:        #1a2236;
+  --school-surface-hover:  #1e293b;
+  --school-border:         rgba(255, 255, 255, .06);
+  --school-border-hover:   rgba(99, 102, 241, .25);
+  --school-text:           #f1f5f9;
+  --school-text-secondary: #94a3b8;
+  --school-text-muted:     #64748b;
+  --school-shadow:         0 1px 3px rgba(0,0,0,.2), 0 4px 16px rgba(0,0,0,.15);
+  --school-shadow-md:      0 4px 12px rgba(0,0,0,.25), 0 8px 24px rgba(0,0,0,.2);
+  --school-shadow-lg:      0 8px 30px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.15);
+}
+
+/* =====================================================
+   GLOBAL RESET & TYPOGRAPHY
+   ===================================================== */
+
+html, body {
+  font-size: 16px !important;
+}
+
+body, h1, h2, h3, h4, h5, h6,
+input, select, textarea, button {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Match the clean, readable text size of the main site */
+.text-xs {
+  font-size: 0.85rem !important; /* ~13.6px instead of 12px */
+}
+.text-sm {
+  font-size: 0.95rem !important; /* ~15.2px instead of 14px */
+}
+.text-base {
+  font-size: 1.05rem !important; /* ~16.8px instead of 16px */
+}
+.text-lg {
+  font-size: 1.2rem !important;
+}
+.text-xl {
+  font-size: 1.35rem !important;
+}
+
+
+/* Smooth scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Premium content area background */
+#content-main,
+#content {
+  animation: contentFadeIn .4s var(--school-ease) forwards;
+}
+
+@keyframes contentFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* =====================================================
+   SIDEBAR NAVIGATION ENHANCEMENTS
+   ===================================================== */
+
+/* Active link with accent border */
+#nav-sidebar a.active,
+#nav-sidebar a[aria-current],
+#nav-sidebar-inner a.active {
+  background: linear-gradient(135deg, rgba(79,70,229,.12), rgba(99,102,241,.06)) !important;
+  color: var(--school-primary-light) !important;
+  border-left: 3px solid var(--school-primary) !important;
+  font-weight: 600 !important;
+  border-radius: 0 8px 8px 0 !important;
+}
+
+/* Sidebar links hover */
+#nav-sidebar a:hover,
+#nav-sidebar-inner a:hover {
+  background: rgba(79, 70, 229, .06) !important;
+  color: var(--school-primary-light) !important;
+  transition: all .2s var(--school-ease) !important;
+}
+
+/* =====================================================
+   KPI DASHBOARD CARDS
+   ===================================================== */
+.school-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.school-kpi-card {
+  position: relative;
+  overflow: hidden;
+  background: var(--school-surface);
+  border-radius: var(--school-radius-lg);
+  box-shadow: var(--school-shadow);
+  padding: 1.5rem 1.35rem 1.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  transition: transform .25s var(--school-ease), box-shadow .25s var(--school-ease), border-color .25s var(--school-ease);
+  border: 1px solid var(--school-border);
+  cursor: default;
+}
+
+.school-kpi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--school-shadow-lg);
+  border-color: var(--school-border-hover);
+}
+
+/* Top accent stripe */
+.school-kpi-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3.5px;
+  background: var(--kpi-color, var(--school-primary));
+  border-radius: var(--school-radius-lg) var(--school-radius-lg) 0 0;
+}
+
+/* Subtle glow in top-right corner */
+.school-kpi-card::after {
+  content: '';
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 100px; height: 100px;
+  border-radius: 50%;
+  background: var(--kpi-color, var(--school-primary));
+  opacity: .07;
+  pointer-events: none;
+  transition: opacity .3s var(--school-ease);
+}
+
+.school-kpi-card:hover::after {
+  opacity: .12;
+}
+
+.school-kpi-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  background: var(--kpi-color, var(--school-primary));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: #fff;
+  margin-bottom: .35rem;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
+
+.school-kpi-value {
+  font-size: 2.1rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--school-text);
+  letter-spacing: -.04em;
+}
+
+.school-kpi-label {
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--school-text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.school-kpi-sub {
+  font-size: .78rem;
+  color: var(--school-text-muted);
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  gap: .3rem;
+}
+
+/* Dark mode KPI */
+.dark .school-kpi-card {
+  background: var(--school-surface);
+  border-color: var(--school-border);
+}
+.dark .school-kpi-value { color: var(--school-text); }
+.dark .school-kpi-label { color: var(--school-text-secondary); }
+.dark .school-kpi-sub   { color: var(--school-text-muted); }
+
+/* =====================================================
+   QUICK ACTIONS PANEL
+   ===================================================== */
+.school-quick-actions {
+  background: var(--school-surface);
+  border-radius: var(--school-radius-lg);
+  box-shadow: var(--school-shadow);
+  border: 1px solid var(--school-border);
+  padding: 1.35rem;
+  margin-bottom: 1.75rem;
+}
+
+.school-quick-actions h3 {
+  font-size: .72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--school-text-muted);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+.school-quick-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: .75rem;
+}
+
+.school-quick-link {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: 1.1rem .75rem;
+  border-radius: var(--school-radius);
+  background: var(--school-bg);
+  border: 1.5px solid var(--school-border);
+  text-decoration: none !important;
+  color: var(--school-text-secondary);
+  font-size: .85rem;
+  font-weight: 500;
+  text-align: center;
+  transition: all .25s var(--school-ease);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Gradient border on hover */
+.school-quick-link::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--school-radius);
+  padding: 1.5px;
+  background: linear-gradient(135deg, var(--school-primary), var(--school-accent));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity .25s var(--school-ease);
+}
+
+.school-quick-link:hover::before {
+  opacity: 1;
+}
+
+.school-quick-link:hover {
+  background: linear-gradient(135deg, var(--school-primary), var(--school-primary-light));
+  border-color: transparent;
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79,70,229,.3);
+}
+
+.school-quick-link .material-symbols-outlined {
+  font-size: 26px;
+  transition: all .25s var(--school-ease);
+}
+
+.school-quick-link:hover .material-symbols-outlined {
+  transform: scale(1.1);
+}
+
+.dark .school-quick-actions {
+  background: var(--school-surface);
+  border-color: var(--school-border);
+}
+.dark .school-quick-link {
+  background: rgba(15, 23, 42, .6);
+  border-color: var(--school-border);
+  color: var(--school-text-secondary);
+}
+.dark .school-quick-link:hover {
+  background: linear-gradient(135deg, var(--school-primary), var(--school-primary-light));
+  border-color: transparent;
+  color: #fff;
+}
+.dark .school-quick-actions h3 { color: var(--school-text-muted); }
+
+/* =====================================================
+   SECTION HEADING
+   ===================================================== */
+.school-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+.school-section-head h2 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--school-text);
+  margin: 0;
+}
+.dark .school-section-head h2 { color: var(--school-text); }
+
+/* =====================================================
+   STATUS BADGES (override admin inline styles)
+   ===================================================== */
+.school-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: .3em;
+  padding: .25em .7em;
+  border-radius: 999px;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  white-space: nowrap;
+  transition: transform .15s var(--school-ease);
+}
+
+.school-badge:hover {
+  transform: scale(1.03);
+}
+
+.school-badge-green  { background: #dcfce7; color: #15803d; }
+.school-badge-red    { background: #fee2e2; color: #b91c1c; }
+.school-badge-orange { background: #ffedd5; color: #c2410c; }
+.school-badge-gray   { background: #f1f5f9; color: #475569; }
+.school-badge-blue   { background: #dbeafe; color: #1d4ed8; }
+
+.dark .school-badge-green  { background: rgba(16,185,129,.15); color: #34d399; }
+.dark .school-badge-red    { background: rgba(239,68,68,.15);  color: #f87171; }
+.dark .school-badge-orange { background: rgba(245,158,11,.15); color: #fbbf24; }
+.dark .school-badge-gray   { background: rgba(100,116,139,.15); color: #94a3b8; }
+.dark .school-badge-blue   { background: rgba(59,130,246,.15); color: #60a5fa; }
+
+/* =====================================================
+   ENHANCED TABLE STYLES (on top of Unfold)
+   ===================================================== */
+#result_list {
+  border-radius: var(--school-radius-lg) !important;
+  overflow: hidden !important;
+  box-shadow: var(--school-shadow) !important;
+  border: 1px solid var(--school-border) !important;
+  transition: box-shadow .3s var(--school-ease) !important;
+}
+
+#result_list:hover {
+  box-shadow: var(--school-shadow-md) !important;
+}
+
+.dark #result_list {
+  border-color: var(--school-border) !important;
+}
+
+#result_list thead th {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+  font-size: .76rem !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .06em !important;
+  color: var(--school-text-muted) !important;
+  padding: .9rem 1.1rem !important;
+  border-bottom: 2px solid rgba(79,70,229,.08) !important;
+  white-space: nowrap;
+  position: relative;
+}
+
+/* Accent underline on sorted columns */
+#result_list thead th.sorted {
+  color: var(--school-primary) !important;
+}
+
+#result_list thead th.sorted::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 1rem; right: 1rem;
+  height: 2px;
+  background: var(--school-primary);
+  border-radius: 2px;
+}
+
+.dark #result_list thead th {
+  background: linear-gradient(180deg, #0f172a 0%, #0c1222 100%) !important;
+  color: var(--school-text-muted) !important;
+  border-bottom-color: rgba(99,102,241,.12) !important;
+}
+
+#result_list tbody tr {
+  transition: all .2s var(--school-ease) !important;
+  border-bottom: 1px solid rgba(0,0,0,.04) !important;
+}
+
+.dark #result_list tbody tr {
+  border-bottom-color: rgba(255,255,255,.04) !important;
+}
+
+#result_list tbody tr:last-child {
+  border-bottom: none !important;
+}
+
+#result_list tbody tr:hover {
+  background: linear-gradient(90deg, rgba(79,70,229,.04), rgba(6,182,212,.02)) !important;
+  transform: scale(1.002);
+}
+
+.dark #result_list tbody tr:hover {
+  background: linear-gradient(90deg, rgba(99,102,241,.08), rgba(6,182,212,.04)) !important;
+}
+
+#result_list tbody td {
+  padding: .9rem 1.1rem !important;
+  font-size: .92rem !important;
+  vertical-align: middle !important;
+  color: var(--school-text-secondary) !important;
+}
+
+#result_list tbody td a {
+  color: var(--school-primary) !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  transition: color .15s var(--school-ease) !important;
+}
+
+#result_list tbody td a:hover {
+  color: var(--school-primary-dark) !important;
+  text-decoration: underline !important;
+}
+
+.dark #result_list tbody td {
+  color: var(--school-text-secondary) !important;
+}
+
+.dark #result_list tbody td a {
+  color: #818cf8 !important;
+}
+
+.dark #result_list tbody td a:hover {
+  color: #a5b4fc !important;
+}
+
+/* Subtle zebra rows */
+#result_list tbody tr:nth-child(even) {
+  background: rgba(79, 70, 229, .015) !important;
+}
+.dark #result_list tbody tr:nth-child(even) {
+  background: rgba(255,255,255,.015) !important;
+}
+#result_list tbody tr:nth-child(even):hover {
+  background: linear-gradient(90deg, rgba(79,70,229,.04), rgba(6,182,212,.02)) !important;
+}
+.dark #result_list tbody tr:nth-child(even):hover {
+  background: linear-gradient(90deg, rgba(99,102,241,.08), rgba(6,182,212,.04)) !important;
+}
+
+/* Row checkbox styling */
+#result_list tbody td .action-select {
+  accent-color: var(--school-primary);
+}
+
+/* =====================================================
+   CHANGE FORM ENHANCEMENTS
+   ===================================================== */
+.school-form-card {
+  background: var(--school-surface);
+  border-radius: var(--school-radius-lg);
+  box-shadow: var(--school-shadow);
+  border: 1px solid var(--school-border);
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  transition: box-shadow .3s var(--school-ease);
+}
+
+.school-form-card:hover {
+  box-shadow: var(--school-shadow-md);
+}
+
+.school-form-card-header {
+  background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-primary-light) 50%, var(--school-accent) 100%);
+  color: #fff;
+  padding: 1.1rem 1.5rem;
+  font-size: .88rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  letter-spacing: .02em;
+}
+
+.school-form-card-body {
+  padding: 1.5rem;
+}
+
+.dark .school-form-card {
+  background: var(--school-surface);
+  border-color: var(--school-border);
+}
+
+/* Better fieldset headings inside Unfold */
+fieldset h2,
+.module h2,
+fieldset > h2 {
+  font-size: .88rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: var(--school-primary) !important;
+  padding: .9rem 1.25rem !important;
+  margin: 0 !important;
+  background: linear-gradient(90deg, rgba(79,70,229,.06), rgba(79,70,229,.02)) !important;
+  border-left: 3.5px solid var(--school-primary) !important;
+  border-bottom: 1px solid rgba(79,70,229,.1) !important;
+  border-radius: 0 6px 0 0 !important;
+  position: relative;
+}
+
+.dark fieldset h2,
+.dark .module h2 {
+  background: linear-gradient(90deg, rgba(99,102,241,.1), rgba(99,102,241,.03)) !important;
+  color: #818cf8 !important;
+  border-left-color: #6366f1 !important;
+  border-bottom-color: rgba(99,102,241,.15) !important;
+}
+
+/* Form input focus enhancements */
+.module input[type="text"]:focus,
+.module input[type="number"]:focus,
+.module input[type="email"]:focus,
+.module input[type="url"]:focus,
+.module input[type="password"]:focus,
+.module input[type="date"]:focus,
+.module input[type="time"]:focus,
+.module select:focus,
+.module textarea:focus {
+  border-color: var(--school-primary) !important;
+  box-shadow: 0 0 0 3px var(--school-primary-glow) !important;
+  outline: none !important;
+  transition: border-color .2s var(--school-ease), box-shadow .2s var(--school-ease) !important;
+}
+
+/* =====================================================
+   TOPBAR SCHOOL BRANDING ENHANCEMENT
+   ===================================================== */
+.school-topbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: .375rem;
+  background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-accent) 100%);
+  color: #fff;
+  padding: .35rem .9rem;
+  border-radius: 999px;
+  font-size: .85rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  box-shadow: 0 2px 10px rgba(79,70,229,.3);
+  white-space: nowrap;
+  transition: box-shadow .3s var(--school-ease), transform .3s var(--school-ease);
+}
+
+.school-topbar-pill:hover {
+  box-shadow: 0 4px 16px rgba(79,70,229,.4);
+  transform: translateY(-1px);
+}
+
+/* =====================================================
+   SUBMIT BUTTONS — PREMIUM STYLE
+   ===================================================== */
+.submit-row input[type="submit"] {
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: .92rem !important;
+  padding: .7rem 1.5rem !important;
+  transition: all .25s var(--school-ease) !important;
+  letter-spacing: .02em !important;
+  box-shadow: 0 2px 8px rgba(79,70,229,.25) !important;
+}
+
+.submit-row input[type="submit"]:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(79,70,229,.35) !important;
+}
+
+.submit-row input[type="submit"]:active {
+  transform: translateY(0) !important;
+}
+
+.submit-row a.closelink {
+  border-radius: 10px !important;
+  font-weight: 600 !important;
+  font-size: .92rem !important;
+  transition: all .2s var(--school-ease) !important;
+}
+
+.submit-row a.deletelink {
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: .92rem !important;
+  transition: all .25s var(--school-ease) !important;
+  background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+  color: #fff !important;
+  padding: .6rem 1.2rem !important;
+  box-shadow: 0 2px 8px rgba(239,68,68,.25) !important;
+}
+
+.submit-row a.deletelink:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 16px rgba(239,68,68,.35) !important;
+}
+
+/* =====================================================
+   INLINE ADMIN TABLE POLISH
+   ===================================================== */
+.inline-group .tabular .inline-related td,
+.inline-group .tabular .inline-related th {
+  padding: .75rem .85rem !important;
+  font-size: .9rem !important;
+}
+
+.inline-group h2 {
+  background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-primary-light) 50%, var(--school-accent) 100%) !important;
+  color: #fff !important;
+  border: none !important;
+  padding: .9rem 1.25rem !important;
+  font-size: .88rem !important;
+  font-weight: 800 !important;
+  letter-spacing: .05em !important;
+  text-transform: uppercase !important;
+  border-radius: var(--school-radius) var(--school-radius) 0 0 !important;
+}
+
+/* =====================================================
+   PAGINATION — PILL STYLE
+   ===================================================== */
+.paginator {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  flex-wrap: wrap;
+}
+
+.paginator a {
+  border-radius: 8px !important;
+  padding: .4rem .8rem !important;
+  font-weight: 600 !important;
+  font-size: .85rem !important;
+  transition: all .2s var(--school-ease) !important;
+  color: var(--school-text-secondary) !important;
+}
+
+.paginator a:hover {
+  background: rgba(79,70,229,.08) !important;
+  color: var(--school-primary) !important;
+  transform: translateY(-1px) !important;
+}
+
+.paginator .this-page {
+  background: linear-gradient(135deg, var(--school-primary), var(--school-primary-light)) !important;
+  color: #fff !important;
+  border-radius: 8px !important;
+  font-weight: 800 !important;
+  padding: .4rem .8rem !important;
+  box-shadow: 0 2px 10px var(--school-primary-glow) !important;
+}
+
+/* =====================================================
+   SEARCH BAR ENHANCEMENT
+   ===================================================== */
+#searchbar {
+  border-radius: 10px !important;
+  transition: box-shadow .25s var(--school-ease), border-color .25s var(--school-ease) !important;
+  border: 1.5px solid var(--school-border) !important;
+  padding: .65rem 1rem !important;
+  font-size: .92rem !important;
+}
+#searchbar:focus {
+  box-shadow: 0 0 0 3.5px var(--school-primary-glow) !important;
+  border-color: var(--school-primary) !important;
+}
+
+.dark #searchbar {
+  background: var(--school-surface) !important;
+  border-color: var(--school-border) !important;
+  color: var(--school-text) !important;
+}
+
+.dark #searchbar:focus {
+  border-color: var(--school-primary-light) !important;
+}
+
+/* =====================================================
+   APP INDEX CARDS (model list on index)
+   ===================================================== */
+.school-app-card {
+  background: var(--school-surface);
+  border-radius: var(--school-radius-lg);
+  box-shadow: var(--school-shadow);
+  border: 1px solid var(--school-border);
+  overflow: hidden;
+  transition: all .25s var(--school-ease);
+}
+.school-app-card:hover {
+  box-shadow: var(--school-shadow-lg);
+  transform: translateY(-3px);
+  border-color: var(--school-border-hover);
+}
+
+/* =====================================================
+   RECENT ACTIVITY SECTION
+   ===================================================== */
+.school-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: .75rem;
+  padding: .8rem 0;
+  border-bottom: 1px solid var(--school-border);
+  transition: background .15s var(--school-ease);
+}
+.school-activity-item:last-child { border-bottom: none; }
+.school-activity-item:hover { background: var(--school-surface-hover); }
+
+.school-activity-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--school-primary), var(--school-accent));
+  margin-top: .45rem;
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--school-primary-glow);
+}
+
+.dark .school-activity-item { border-bottom-color: var(--school-border); }
+
+/* =====================================================
+   RESPONSIVE ADJUSTMENTS
+   ===================================================== */
+@media (max-width: 768px) {
+  .school-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .school-quick-links {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .school-kpi-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+  .school-kpi-value { font-size: 1.5rem; }
+}
+
+/* =====================================================
+   SMOOTH TRANSITIONS FOR DARK MODE
+   ===================================================== */
+*, *::before, *::after {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: .2s;
+  transition-timing-function: var(--school-ease);
+}
+/* But not for animations */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+}
+
+/* =====================================================
+   MESSAGES / ALERTS — TOAST STYLE
+   ===================================================== */
+.messagelist {
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  margin-bottom: 1.25rem;
+}
+
+.messagelist li {
+  border-radius: var(--school-radius) !important;
+  font-weight: 600 !important;
+  font-size: .92rem !important;
+  padding: .9rem 1.25rem !important;
+  animation: toastSlideIn .4s var(--school-bounce) forwards;
+  box-shadow: var(--school-shadow) !important;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.messagelist li.success {
+  border-left: 4px solid var(--school-success) !important;
+}
+
+.messagelist li.error {
+  border-left: 4px solid var(--school-danger) !important;
+}
+
+.messagelist li.warning {
+  border-left: 4px solid var(--school-warning) !important;
+}
+
+.messagelist li.info {
+  border-left: 4px solid var(--school-primary) !important;
+}
+
+@keyframes toastSlideIn {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* =====================================================
+   BREADCRUMB — REFINED
+   ===================================================== */
+div.breadcrumbs {
+  font-size: .88rem !important;
+  font-weight: 500 !important;
+  letter-spacing: .01em !important;
+  color: var(--school-text-muted) !important;
+}
+
+div.breadcrumbs a {
+  color: var(--school-primary) !important;
+  font-weight: 600 !important;
+  text-decoration: none !important;
+  transition: color .15s var(--school-ease) !important;
+}
+
+div.breadcrumbs a:hover {
+  color: var(--school-primary-dark) !important;
+  text-decoration: underline !important;
+}
+
+/* =====================================================
+   FILTER SIDEBAR POLISH
+   ===================================================== */
+#changelist-filter {
+  border-radius: var(--school-radius-lg) !important;
+  overflow: hidden !important;
+}
+
+#changelist-filter h2 {
+  font-size: .78rem !important;
+  font-weight: 800 !important;
+  text-transform: uppercase !important;
+  letter-spacing: .07em !important;
+  color: var(--school-text-muted) !important;
+  padding: 1rem 1.25rem !important;
+  background: linear-gradient(135deg, rgba(79,70,229,.06), rgba(6,182,212,.03)) !important;
+  border-bottom: 1px solid var(--school-border) !important;
+}
+
+#changelist-filter h3 {
+  font-size: .82rem !important;
+  font-weight: 700 !important;
+  color: var(--school-primary) !important;
+  padding: .7rem 1rem .3rem !important;
+}
+
+#changelist-filter li a {
+  transition: all .15s var(--school-ease) !important;
+  border-radius: 6px !important;
+  padding: .35rem .75rem !important;
+}
+
+#changelist-filter li a:hover {
+  background: rgba(79,70,229,.06) !important;
+  color: var(--school-primary) !important;
+}
+
+#changelist-filter li.selected a {
+  background: rgba(79,70,229,.1) !important;
+  color: var(--school-primary) !important;
+  font-weight: 700 !important;
+}
+
+/* =====================================================
+   OBJECT TOOLS (top-right add button area)
+   ===================================================== */
+.object-tools a {
+  border-radius: 10px !important;
+  font-weight: 700 !important;
+  font-size: .85rem !important;
+  transition: all .25s var(--school-ease) !important;
+  padding: .5rem 1rem !important;
+}
+
+.object-tools a:hover {
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 12px rgba(79,70,229,.25) !important;
+}
+
+/* =====================================================
+   CALENDAR & DATE HIERARCHY
+   ===================================================== */
+.xfull .date-hierarchy {
+  border-radius: var(--school-radius) !important;
+  overflow: hidden !important;
+}
+
+/* =====================================================
+   ANIMATIONS — PREMIUM ENTRY
+   ===================================================== */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeScale {
+  from { opacity: 0; transform: scale(.96) translateY(8px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 0 0 var(--school-primary-glow); }
+  50%      { box-shadow: 0 0 0 8px transparent; }
+}
+
+.school-kpi-card {
+  animation: fadeScale .45s var(--school-ease) both;
+}
+
+.school-kpi-card:nth-child(1) { animation-delay: .0s; }
+.school-kpi-card:nth-child(2) { animation-delay: .06s; }
+.school-kpi-card:nth-child(3) { animation-delay: .12s; }
+.school-kpi-card:nth-child(4) { animation-delay: .18s; }
+.school-kpi-card:nth-child(5) { animation-delay: .24s; }
+.school-kpi-card:nth-child(6) { animation-delay: .30s; }
+
+.school-quick-link {
+  animation: fadeUp .35s var(--school-ease) both;
+}
+.school-quick-link:nth-child(1) { animation-delay: .05s; }
+.school-quick-link:nth-child(2) { animation-delay: .10s; }
+.school-quick-link:nth-child(3) { animation-delay: .15s; }
+.school-quick-link:nth-child(4) { animation-delay: .20s; }
+.school-quick-link:nth-child(5) { animation-delay: .25s; }
+
+/* =====================================================
+   CHANGE LIST SUMMARY BAR (from change_list.html)
+   ===================================================== */
+.school-list-summary {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  background: var(--school-surface);
+  border: 1px solid var(--school-border);
+  border-radius: var(--school-radius-lg);
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1.25rem;
+  box-shadow: var(--school-shadow);
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp .4s var(--school-ease) both;
+}
+
+/* Subtle left accent */
+.school-list-summary::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--school-primary), var(--school-accent));
+  border-radius: var(--school-radius-lg) 0 0 var(--school-radius-lg);
+}
+
+.dark .school-list-summary {
+  background: var(--school-surface);
+  border-color: var(--school-border);
+}
+
+.school-list-stat {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  color: var(--c, var(--school-primary));
+}
+.school-list-stat .material-symbols-outlined {
+  font-size: 30px;
+  opacity: .85;
+}
+.school-list-stat-value {
+  font-size: 1.5rem;
+  font-weight: 900;
+  line-height: 1;
+  color: var(--school-text);
+  letter-spacing: -.03em;
+}
+.dark .school-list-stat-value { color: var(--school-text); }
+.school-list-stat-label {
+  font-size: .7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: var(--school-text-muted);
+}
+
+/* =====================================================
+   CHANGE LIST/FORM BUTTONS — UNIFIED
+   ===================================================== */
+.school-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  background: linear-gradient(135deg, var(--school-primary), var(--school-primary-light));
+  color: #fff !important;
+  padding: .6rem 1.2rem;
+  border-radius: 10px;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: none !important;
+  white-space: nowrap;
+  transition: all .25s var(--school-ease);
+  box-shadow: 0 3px 12px var(--school-primary-glow);
+  letter-spacing: .02em;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Shimmer effect on hover */
+.school-btn-primary::after {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.2), transparent);
+  transition: left .5s var(--school-ease);
+}
+
+.school-btn-primary:hover::after {
+  left: 100%;
+}
+
+.school-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(79,70,229,.4);
+}
+
+.school-btn-primary:active {
+  transform: translateY(0);
+}
+
+.school-btn-primary .material-symbols-outlined { font-size: 18px; }
+
+.school-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: transparent;
+  color: var(--school-primary) !important;
+  padding: .55rem 1.1rem;
+  border-radius: 10px;
+  font-size: .82rem;
+  font-weight: 700;
+  text-decoration: none !important;
+  white-space: nowrap;
+  border: 1.5px solid var(--school-primary);
+  transition: all .25s var(--school-ease);
+  position: relative;
+  overflow: hidden;
+}
+
+.school-btn-secondary:hover {
+  background: rgba(79,70,229,.08);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px var(--school-primary-glow);
+}
+
+.school-btn-secondary .material-symbols-outlined { font-size: 18px; }
+.dark .school-btn-secondary { color: #818cf8 !important; border-color: #6366f1; }
+.dark .school-btn-secondary:hover { background: rgba(99,102,241,.12); }
+
+/* =====================================================
+   CHANGE FORM HEADER (from change_form.html)
+   ===================================================== */
+.school-form-header {
+  display: flex;
+  align-items: center;
+  gap: 1.1rem;
+  background: var(--school-surface);
+  border: 1px solid var(--school-border);
+  border-radius: var(--school-radius-lg);
+  padding: 1.35rem 1.6rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--school-shadow);
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp .4s var(--school-ease) both;
+}
+
+/* Animated gradient top border */
+.school-form-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--school-primary), var(--school-accent), var(--school-primary-light));
+  background-size: 200% 100%;
+  animation: gradientSlide 3s ease infinite;
+}
+
+@keyframes gradientSlide {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.dark .school-form-header {
+  background: var(--school-surface);
+  border-color: var(--school-border);
+}
+
+.school-form-header-icon {
+  width: 50px; height: 50px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--school-primary) 0%, var(--school-accent) 100%);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 14px var(--school-primary-glow);
+  transition: transform .3s var(--school-ease);
+}
+
+.school-form-header:hover .school-form-header-icon {
+  transform: scale(1.05) rotate(2deg);
+}
+
+.school-form-header-icon .material-symbols-outlined { font-size: 26px; }
+.school-form-header-body { flex: 1; min-width: 0; }
+.school-form-header-title {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: var(--school-text);
+  text-transform: capitalize;
+  letter-spacing: -.02em;
+}
+.dark .school-form-header-title { color: var(--school-text); }
+.school-form-header-subtitle {
+  font-size: .82rem;
+  color: var(--school-text-muted);
+  margin-top: .2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dark .school-form-header-subtitle { color: var(--school-text-secondary); }
+.school-form-header-actions {
+  display: flex;
+  align-items: center;
+  gap: .65rem;
+  flex-wrap: wrap;
+}
+.school-form-back-btn,
+.school-form-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .5rem 1rem;
+  border-radius: 10px;
+  font-size: .8rem;
+  font-weight: 700;
+  text-decoration: none !important;
+  transition: all .25s var(--school-ease);
+  white-space: nowrap;
+}
+.school-form-back-btn {
+  background: var(--school-bg);
+  border: 1.5px solid var(--school-border);
+  color: var(--school-text-secondary) !important;
+}
+.school-form-back-btn:hover {
+  background: rgba(79,70,229,.06);
+  border-color: var(--school-border-hover);
+  color: var(--school-primary) !important;
+  transform: translateY(-1px);
+}
+.dark .school-form-back-btn {
+  background: rgba(15,23,42,.6); border-color: var(--school-border); color: var(--school-text-secondary) !important;
+}
+.dark .school-form-back-btn:hover { background: rgba(99,102,241,.1); color: #818cf8 !important; }
+.school-form-delete-btn {
+  background: linear-gradient(135deg, #fef2f2, #fee2e2);
+  border: 1.5px solid #fecdd3;
+  color: #be123c !important;
+}
+.school-form-delete-btn:hover {
+  background: linear-gradient(135deg, #fee2e2, #fecdd3);
+  border-color: #fca5a5;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(239,68,68,.2);
+}
+.dark .school-form-delete-btn {
+  background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.2); color: #f87171 !important;
+}
+.dark .school-form-delete-btn:hover { background: rgba(239,68,68,.15); box-shadow: 0 4px 12px rgba(239,68,68,.2); }
+.school-form-back-btn .material-symbols-outlined,
+.school-form-delete-btn .material-symbols-outlined { font-size: 16px; }
+.school-required-note {
+  font-size: .78rem;
+  color: var(--school-text-muted);
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+}
+.dark .school-required-note { color: var(--school-text-muted); }
+
+/* =====================================================
+   SCROLLBAR CUSTOMIZATION
+   ===================================================== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(79, 70, 229, .15);
+  border-radius: 99px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(79, 70, 229, .3);
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(99, 102, 241, .2);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, .35);
+}
+
+/* =====================================================
+   SELECTION HIGHLIGHT
+   ===================================================== */
+::selection {
+  background: rgba(79, 70, 229, .2);
+  color: var(--school-text);
+}
+
+/* =====================================================
+   TOOLTIP STYLE (native title upgrade via css)
+   ===================================================== */
+[title] {
+  position: relative;
+}

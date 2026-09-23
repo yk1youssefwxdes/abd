@@ -1,0 +1,91 @@
+{% extends 'core/base.html' %}
+{% block title %}Catégories de niveaux — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:levels_list' %}"><i class="bi bi-layers-fill"></i> Niveaux</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Catégories</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title"><i class="bi bi-collection-fill me-2" style="color:var(--primary);"></i>Catégories de niveaux</h1>
+    <p class="page-subtitle">{{ categories|length }} catégorie{{ categories|length|pluralize }}</p>
+  </div>
+  <a href="{% url 'core:level_category_create' %}" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Ajouter une catégorie
+  </a>
+</div>
+
+{% if categories %}
+  <div class="card">
+    <div class="table-responsive">
+      <table class="table table-hover mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-4">Catégorie</th>
+            <th>Code</th>
+            <th class="text-center">Niveaux</th>
+            <th class="text-end pe-4">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for cat in categories %}
+            <tr>
+              <td class="ps-4 fw-600">
+                <a href="{% url 'core:level_category_detail' cat.id %}" class="text-decoration-none" style="color:var(--primary);">
+                  <i class="bi bi-collection me-1"></i>{{ cat.name }}
+                </a>
+              </td>
+              <td>
+                <span class="badge badge-secondary" style="font-family:monospace;">{{ cat.code }}</span>
+              </td>
+              <td class="text-center">
+                <span class="badge" style="background:var(--primary-light);color:var(--primary);">
+                  {{ cat.level_count }} niveau{{ cat.level_count|pluralize:"x" }}
+                </span>
+              </td>
+              <td class="text-end pe-4">
+                <div class="d-flex gap-1 justify-content-end">
+                  <a href="{% url 'core:level_category_detail' cat.id %}" class="btn btn-sm btn-icon btn-outline-info" title="Détails">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                  <a href="{% url 'core:level_category_edit' cat.id %}" class="btn btn-sm btn-icon btn-outline-primary" title="Modifier">
+                    <i class="bi bi-pencil"></i>
+                  </a>
+                  <a href="{% url 'core:level_category_delete_confirm' cat.id %}" class="btn btn-sm btn-icon btn-outline-danger" title="Supprimer">
+                    <i class="bi bi-trash"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-body empty-state">
+      <div class="empty-state-icon"><i class="bi bi-collection"></i></div>
+      <div class="empty-state-title">Aucune catégorie définie</div>
+      <div class="empty-state-text">Créez des catégories pour organiser vos niveaux (ex : Lycée, Collège, Primaire).</div>
+      <div class="mt-3">
+        <a href="{% url 'core:level_category_create' %}" class="btn btn-primary">
+          <i class="bi bi-plus-lg"></i> Ajouter une catégorie
+        </a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<!-- Quick navigation -->
+<div class="mt-4">
+  <a href="{% url 'core:levels_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-layers-fill"></i> Voir les niveaux
+  </a>
+</div>
+
+{% endblock %}

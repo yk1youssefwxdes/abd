@@ -1,0 +1,3 @@
+Bonjour {student_name},
+Votre devoir « {assignment_name} » doit être remis avant le {due_date}.
+N'oubliez pas de le soumettre à temps !

@@ -1,0 +1,39 @@
+# nixpacks.toml — Railway build configuration
+#
+# Railway uses Nixpacks to build the image automatically.
+# This file installs system dependencies (Chromium + Node.js) alongside Python.
+#
+# Chromium path on Nixpacks images: /nix/store/.../bin/chromium
+# We set CHROME_PATH via the environment so whatsapp-web.js / Puppeteer finds it.
+
+[variables]
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+
+# ── System packages (Nix) ────────────────────────────────────────────────────
+[phases.setup]
+nixPkgs = [
+    "python3",        # Stable Python 3
+    "nodejs_22",      # Node.js 22 LTS
+    "chromium",       # Chromium browser for Puppeteer / whatsapp-web.js
+    "which",          # Used below to auto-resolve Chromium path
+    # Font packages so Chromium can render WhatsApp pages correctly
+    "noto-fonts",
+    "freetype",
+]
+
+# ── Build phase ───────────────────────────────────────────────────────────────
+# 1. Install Python deps
+# 2. Install Node deps for the WhatsApp service (production only, no devDeps)
+[phases.build]
+cmds = [
+    "pip install -r requirements.txt",
+    "cd whatsapp_service && npm install --omit=dev",
+    "python manage.py collectstatic --noinput",
+]
+
+# ── Start command (web process) ───────────────────────────────────────────────
+# Railway runs the Procfile's `web` entry as the default start command.
+# The `worker` entry (WhatsApp Node service) must be added as a separate
+# Railway service or via the Procfile worker dyno.
+[start]
+cmd = "bash scripts/start.sh"

@@ -1,0 +1,258 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Suivi des Absences — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+.aa { font-family:'Inter',system-ui,sans-serif; display:flex; flex-direction:column; gap:1.5rem; padding:.25rem 0 3rem; }
+.aa-hero {
+  position:relative; border-radius:24px; padding:2.25rem 2.75rem; overflow:hidden;
+  background:#1e1b4b; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+}
+.aa-hero::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,#312e81 0%,#4338ca 40%,#7c3aed 100%);
+  background-size:200% 200%; animation:aaGrad 10s ease infinite;
+}
+@keyframes aaGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.aa-hero-content { position:relative; z-index:2; }
+.aa-hero-title { font-size:1.8rem; font-weight:900; letter-spacing:-.03em; margin:0; }
+.aa-hero-sub { font-size:.85rem; color:rgba(255,255,255,.6); margin:.3rem 0 0; }
+.aa-hero-actions { position:relative; z-index:2; display:flex; gap:.5rem; flex-wrap:wrap; }
+.aa-btn { display:inline-flex; align-items:center; gap:.4rem; padding:.5rem 1.1rem; border-radius:10px; font-size:.8rem; font-weight:700; text-decoration:none; cursor:pointer; border:none; }
+.aa-btn-red { background:#ef4444; color:#fff; }
+.aa-btn-red:hover { background:#dc2626; color:#fff; }
+.aa-btn-outline { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.25); }
+.aa-btn-outline:hover { background:rgba(255,255,255,.25); color:#fff; }
+.aa-filter-bar { background:#fff; border-radius:16px; padding:1.1rem 1.5rem; border:1px solid rgba(0,0,0,.06); display:flex; gap:1rem; flex-wrap:wrap; align-items:flex-end; }
+.dark .aa-filter-bar { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.aa-filter-label { font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; margin-bottom:.35rem; }
+.aa-filter-input { padding:.45rem .8rem; border:1px solid #e2e8f0; border-radius:10px; font-size:.82rem; font-family:inherit; outline:none; }
+.aa-filter-input:focus { border-color:#6366f1; box-shadow:0 0 0 3px rgba(99,102,241,.15); }
+.dark .aa-filter-input { background:#0f172a; border-color:rgba(255,255,255,.1); color:#f1f5f9; }
+.aa-filter-submit { padding:.45rem 1.1rem; background:#6366f1; color:#fff; border:none; border-radius:10px; font-size:.82rem; font-weight:700; cursor:pointer; font-family:inherit; }
+.aa-filter-submit:hover { background:#4f46e5; }
+.aa-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+.aa-kpi { background:#fff; border-radius:20px; padding:1.4rem 1.5rem 1.25rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); transition:transform .2s; cursor:default; display:flex; align-items:center; gap:1rem; }
+.aa-kpi:hover { transform:translateY(-3px); }
+.dark .aa-kpi { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.aa-kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.aa-kpi-label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
+.aa-kpi-val { font-size:1.6rem; font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.dark .aa-kpi-val { color:#f1f5f9; }
+.aa-grid-2-1 { display:grid; grid-template-columns:2fr 1fr; gap:1.25rem; }
+.aa-card { background:#fff; border-radius:20px; padding:1.6rem 1.75rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); }
+.dark .aa-card { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.aa-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; border-bottom:1px solid #f1f5f9; padding-bottom:.9rem; }
+.dark .aa-card-hdr { border-bottom-color:rgba(255,255,255,.05); }
+.aa-card-title { font-size:.92rem; font-weight:800; color:#0f172a; }
+.dark .aa-card-title { color:#f1f5f9; }
+.aa-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.aa-table th { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; border-bottom:1px solid #e2e8f0; padding:.7rem 1rem; text-align:left; }
+.aa-table td { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; color:#334155; }
+.dark .aa-table th { border-bottom-color:rgba(255,255,255,.07); }
+.dark .aa-table td { border-bottom-color:rgba(255,255,255,.04); color:#cbd5e1; }
+.aa-table tr:last-child td { border-bottom:none; }
+.aa-table tr:hover td { background:#f8fafc; }
+.dark .aa-table tr:hover td { background:rgba(255,255,255,.03); }
+.aa-chip { display:inline-flex; align-items:center; gap:.15rem; padding:.2rem .7rem; border-radius:99px; font-size:.7rem; font-weight:800; }
+.aa-chip-red { background:#fee2e2; color:#ef4444; }
+.aa-chip-orange { background:#fef3c7; color:#d97706; }
+.aa-chip-green { background:#d1fae5; color:#059669; }
+.aa-progress { height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
+.aa-progress-fill { height:100%; border-radius:99px; }
+.aa-wa-btn { display:inline-flex; align-items:center; gap:.3rem; padding:.3rem .8rem; border-radius:8px; background:#25d366; color:#fff; font-size:.75rem; font-weight:700; text-decoration:none; }
+.aa-wa-btn:hover { background:#128c7e; color:#fff; }
+.aa-heatmap { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
+.aa-hm-cell { aspect-ratio:1; display:flex; flex-direction:column; align-items:center; justify-content:center; border-radius:8px; border:1px solid #e2e8f0; font-size:.65rem; }
+.aa-hm-day { font-weight:700; }
+@media(max-width:992px) { .aa-kpi-grid{grid-template-columns:repeat(2,1fr);} .aa-grid-2-1{grid-template-columns:1fr;} }
+@media(max-width:576px) { .aa-kpi-grid{grid-template-columns:1fr;} }
+</style>
+
+<div class="aa">
+
+  <!-- HERO -->
+  <div class="aa-hero">
+    <div class="aa-hero-content">
+      <h1 class="aa-hero-title">Analyse des Absences &amp; Alertes</h1>
+      <p class="aa-hero-sub">Décrochage, élèves à risque &amp; relances parentales</p>
+    </div>
+    <div class="aa-hero-actions">
+      <a href="{% url 'core:export_attendance_pdf' %}" class="aa-btn aa-btn-red">
+        <span class="material-symbols-outlined" style="font-size:15px;">picture_as_pdf</span> PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- FILTER -->
+  <form method="get" class="aa-filter-bar">
+    <div>
+      <div class="aa-filter-label">Date Début</div>
+      <input type="date" name="start_date" value="{{ start_date }}" class="aa-filter-input">
+    </div>
+    <div>
+      <div class="aa-filter-label">Date Fin</div>
+      <input type="date" name="end_date" value="{{ end_date }}" class="aa-filter-input">
+    </div>
+    <button type="submit" class="aa-filter-submit">
+      <span class="material-symbols-outlined" style="font-size:15px; vertical-align:middle;">filter_alt</span> Filtrer
+    </button>
+    <a href="{% url 'admin:analytics_attendance' %}" style="display:inline-flex; align-items:center; gap:.3rem; padding:.45rem .9rem; border-radius:10px; font-size:.8rem; font-weight:700; text-decoration:none; background:#f1f5f9; color:#334155;">
+      <span class="material-symbols-outlined" style="font-size:15px;">close</span>
+    </a>
+  </form>
+
+  <!-- KPI STRIP -->
+  <div class="aa-kpi-grid">
+    <div class="aa-kpi">
+      <div class="aa-kpi-icon" style="background:#e8f5e9; color:#4caf50;"><span class="material-symbols-outlined">groups</span></div>
+      <div><div class="aa-kpi-val">{{ students|length }}</div><div class="aa-kpi-label">Élèves analysés</div></div>
+    </div>
+    <div class="aa-kpi">
+      <div class="aa-kpi-icon" style="background:#fff3e0; color:#ff9800;"><span class="material-symbols-outlined">warning</span></div>
+      <div><div class="aa-kpi-val" id="aaAtRisk">-</div><div class="aa-kpi-label">À risque (&gt;20%)</div></div>
+    </div>
+    <div class="aa-kpi">
+      <div class="aa-kpi-icon" style="background:#fee2e2; color:#ef4444;"><span class="material-symbols-outlined">cancel</span></div>
+      <div><div class="aa-kpi-val" id="aaCritical">-</div><div class="aa-kpi-label">Critiques (&gt;35%)</div></div>
+    </div>
+    <div class="aa-kpi">
+      <div class="aa-kpi-icon" style="background:#e0f2fe; color:#0284c7;"><span class="material-symbols-outlined">percent</span></div>
+      <div><div class="aa-kpi-val" id="aaGlobalRate">-</div><div class="aa-kpi-label">Absentéisme global</div></div>
+    </div>
+  </div>
+
+  <!-- TREND + HEATMAP -->
+  <div class="aa-grid-2-1">
+    <div class="aa-card">
+      <div class="aa-card-hdr">
+        <span class="aa-card-title">Évolution du taux d'absence (semaine par semaine)</span>
+      </div>
+      <div style="position:relative; height:260px;"><canvas id="aaTrendChart"></canvas></div>
+    </div>
+    <div class="aa-card">
+      <div class="aa-card-hdr">
+        <span class="aa-card-title">Heatmap absences — mois courant</span>
+      </div>
+      <p style="font-size:.75rem; color:#94a3b8; margin-bottom:10px;">Densité des absences par jour.</p>
+      <div class="aa-heatmap" id="aaHeatmap"></div>
+    </div>
+  </div>
+
+  <!-- AT-RISK TABLE -->
+  <div class="aa-card">
+    <div class="aa-card-hdr">
+      <span class="aa-card-title">Élèves présentant des risques d'absentéisme</span>
+      <span class="aa-chip aa-chip-red">{{ students|length }} analysés</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="aa-table">
+        <thead>
+          <tr>
+            <th>Élève</th><th>Alerte</th><th>Séances</th><th>Présences</th><th>Absences</th>
+            <th>Taux</th><th>Streak</th><th>WhatsApp Parent</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in students %}
+          <tr>
+            <td style="font-weight:700;"><a href="{% url 'core:student_page' s.student_id %}" style="color:#4f46e5; text-decoration:none;">{{ s.student_name }}</a></td>
+            <td>
+              {% if s.risk_level == 'HIGH_RISK' %}<span class="aa-chip aa-chip-red">🔴 Critique</span>
+              {% elif s.risk_level == 'AT_RISK' %}<span class="aa-chip aa-chip-orange">🟠 À risque</span>
+              {% else %}<span class="aa-chip aa-chip-green">✓ Stable</span>{% endif %}
+            </td>
+            <td>{{ s.total_sessions }}</td>
+            <td style="color:#10b981; font-weight:700;">{{ s.presences }}</td>
+            <td style="color:#ef4444; font-weight:700;">{{ s.absences }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:.4rem;">
+                <div class="aa-progress" style="width:60px;"><div class="aa-progress-fill" style="width:{{ s.absence_rate }}%; background:{% if s.risk_level == 'HIGH_RISK' %}#ef4444{% elif s.risk_level == 'AT_RISK' %}#f59e0b{% else %}#10b981{% endif %};"></div></div>
+                <span style="font-weight:800; font-size:.82rem;">{{ s.absence_rate }}%</span>
+              </div>
+            </td>
+            <td style="color:#ef4444; font-weight:800;">{{ s.consecutive_absences }}</td>
+            <td>
+              {% if s.wa_link %}<a href="{{ s.wa_link }}" target="_blank" class="aa-wa-btn"><span class="material-symbols-outlined" style="font-size:14px;">chat</span> Notifier</a>
+              {% else %}<span style="font-size:.75rem; color:#94a3b8;">Aucun contact</span>{% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" style="text-align:center; color:#94a3b8; padding:2rem;">Aucune absence sur la période.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- BY GROUP TABLE -->
+  <div class="aa-card">
+    <div class="aa-card-hdr">
+      <span class="aa-card-title">Taux d'absence par groupe de cours</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="aa-table">
+        <thead>
+          <tr><th>Groupe</th><th>Matière</th><th>Élèves</th><th>Séances</th><th>Absences</th><th>Taux</th></tr>
+        </thead>
+        <tbody>
+          {% for g in groups %}
+          <tr>
+            <td style="font-weight:700;"><a href="{% url 'core:group_detail' g.group_id %}" style="color:#4f46e5; text-decoration:none;">{{ g.group_name }}</a></td>
+            <td>{{ g.subject }}</td>
+            <td style="font-weight:700;">{{ g.enrolled }}</td>
+            <td>{{ g.total_records }}</td>
+            <td style="color:#ef4444; font-weight:700;">{{ g.absences }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:.4rem;">
+                <div class="aa-progress" style="width:80px;"><div class="aa-progress-fill" style="width:{{ g.absence_rate }}%; background:{% if g.absence_rate >= 20 %}#ef4444{% elif g.absence_rate >= 10 %}#f59e0b{% else %}#10b981{% endif %};"></div></div>
+                <span style="font-weight:800; font-size:.82rem;">{{ g.absence_rate }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="6" style="text-align:center; color:#94a3b8; padding:2rem;">Aucune absence.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+(function(){
+  const students=[{% for s in students %}{risk:"{{ s.risk_level }}",abs:{{ s.absences }},total:{{ s.total_sessions }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  let atRisk=0,critical=0,totAbs=0,totSess=0;
+  students.forEach(s=>{if(s.risk==='HIGH_RISK')critical++;if(s.risk==='AT_RISK')atRisk++;totAbs+=s.abs;totSess+=s.total;});
+  document.getElementById('aaAtRisk').textContent=atRisk;
+  document.getElementById('aaCritical').textContent=critical;
+  document.getElementById('aaGlobalRate').textContent=totSess>0?((totAbs/totSess)*100).toFixed(1)+'%':'0%';
+
+  const weekly=[{% for w in weekly %}{week:"{{ w.week_label }}",rate:{{ w.absence_rate }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  new Chart(document.getElementById('aaTrendChart').getContext('2d'),{type:'line',data:{labels:weekly.map(x=>x.week),datasets:[{label:"Taux d'absence (%)",data:weekly.map(x=>x.rate),borderColor:'rgba(239,68,68,.85)',backgroundColor:'rgba(239,68,68,.05)',borderWidth:2.5,pointBackgroundColor:'#ef4444',tension:.35,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>v+'%'}}}}});
+
+  const hm={{ heatmap|safe }};
+  const today=new Date();const year=today.getFullYear();const month=today.getMonth();
+  const days=new Date(year,month+1,0).getDate();const grid=document.getElementById('aaHeatmap');
+  for(let d=1;d<=days;d++){
+    const key=`${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const count=hm[key]||0;
+    const cell=document.createElement('div');cell.className='aa-hm-cell';
+    let bg='#f8fafc',tc='#334155',bc='#e2e8f0';
+    if(count>=5){bg='#fee2e2';tc='#ef4444';bc='#fca5a5';}
+    else if(count>=2){bg='#fef3c7';tc='#d97706';bc='#fde68a';}
+    else if(count>0){bg='#fffbeb';tc='#92400e';bc='#fef9c3';}
+    cell.style.cssText=`background:${bg};color:${tc};border-color:${bc};`;
+    cell.innerHTML=`<span class="aa-hm-day">${d}</span><span style="font-size:.55rem;opacity:.8;">${count>0?count+'abs':'-'}</span>`;
+    grid.appendChild(cell);
+  }
+})();
+</script>
+{% endblock %}

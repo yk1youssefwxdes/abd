@@ -1,0 +1,359 @@
+{% extends 'core/base.html' %}
+{% block title %}Analyse des absences — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ─────────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-center justify-content-between mb-4">
+  <div>
+    <h1 class="page-title mb-1">
+      <i class="bi bi-graph-up-arrow me-2" style="color:var(--primary);"></i>
+      Analyse des absences
+    </h1>
+    <p class="text-muted mb-0" style="font-size:13.5px;">
+      Tableau de bord At-Risk — seuil d'alerte&nbsp;:
+      <strong>{{ at_risk_threshold }}%</strong> d'absentéisme
+    </p>
+  </div>
+  <a href="{% url 'core:attendance_report' %}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-list-ul me-1"></i> Rapport détaillé
+  </a>
+</div>
+
+
+<!-- ── Filter bar ──────────────────────────────────────────────────────────── -->
+<div class="card mb-4" style="border:1px solid var(--border);">
+  <div class="card-body py-3">
+    <form method="get" id="analyticsFilterForm" class="row g-2 align-items-end">
+
+      <div class="col-sm-6 col-md-3">
+        <label class="form-label form-label-sm mb-1">Date début</label>
+        <input type="date" name="start_date" value="{{ start_date }}"
+               class="form-control form-control-sm" id="id_start_date">
+      </div>
+
+      <div class="col-sm-6 col-md-3">
+        <label class="form-label form-label-sm mb-1">Date fin</label>
+        <input type="date" name="end_date" value="{{ end_date }}"
+               class="form-control form-control-sm" id="id_end_date">
+      </div>
+
+      <div class="col-sm-6 col-md-3">
+        <label class="form-label form-label-sm mb-1">Groupe de cours</label>
+        <select name="group_id" class="form-select form-select-sm" id="id_group_id">
+          <option value="">— Tous les groupes —</option>
+          {% for g in groups %}
+          <option value="{{ g.id }}" {% if selected_group == g.id|stringformat:"s" %}selected{% endif %}>
+            {{ g.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="col-sm-6 col-md-2">
+        <label class="form-label form-label-sm mb-1">Nom élève</label>
+        <input type="text" name="student_q" value="{{ student_q }}"
+               class="form-control form-control-sm" placeholder="Recherche..."
+               id="id_student_q">
+      </div>
+
+      <div class="col-md-1 d-flex gap-1">
+        <button type="submit" class="btn btn-primary btn-sm w-100" title="Appliquer">
+          <i class="bi bi-funnel-fill"></i>
+        </button>
+        <a href="{% url 'core:attendance_analytics' %}" class="btn btn-outline-secondary btn-sm" title="Réinitialiser">
+          <i class="bi bi-x-lg"></i>
+        </a>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+
+<!-- ── KPI Summary cards ───────────────────────────────────────────────────── -->
+<div class="row g-3 mb-4">
+
+  <!-- Total students -->
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100" style="border-left:4px solid var(--primary);">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:48px;height:48px;background:var(--primary-light);flex-shrink:0;">
+          <i class="bi bi-people-fill" style="color:var(--primary);font-size:1.3rem;"></i>
+        </div>
+        <div>
+          <div style="font-size:1.6rem;font-weight:700;color:var(--text-primary);line-height:1.1;">
+            {{ total_students }}
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);">Élèves analysés</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- At-risk count -->
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100" style="border-left:4px solid #ef4444;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:48px;height:48px;background:#fee2e2;flex-shrink:0;">
+          <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;font-size:1.3rem;"></i>
+        </div>
+        <div>
+          <div style="font-size:1.6rem;font-weight:700;color:#ef4444;line-height:1.1;">
+            {{ total_at_risk }}
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);">Élèves à risque (&gt;{{ at_risk_threshold }}%)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global absence rate -->
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100" style="border-left:4px solid #f59e0b;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:48px;height:48px;background:#fef3c7;flex-shrink:0;">
+          <i class="bi bi-percent" style="color:#f59e0b;font-size:1.3rem;"></i>
+        </div>
+        <div>
+          <div style="font-size:1.6rem;font-weight:700;color:#92400e;line-height:1.1;">
+            {{ global_rate }}%
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);">Taux d'absence global</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Period label -->
+  <div class="col-sm-6 col-lg-3">
+    <div class="card h-100" style="border-left:4px solid #10b981;">
+      <div class="card-body d-flex align-items-center gap-3">
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:48px;height:48px;background:#d1fae5;flex-shrink:0;">
+          <i class="bi bi-calendar-range-fill" style="color:#10b981;font-size:1.3rem;"></i>
+        </div>
+        <div>
+          <div style="font-size:1rem;font-weight:600;color:var(--text-primary);line-height:1.3;">
+            {{ start_date }} → {{ end_date }}
+          </div>
+          <div style="font-size:12px;color:var(--text-secondary);">Période analysée</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+
+<!-- ── Data table ──────────────────────────────────────────────────────────── -->
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between"
+       style="background:var(--surface);border-bottom:1px solid var(--border);">
+    <h2 class="mb-0" style="font-size:1rem;font-weight:600;">
+      <i class="bi bi-table me-2" style="color:var(--primary);"></i>
+      Détail par élève
+    </h2>
+    {% if results %}
+    <span class="badge bg-secondary">{{ results|length }} élève{{ results|length|pluralize:"s" }}</span>
+    {% endif %}
+  </div>
+
+  {% if results %}
+  <div class="table-responsive">
+    <table class="table table-hover mb-0 align-middle" id="analyticsTable">
+      <thead style="background:var(--surface-alt);font-size:12px;text-transform:uppercase;letter-spacing:.04em;">
+        <tr>
+          <th class="ps-4" style="color:var(--text-secondary);font-weight:600;">Élève</th>
+          <th style="color:var(--text-secondary);font-weight:600;">Statut</th>
+          <th class="text-center" style="color:var(--text-secondary);font-weight:600;">Séances</th>
+          <th class="text-center" style="color:var(--text-secondary);font-weight:600;">Présences</th>
+          <th class="text-center" style="color:var(--text-secondary);font-weight:600;">Absences</th>
+          <th style="color:var(--text-secondary);font-weight:600;width:180px;">Taux absence</th>
+          <th class="text-center" style="color:var(--text-secondary);font-weight:600;">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in results %}
+        <tr class="{% if row.is_at_risk %}at-risk-row{% endif %}"
+            style="{% if row.is_at_risk %}background:linear-gradient(90deg,#fff5f5 0%,#fff 100%);{% endif %}">
+
+          <!-- Student name -->
+          <td class="ps-4">
+            <div class="d-flex align-items-center gap-2">
+              {% if row.is_at_risk %}
+              <span class="rounded-circle d-inline-flex align-items-center justify-content-center"
+                    style="width:32px;height:32px;background:#fee2e2;flex-shrink:0;">
+                <i class="bi bi-person-fill" style="color:#ef4444;font-size:.9rem;"></i>
+              </span>
+              {% else %}
+              <span class="rounded-circle d-inline-flex align-items-center justify-content-center"
+                    style="width:32px;height:32px;background:var(--primary-light);flex-shrink:0;">
+                <i class="bi bi-person-fill" style="color:var(--primary);font-size:.9rem;"></i>
+              </span>
+              {% endif %}
+              <div>
+                <a href="{% url 'core:student_page' row.student_id %}"
+                   style="font-weight:600;color:var(--text-primary);text-decoration:none;">
+                  {{ row.student_name }}
+                </a>
+                {% if row.parent_phone %}
+                <div style="font-size:11px;color:var(--text-muted);">{{ row.parent_phone }}</div>
+                {% endif %}
+              </div>
+            </div>
+          </td>
+
+          <!-- Risk badge -->
+          <td>
+            {% if row.is_at_risk %}
+            <span class="badge"
+                  style="background:#fef2f2;color:#ef4444;border:1px solid #fecaca;font-size:11px;font-weight:600;">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>À risque
+            </span>
+            {% else %}
+            <span class="badge"
+                  style="background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0;font-size:11px;font-weight:600;">
+              <i class="bi bi-check-circle-fill me-1"></i>OK
+            </span>
+            {% endif %}
+          </td>
+
+          <!-- Total sessions -->
+          <td class="text-center">
+            <span style="font-weight:600;">{{ row.total_sessions }}</span>
+          </td>
+
+          <!-- Presences -->
+          <td class="text-center">
+            <span style="color:#16a34a;font-weight:600;">{{ row.presences }}</span>
+          </td>
+
+          <!-- Absences -->
+          <td class="text-center">
+            <span style="color:{% if row.absences > 0 %}#ef4444{% else %}var(--text-muted){% endif %};font-weight:600;">
+              {{ row.absences }}
+            </span>
+          </td>
+
+          <!-- Absence rate with progress bar -->
+          <td>
+            <div class="d-flex align-items-center gap-2">
+              <div class="flex-grow-1"
+                   style="background:#e5e7eb;border-radius:4px;height:7px;overflow:hidden;">
+                <div class="absence-bar"
+                     data-width="{{ row.absence_rate }}"
+                     style="
+                       width:0%;
+                       height:100%;
+                       border-radius:4px;
+                       background:{% if row.is_at_risk %}#ef4444{% elif row.absence_rate > 10 %}#f59e0b{% else %}#10b981{% endif %};
+                       transition:width .6s ease;
+                     "></div>
+              </div>
+              <span style="
+                min-width:44px;
+                text-align:right;
+                font-weight:700;
+                font-size:13px;
+                color:{% if row.is_at_risk %}#ef4444{% elif row.absence_rate > 10 %}#92400e{% else %}#166534{% endif %};
+              ">{{ row.absence_rate }}%</span>
+            </div>
+          </td>
+
+          <!-- WhatsApp action button -->
+          <td class="text-center">
+            {% if row.is_at_risk and row.wa_link %}
+            <a href="{{ row.wa_link }}" target="_blank" rel="noopener noreferrer"
+               id="wa-btn-{{ row.student_id }}"
+               class="btn btn-sm"
+               style="background:#25d366;color:#fff;border:none;font-size:12px;border-radius:6px;padding:4px 10px;white-space:nowrap;"
+               title="Contacter le parent via WhatsApp">
+              <i class="bi bi-whatsapp me-1"></i> Suivi parent
+            </a>
+            {% elif row.is_at_risk %}
+            <span class="text-muted" style="font-size:12px;font-style:italic;">Pas de téléphone</span>
+            {% else %}
+            <span style="color:var(--text-muted);font-size:12px;">—</span>
+            {% endif %}
+          </td>
+
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Table footer summary -->
+  <div class="card-footer d-flex align-items-center justify-content-between py-2"
+       style="background:var(--surface-alt);border-top:1px solid var(--border);font-size:12.5px;color:var(--text-secondary);">
+    <span>
+      <strong>{{ total_students }}</strong> élève{{ total_students|pluralize:"s" }} analysé{{ total_students|pluralize:"s" }} &nbsp;•&nbsp;
+      <strong style="color:#ef4444;">{{ total_at_risk }}</strong> à risque &nbsp;•&nbsp;
+      Taux global&nbsp;: <strong>{{ global_rate }}%</strong>
+    </span>
+    <span style="color:var(--text-muted);">
+      Seuil at-risk&nbsp;: <strong>&gt; {{ at_risk_threshold }}%</strong>
+    </span>
+  </div>
+
+  {% else %}
+
+  <!-- Empty state -->
+  <div class="card-body text-center py-5">
+    <div class="mb-3" style="font-size:3.5rem;opacity:.35;">📋</div>
+    <h3 class="mb-1" style="font-size:1.1rem;font-weight:600;color:var(--text-primary);">
+      Aucune donnée d'absence trouvée
+    </h3>
+    <p class="text-muted mb-3" style="font-size:13.5px;">
+      Aucune absence enregistrée pour la période et les filtres sélectionnés.
+    </p>
+    <a href="{% url 'core:attendance_analytics' %}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-arrow-counterclockwise me-1"></i> Réinitialiser les filtres
+    </a>
+  </div>
+
+  {% endif %}
+</div>
+
+
+<style>
+  /* Subtle pulse animation on at-risk rows */
+  @keyframes riskPulse {
+    0%   { border-left-color: #ef4444; }
+    50%  { border-left-color: #fca5a5; }
+    100% { border-left-color: #ef4444; }
+  }
+
+  .at-risk-row {
+    border-left: 3px solid #ef4444;
+    animation: riskPulse 3s ease-in-out infinite;
+  }
+
+  .at-risk-row:hover {
+    background: linear-gradient(90deg, #fee2e2 0%, #fff9f9 100%) !important;
+  }
+
+  /* KPI card hover lift */
+  .card:hover {
+    box-shadow: var(--shadow-md);
+    transition: box-shadow .2s ease;
+  }
+</style>
+
+<script>
+  // Animate progress bars after DOM is ready
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.absence-bar').forEach(function (bar) {
+      const targetWidth = parseFloat(bar.dataset.width) || 0;
+      setTimeout(function () {
+        bar.style.width = Math.min(targetWidth, 100) + '%';
+      }, 100);
+    });
+  });
+</script>
+
+{% endblock %}

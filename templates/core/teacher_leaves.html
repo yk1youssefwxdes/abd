@@ -1,0 +1,282 @@
+{% extends 'core/base.html' %}
+{% block title %}Congés — {{ teacher.name }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teachers_list' %}"><i class="bi bi-person-badge-fill"></i> Professeurs</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teacher_detail' teacher.id %}">{{ teacher.name }}</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-calendar-x"></i> Congés</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .leave-type-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 600;
+  }
+  .leave-type-SICK     { background:#fee2e2; color:#b91c1c; }
+  .leave-type-VACATION { background:#dbeafe; color:#1d4ed8; }
+  .leave-type-OTHER    { background:#f3f4f6; color:#374151; }
+
+  .leave-status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing:.05em;
+  }
+  .leave-status-active   { background:#dcfce7; color:#15803d; }
+  .leave-status-upcoming { background:#eff6ff; color:#2563eb; }
+  .leave-status-past     { background:#f3f4f6; color:#6b7280; }
+
+  .leave-row td { vertical-align: middle; }
+  .duration-chip {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px;
+    background: var(--surface-alt); color: var(--text-muted);
+  }
+
+  .add-leave-card {
+    border-radius: 16px; border: 2px dashed var(--border);
+    background: var(--surface); padding: 24px 28px;
+    transition: border-color .2s;
+  }
+  .add-leave-card:focus-within { border-color: var(--primary); border-style: solid; }
+  .add-leave-card .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+
+  .summary-strip {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 24px;
+  }
+  .summary-chip {
+    border-radius: 10px; padding: 10px 18px;
+    font-size: 13px; font-weight: 600;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .summary-chip i { font-size: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-calendar-x-fill me-2" style="color:#dc2626;"></i>Congés & Absences
+    </h1>
+    <p class="page-subtitle">
+      Historique des congés de <strong>{{ teacher.name }}</strong>
+      &nbsp;—&nbsp;{{ leaves|length }} congé{{ leaves|length|pluralize }} enregistré{{ leaves|length|pluralize }}
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'core:teacher_availability' teacher.id %}" class="btn btn-outline-secondary">
+      <i class="bi bi-clock"></i> Disponibilités
+    </a>
+    <a href="{% url 'core:teacher_detail' teacher.id %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Profil
+    </a>
+  </div>
+</div>
+
+{% include 'core/_messages.html' %}
+
+<!-- ── Summary strip ───────────────────────────────────────────────── -->
+{% if leaves %}
+<div class="summary-strip">
+  {% if active_leaves %}
+    <div class="summary-chip" style="background:#fee2e2;color:#b91c1c;">
+      <i class="bi bi-hourglass-split"></i>
+      {{ active_leaves|length }} congé{{ active_leaves|length|pluralize }} en cours
+    </div>
+  {% endif %}
+  {% if upcoming_leaves %}
+    <div class="summary-chip" style="background:#dbeafe;color:#1d4ed8;">
+      <i class="bi bi-calendar-event"></i>
+      {{ upcoming_leaves|length }} congé{{ upcoming_leaves|length|pluralize }} à venir
+    </div>
+  {% endif %}
+  {% if past_leaves %}
+    <div class="summary-chip" style="background:#f3f4f6;color:#374151;">
+      <i class="bi bi-archive"></i>
+      {{ past_leaves|length }} passé{{ past_leaves|length|pluralize }}
+    </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Leave table ─────────────────────────────────────────────────── -->
+{% if leaves %}
+<div class="card mb-5">
+  <div class="table-responsive">
+    <table class="table mb-0 align-middle" style="font-size:14px;">
+      <thead class="table-light">
+        <tr>
+          <th class="ps-4">Type</th>
+          <th>Du</th>
+          <th>Au</th>
+          <th class="text-center">Durée</th>
+          <th>Statut</th>
+          <th>Notes</th>
+          <th class="text-end pe-4">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for leave in leaves %}
+          {% with duration=leave.end_date|timeuntil:leave.start_date %}
+          <tr class="leave-row">
+            <td class="ps-4">
+              <span class="leave-type-badge leave-type-{{ leave.leave_type }}">
+                {% if leave.leave_type == 'SICK' %}<i class="bi bi-heart-pulse"></i>
+                {% elif leave.leave_type == 'VACATION' %}<i class="bi bi-sun"></i>
+                {% else %}<i class="bi bi-three-dots"></i>{% endif %}
+                {{ leave.get_leave_type_display }}
+              </span>
+            </td>
+            <td><strong>{{ leave.start_date|date:"d/m/Y" }}</strong></td>
+            <td><strong>{{ leave.end_date|date:"d/m/Y" }}</strong></td>
+            <td class="text-center">
+              {% with days=leave.end_date|timeuntil:leave.start_date %}
+                <span class="duration-chip">
+                  {% widthratio leave.end_date|date:"j"|add:0 1 1 %}
+                  {# calculate day count #}
+                </span>
+              {% endwith %}
+              <span class="duration-chip">
+                {{ leave.start_date|timesince:leave.end_date|cut:" ago" }}
+              </span>
+            </td>
+            <td>
+              {% if leave.start_date <= today and leave.end_date >= today %}
+                <span class="leave-status-badge leave-status-active"><i class="bi bi-circle-fill" style="font-size:6px;"></i> En cours</span>
+              {% elif leave.start_date > today %}
+                <span class="leave-status-badge leave-status-upcoming"><i class="bi bi-clock"></i> À venir</span>
+              {% else %}
+                <span class="leave-status-badge leave-status-past"><i class="bi bi-check2"></i> Passé</span>
+              {% endif %}
+            </td>
+            <td class="text-muted" style="max-width:200px;font-size:12.5px;">{{ leave.notes|default:"—"|truncatechars:60 }}</td>
+            <td class="text-end pe-4">
+              <div class="d-flex gap-1 justify-content-end">
+                <a href="{% url 'core:teacher_leave_edit' teacher.id leave.id %}"
+                   class="btn btn-sm btn-icon btn-outline-primary" title="Modifier">
+                  <i class="bi bi-pencil"></i>
+                </a>
+                <form method="post" action="{% url 'core:teacher_leave_delete' teacher.id leave.id %}"
+                      class="leave-delete-form">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-sm btn-icon btn-outline-danger"
+                          title="Supprimer" data-leave-id="{{ leave.id }}">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+  <div class="card mb-5">
+    <div class="card-body empty-state py-5">
+      <div class="empty-state-icon"><i class="bi bi-calendar-check"></i></div>
+      <div class="empty-state-title">Aucun congé enregistré</div>
+      <div class="empty-state-text">Utilisez le formulaire ci-dessous pour ajouter la première absence.</div>
+    </div>
+  </div>
+{% endif %}
+
+<!-- ── Add leave form ──────────────────────────────────────────────── -->
+<div class="add-leave-card mb-5" id="add-leave-form">
+  <div class="d-flex align-items-center gap-2 mb-4">
+    <div style="width:34px;height:34px;border-radius:10px;background:#fee2e2;display:flex;align-items:center;justify-content:center;">
+      <i class="bi bi-calendar-plus" style="color:#dc2626;font-size:16px;"></i>
+    </div>
+    <h5 class="mb-0 fw-700">Enregistrer un congé</h5>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-3">
+      {% for e in form.non_field_errors %}<div><i class="bi bi-exclamation-circle-fill"></i> {{ e }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="row g-3">
+
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label">Date de début <span style="color:var(--danger);">*</span></label>
+        {{ form.start_date }}
+        {% if form.start_date.errors %}<div class="invalid-feedback d-block">{% for e in form.start_date.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label">Date de fin <span style="color:var(--danger);">*</span></label>
+        {{ form.end_date }}
+        {% if form.end_date.errors %}<div class="invalid-feedback d-block">{% for e in form.end_date.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-sm-6 col-lg-2">
+        <label class="form-label">Type <span style="color:var(--danger);">*</span></label>
+        {{ form.leave_type }}
+        {% if form.leave_type.errors %}<div class="invalid-feedback d-block">{% for e in form.leave_type.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-lg-4">
+        <label class="form-label">Notes</label>
+        {{ form.notes }}
+      </div>
+
+      <div class="col-12 d-flex justify-content-end">
+        <button type="submit" class="btn btn-danger px-4">
+          <i class="bi bi-calendar-plus"></i> Enregistrer le congé
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// AJAX delete for instant row removal
+document.querySelectorAll('.leave-delete-form').forEach(form => {
+  form.addEventListener('submit', function (e) {
+    if (!confirm('Supprimer ce congé ?')) { e.preventDefault(); return; }
+    e.preventDefault();
+
+    const row = form.closest('tr');
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
+                 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success && row) {
+        row.style.transition = 'opacity .25s, transform .25s';
+        row.style.opacity = '0';
+        row.style.transform = 'translateX(20px)';
+        setTimeout(() => row.remove(), 280);
+      }
+    })
+    .catch(() => form.submit());
+  });
+});
+
+// Auto-set end_date = start_date when user picks start_date (nice UX)
+const startInput = document.querySelector('#id_start_date');
+const endInput   = document.querySelector('#id_end_date');
+if (startInput && endInput) {
+  startInput.addEventListener('change', () => {
+    if (!endInput.value || endInput.value < startInput.value) {
+      endInput.value = startInput.value;
+    }
+  });
+}
+</script>
+{% endblock %}

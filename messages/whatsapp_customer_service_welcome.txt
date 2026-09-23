@@ -1,0 +1,2 @@
+Bonjour {name} 👋
+Bienvenue chez {business_name} ! Nous sommes ravis de vous accueillir. Comment pouvons-nous vous aider aujourd'hui ?

@@ -1,0 +1,901 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Occupation des Salles & Groupes — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400&display=swap');
+
+/* ─── Reset / Root ─────────────────────────────────────────────────── */
+:root {
+  --bg:        #F0F2F8;
+  --surface:   #FFFFFF;
+  --surface-2: #F8FAFC;
+  --border:    rgba(15,23,42,.07);
+  --text-1:    #0B1121;
+  --text-2:    #475569;
+  --text-3:    #94A3B8;
+  --accent:    #6366F1;
+  --accent-lt: #EEF2FF;
+  --amber:     #F59E0B;
+  --amber-lt:  #FEF3C7;
+  --emerald:   #10B981;
+  --emerald-lt:#D1FAE5;
+  --rose:      #EF4444;
+  --rose-lt:   #FEE2E2;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.07), 0 2px 6px rgba(0,0,0,.04);
+  --radius:    16px;
+}
+
+/* ─── Layout wrapper ────────────────────────────────────────────────── */
+.ro {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg);
+  padding: 0 0 3rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── Hero ──────────────────────────────────────────────────────────── */
+.ro-hero {
+  position: relative;
+  border-radius: var(--radius);
+  padding: 2rem 2.5rem;
+  overflow: hidden;
+  background: var(--text-1);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+.ro-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 90% at 80% 50%, rgba(99,102,241,.55) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 95% 10%, rgba(14,165,233,.4) 0%, transparent 60%),
+    #0B1121;
+  pointer-events: none;
+}
+.ro-hero-noise {
+  position: absolute;
+  inset: 0;
+  opacity: .03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  pointer-events: none;
+}
+.ro-hero-content { position: relative; z-index: 2; }
+.ro-hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .67rem;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: rgba(165,180,252,.9);
+  background: rgba(99,102,241,.18);
+  border: 1px solid rgba(99,102,241,.3);
+  padding: .25rem .75rem;
+  border-radius: 99px;
+  margin-bottom: .75rem;
+}
+.ro-hero-title {
+  font-size: 1.65rem;
+  font-weight: 900;
+  letter-spacing: -.035em;
+  margin: 0 0 .35rem;
+  line-height: 1.15;
+}
+.ro-hero-sub {
+  font-size: .83rem;
+  color: rgba(255,255,255,.5);
+  margin: 0;
+  max-width: 480px;
+}
+.ro-hero-badge {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .25rem;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  padding: 1.1rem 1.75rem;
+  text-align: center;
+}
+.ro-hero-badge-val {
+  font-size: 2.2rem;
+  font-weight: 900;
+  letter-spacing: -.05em;
+  color: #fff;
+  line-height: 1;
+}
+.ro-hero-badge-label {
+  font-size: .68rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,.45);
+}
+
+/* ─── KPI Strip ─────────────────────────────────────────────────────── */
+.ro-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+.ro-kpi {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1.25rem 1.4rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  align-items: center;
+  gap: .9rem;
+  transition: box-shadow .2s, transform .2s;
+  cursor: default;
+}
+.ro-kpi:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+.ro-kpi-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 1.25rem;
+}
+.ro-kpi-label {
+  font-size: .64rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .1em;
+  color: var(--text-3);
+  margin-bottom: .2rem;
+}
+.ro-kpi-val {
+  font-size: 1.55rem;
+  font-weight: 900;
+  letter-spacing: -.04em;
+  color: var(--text-1);
+  line-height: 1;
+}
+
+/* ─── 2-col grid ────────────────────────────────────────────────────── */
+.ro-grid-2-1 {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+
+/* ─── Cards ─────────────────────────────────────────────────────────── */
+.ro-card {
+  background: var(--surface);
+  border-radius: var(--radius);
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+.ro-card-hdr {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.4rem;
+}
+.ro-card-title {
+  font-size: .88rem;
+  font-weight: 800;
+  color: var(--text-1);
+  letter-spacing: -.01em;
+}
+.ro-card-note {
+  font-size: .72rem;
+  color: var(--text-3);
+  font-weight: 400;
+  margin-left: .5rem;
+  font-style: italic;
+}
+
+/* ─── Legend pills ──────────────────────────────────────────────────── */
+.ro-legend {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  flex-wrap: wrap;
+}
+.ro-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--text-2);
+}
+.ro-legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* ─── Room progress bars ────────────────────────────────────────────── */
+.ro-room-list { display: flex; flex-direction: column; gap: .95rem; }
+.ro-room-row {}
+.ro-room-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: .45rem;
+  gap: .5rem;
+}
+.ro-room-name {
+  font-size: .85rem;
+  font-weight: 700;
+  color: var(--text-1);
+  letter-spacing: -.01em;
+}
+.ro-room-tags {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+.ro-room-tag {
+  font-size: .65rem;
+  color: var(--text-3);
+  font-weight: 500;
+}
+.ro-room-pct {
+  font-size: .82rem;
+  font-weight: 800;
+  letter-spacing: -.02em;
+  flex-shrink: 0;
+}
+.ro-progress {
+  height: 8px;
+  background: var(--surface-2);
+  border-radius: 99px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.ro-progress-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width .5s cubic-bezier(.25,.46,.45,.94);
+}
+
+/* ─── Table ─────────────────────────────────────────────────────────── */
+.ro-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+.ro-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .8rem;
+}
+.ro-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+.ro-table th {
+  font-size: .63rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--text-3);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  padding: .75rem 1rem;
+  text-align: left;
+  white-space: nowrap;
+}
+.ro-table td {
+  padding: .8rem 1rem;
+  border-bottom: 1px solid #F1F5F9;
+  color: var(--text-2);
+  vertical-align: middle;
+}
+.ro-table tr:last-child td { border-bottom: none; }
+.ro-table tbody tr:hover td { background: #F8FAFC; }
+.ro-table .td-center { text-align: center; }
+
+/* row highlight for overloaded */
+.ro-table tr.overloaded td {
+  background: #FFF5F5;
+  border-bottom-color: #FEE2E2;
+}
+.ro-table tr.overloaded:hover td { background: #FEE2E2; }
+
+/* ─── Chips ─────────────────────────────────────────────────────────── */
+.ro-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: .22rem .65rem;
+  border-radius: 99px;
+  font-size: .67rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.ro-chip-red     { background: var(--rose-lt);    color: var(--rose);    }
+.ro-chip-amber   { background: var(--amber-lt);   color: var(--amber);   }
+.ro-chip-green   { background: var(--emerald-lt); color: var(--emerald); }
+.ro-chip-blue    { background: #DBEAFE;            color: #2563EB;        }
+.ro-chip-indigo  { background: var(--accent-lt);  color: var(--accent);  }
+
+/* ─── Heatmap ───────────────────────────────────────────────────────── */
+.ro-heatmap-wrap { overflow-x: auto; }
+.ro-heatmap-grid {
+  display: grid;
+  grid-template-columns: 64px repeat(7, 1fr);
+  gap: 4px;
+  min-width: 520px;
+}
+.ro-hm-header {
+  font-size: .65rem;
+  font-weight: 800;
+  color: var(--text-2);
+  text-align: center;
+  padding: .5rem .25rem;
+  letter-spacing: .04em;
+}
+.ro-hm-time {
+  font-size: .62rem;
+  font-weight: 600;
+  color: var(--text-3);
+  text-align: right;
+  padding: .35rem .5rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  white-space: nowrap;
+}
+.ro-hm-cell {
+  height: 38px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .65rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+  cursor: default;
+  transition: transform .15s, box-shadow .15s;
+  position: relative;
+}
+.ro-hm-cell:hover {
+  transform: scale(1.08);
+  box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  z-index: 5;
+}
+.ro-hm-empty { background: var(--surface-2); border-color: var(--border); color: transparent; }
+.ro-hm-low   { background: #E0F2FE; border-color: #BAE6FD; color: #0284C7; }
+.ro-hm-med   { background: #FEF3C7; border-color: #FDE68A; color: #B45309; }
+.ro-hm-high  { background: #FEE2E2; border-color: #FECACA; color: #DC2626; }
+
+/* ─── Stats row inside chart card ───────────────────────────────────── */
+.ro-stats-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1.1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+.ro-stat {
+  flex: 1;
+  min-width: 80px;
+  text-align: center;
+}
+.ro-stat-val {
+  font-size: 1.2rem;
+  font-weight: 900;
+  letter-spacing: -.03em;
+  color: var(--text-1);
+}
+.ro-stat-label {
+  font-size: .62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-3);
+  margin-top: .15rem;
+}
+
+/* ─── Slot badges ───────────────────────────────────────────────────── */
+.ro-slot {
+  display: inline-flex;
+  align-items: center;
+  background: var(--accent-lt);
+  color: var(--accent);
+  border-radius: 5px;
+  font-size: .64rem;
+  font-weight: 700;
+  padding: .15rem .45rem;
+  margin: 1px;
+  white-space: nowrap;
+}
+
+/* ─── Inline filling bar ────────────────────────────────────────────── */
+.ro-fill-bar {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-width: 130px;
+}
+.ro-fill-track {
+  flex: 1;
+  height: 6px;
+  background: #E2E8F0;
+  border-radius: 99px;
+  overflow: visible;
+}
+.ro-fill-fill {
+  height: 100%;
+  border-radius: 99px;
+  max-width: 100%;
+}
+
+/* ─── Divider ───────────────────────────────────────────────────────── */
+.ro-section-label {
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+}
+.ro-section-label::before,
+.ro-section-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+
+/* ─── Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  .ro-kpi-grid     { grid-template-columns: repeat(2, 1fr); }
+  .ro-grid-2-1     { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .ro-kpi-grid     { grid-template-columns: 1fr; }
+  .ro-hero         { padding: 1.5rem; }
+  .ro-hero-title   { font-size: 1.3rem; }
+  .ro-hero-badge   { display: none; }
+  .ro-card         { padding: 1.1rem 1.2rem; }
+}
+
+/* ─── Link style ────────────────────────────────────────────────────── */
+.ro-link {
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  transition: color .15s;
+}
+.ro-link:hover { color: #4338CA; text-decoration: underline; }
+
+/* ─── Tooltip ───────────────────────────────────────────────────────── */
+.ro-tooltip-anchor { position: relative; }
+.ro-tooltip-anchor:hover .ro-tooltip { opacity: 1; pointer-events: none; transform: translateY(-4px); }
+.ro-tooltip {
+  opacity: 0;
+  pointer-events: none;
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) translateY(0);
+  background: var(--text-1);
+  color: #fff;
+  font-size: .66rem;
+  font-weight: 600;
+  padding: .3rem .65rem;
+  border-radius: 7px;
+  white-space: nowrap;
+  transition: opacity .18s, transform .18s;
+  z-index: 100;
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+}
+.ro-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 5px solid transparent;
+  border-top-color: var(--text-1);
+}
+</style>
+
+<div class="ro">
+
+  <!-- ═══ HERO ══════════════════════════════════════════════════════ -->
+  <div class="ro-hero">
+    <div class="ro-hero-noise"></div>
+    <div class="ro-hero-content">
+      <div class="ro-hero-eyebrow">
+        <span class="material-symbols-outlined" style="font-size:.9rem;">analytics</span>
+        Tableau de Bord
+      </div>
+      <h1 class="ro-hero-title">Occupation des Salles &amp; Groupes</h1>
+      <p class="ro-hero-sub">Taux d'occupation hebdomadaire, remplissage des classes et densité des créneaux horaires</p>
+    </div>
+    <div style="position:relative;z-index:2;display:flex;gap:.75rem;flex-wrap:wrap;">
+      <div class="ro-hero-badge">
+        <div class="ro-hero-badge-val">{{ occupancy|length }}</div>
+        <div class="ro-hero-badge-label">Salles actives</div>
+      </div>
+      <div class="ro-hero-badge">
+        <div class="ro-hero-badge-val" id="heroViolations">—</div>
+        <div class="ro-hero-badge-label">En surcharge</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ KPI STRIP ════════════════════════════════════════════════ -->
+  <div class="ro-kpi-grid">
+    <div class="ro-kpi">
+      <div class="ro-kpi-icon" style="background:#EEF2FF;color:#6366F1;">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">meeting_room</span>
+      </div>
+      <div>
+        <div class="ro-kpi-label">Salles actives</div>
+        <div class="ro-kpi-val">{{ occupancy|length }}</div>
+      </div>
+    </div>
+    <div class="ro-kpi">
+      <div class="ro-kpi-icon" style="background:#DBEAFE;color:#2563EB;">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">schedule</span>
+      </div>
+      <div>
+        <div class="ro-kpi-label">Heures / Salle (moy.)</div>
+        <div class="ro-kpi-val" id="roAvgHours">—</div>
+      </div>
+    </div>
+    <div class="ro-kpi">
+      <div class="ro-kpi-icon" style="background:#FEE2E2;color:#EF4444;">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">warning</span>
+      </div>
+      <div>
+        <div class="ro-kpi-label">Classes en surcharge</div>
+        <div class="ro-kpi-val" id="roViolations">—</div>
+      </div>
+    </div>
+    <div class="ro-kpi">
+      <div class="ro-kpi-icon" style="background:#D1FAE5;color:#10B981;">
+        <span class="material-symbols-outlined" style="font-size:1.2rem;">percent</span>
+      </div>
+      <div>
+        <div class="ro-kpi-label">Remplissage moyen</div>
+        <div class="ro-kpi-val" id="roAvgFilling">—</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ ROOM OCCUPANCY + CLASS SIZE CHART ════════════════════════ -->
+  <div class="ro-grid-2-1">
+
+    <!-- Progress bars -->
+    <div class="ro-card">
+      <div class="ro-card-hdr">
+        <span class="ro-card-title">
+          Occupation hebdomadaire
+          <!-- <span class="ro-card-note">sur 84h disponibles/semaine</span> -->
+        </span>
+        <div class="ro-legend">
+          <div class="ro-legend-item"><div class="ro-legend-dot" style="background:#10B981;"></div>&lt;50%</div>
+          <div class="ro-legend-item"><div class="ro-legend-dot" style="background:#F59E0B;"></div>50–79%</div>
+          <div class="ro-legend-item"><div class="ro-legend-dot" style="background:#EF4444;"></div>≥80%</div>
+        </div>
+      </div>
+
+      <div class="ro-room-list">
+        {% for r in occupancy %}
+        <div class="ro-room-row">
+          <div class="ro-room-meta">
+            <div style="display:flex;align-items:center;gap:.6rem;min-width:0;">
+              <span class="ro-room-name">{{ r.room_name }}</span>
+              <span class="ro-room-tag">{{ r.capacity }} places</span>
+              <span class="ro-room-tag">·</span>
+              <span class="ro-room-tag">{{ r.group_count }} groupe(s)</span>
+            </div>
+            <span class="ro-room-pct" style="color:{% if r.occupancy_pct >= 80 %}var(--rose){% elif r.occupancy_pct >= 50 %}var(--amber){% else %}var(--emerald){% endif %};">
+              {{ r.occupancy_pct }}% <span style="font-weight:400;font-size:.72rem;color:var(--text-3);">({{ r.weekly_hours }}h)</span>
+            </span>
+          </div>
+          <div class="ro-progress">
+            <div class="ro-progress-fill"
+              style="width:{{ r.occupancy_pct }}%;
+                     background:{% if r.occupancy_pct >= 80 %}var(--rose){% elif r.occupancy_pct >= 50 %}var(--amber){% else %}var(--emerald){% endif %};">
+            </div>
+          </div>
+        </div>
+        {% empty %}
+        <p style="color:var(--text-3);font-size:.82rem;text-align:center;padding:1.5rem 0;">Aucune salle active.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Class size chart -->
+    <div class="ro-card">
+      <div class="ro-card-hdr">
+        <span class="ro-card-title">Taille des groupes</span>
+      </div>
+      <div style="position:relative;height:220px;">
+        <canvas id="roSizesChart"></canvas>
+      </div>
+      <div class="ro-stats-row">
+        <div class="ro-stat">
+          <div class="ro-stat-val" id="statTotal">—</div>
+          <div class="ro-stat-label">Total groupes</div>
+        </div>
+        <div class="ro-stat">
+          <div class="ro-stat-val" id="statSmall">—</div>
+          <div class="ro-stat-label">≤10 élèves</div>
+        </div>
+        <div class="ro-stat">
+          <div class="ro-stat-val" id="statLarge">—</div>
+          <div class="ro-stat-label">&gt;15 élèves</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ═══ HEATMAP ══════════════════════════════════════════════════ -->
+  <div class="ro-card">
+    <div class="ro-card-hdr">
+      <div>
+        <span class="ro-card-title">Densité horaire — Heatmap hebdomadaire</span>
+        <p style="font-size:.75rem;color:var(--text-3);margin:.25rem 0 0;">Nombre de séances simultanées par jour et par tranche horaire.</p>
+      </div>
+      <div class="ro-legend">
+        <div class="ro-legend-item"><div class="ro-legend-dot" style="background:#E0F2FE;border:1px solid #BAE6FD;"></div>1–3</div>
+        <div class="ro-legend-item"><div class="ro-legend-dot" style="background:#FEF3C7;border:1px solid #FDE68A;"></div>4–7</div>
+        <div class="ro-legend-item"><div class="ro-legend-dot" style="background:#FEE2E2;border:1px solid #FECACA;"></div>≥8</div>
+      </div>
+    </div>
+    <div class="ro-heatmap-wrap">
+      <div class="ro-heatmap-grid" id="roHeatmap"><!-- JS renders this --></div>
+    </div>
+  </div>
+
+  <!-- ═══ DETAIL TABLE ═════════════════════════════════════════════ -->
+  <div class="ro-card">
+    <div class="ro-card-hdr">
+      <span class="ro-card-title">Remplissage et surcharge par groupe</span>
+      <div class="ro-legend">
+        <div class="ro-legend-item" style="background:#FFF5F5;border-radius:5px;padding:.2rem .55rem;">
+          <div class="ro-legend-dot" style="background:var(--rose);"></div>
+          Ligne rouge = surcharge
+        </div>
+      </div>
+    </div>
+
+    <div class="ro-table-wrap">
+      <table class="ro-table">
+        <thead>
+          <tr>
+            <th>Groupe de cours</th>
+            <th>Matière</th>
+            <th>Professeur</th>
+            <th>Salle</th>
+            <th>Créneaux</th>
+            <th class="td-center">Élèves</th>
+            <th class="td-center">Capacité</th>
+            <th style="min-width:140px;">Remplissage</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for g in class_usage %}
+          <tr {% if g.capacity_efficiency > 100 %}class="overloaded"{% endif %}>
+            <td>
+              <a href="{% url 'core:group_detail' g.group_id %}" class="ro-link">{{ g.group_name }}</a>
+            </td>
+            <td>{{ g.subject }}</td>
+            <td style="color:var(--text-1);font-weight:500;">{{ g.teacher }}</td>
+            <td><strong style="color:var(--text-1);">{{ g.room_name }}</strong></td>
+            <td>
+              {% for slot in g.slots %}
+                <span class="ro-slot">{{ slot }}</span>
+              {% endfor %}
+            </td>
+            <td class="td-center">
+              <strong style="font-size:.9rem;color:var(--text-1);">{{ g.enrolled_count }}</strong>
+            </td>
+            <td class="td-center" style="color:var(--text-3);">{{ g.room_capacity }}</td>
+            <td>
+              <div class="ro-fill-bar">
+                <div class="ro-fill-track">
+                  <div class="ro-fill-fill"
+                    style="width:{% if g.capacity_efficiency > 100 %}100{% else %}{{ g.capacity_efficiency }}{% endif %}%;
+                           background:{% if g.capacity_efficiency > 100 %}var(--rose){% elif g.capacity_efficiency >= 70 %}var(--emerald){% elif g.capacity_efficiency >= 40 %}var(--amber){% else %}#3B82F6{% endif %};">
+                  </div>
+                </div>
+                <span class="ro-chip {% if g.capacity_efficiency > 100 %}ro-chip-red{% elif g.capacity_efficiency >= 70 %}ro-chip-green{% elif g.capacity_efficiency >= 40 %}ro-chip-amber{% else %}ro-chip-blue{% endif %}">
+                  {{ g.capacity_efficiency }}%
+                </span>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" style="text-align:center;color:var(--text-3);padding:2.5rem 1rem;">
+              <span class="material-symbols-outlined" style="font-size:2rem;display:block;margin-bottom:.4rem;opacity:.4;">groups</span>
+              Aucun groupe actif.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+(function () {
+  // ── KPI calculations ─────────────────────────────────────────────
+  const rooms = [{% for r in occupancy %}{hours:{{ r.weekly_hours }},violations:{{ r.capacity_violations|length }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  let totHours = 0, totViolations = 0;
+  rooms.forEach(r => { totHours += r.hours; totViolations += r.violations; });
+
+  const avgH = rooms.length > 0 ? (totHours / rooms.length).toFixed(1) + 'h' : '0h';
+  document.getElementById('roAvgHours').textContent    = avgH;
+  document.getElementById('roViolations').textContent  = totViolations;
+  document.getElementById('heroViolations').textContent = totViolations;
+
+  const groups = [{% for g in class_usage %}{{ g.capacity_efficiency }}{% if not forloop.last %},{% endif %}{% endfor %}];
+  let totEff = 0;
+  groups.forEach(e => totEff += e);
+  document.getElementById('roAvgFilling').textContent = groups.length > 0
+    ? (totEff / groups.length).toFixed(1) + '%' : '0%';
+
+  // ── Class size chart ─────────────────────────────────────────────
+  const sizeData = [
+    {{ class_sizes.from_1_to_5 }},
+    {{ class_sizes.from_6_to_10 }},
+    {{ class_sizes.from_11_to_15 }},
+    {{ class_sizes.from_16_to_20 }},
+    {{ class_sizes.more_than_20 }}
+  ];
+  const total = sizeData.reduce((a, b) => a + b, 0);
+  const small = sizeData[0] + sizeData[1];
+  const large = sizeData[3] + sizeData[4];
+  document.getElementById('statTotal').textContent = total;
+  document.getElementById('statSmall').textContent = small;
+  document.getElementById('statLarge').textContent = large;
+
+  new Chart(document.getElementById('roSizesChart').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: ['1–5', '6–10', '11–15', '16–20', '20+'],
+      datasets: [{
+        label: 'Groupes',
+        data: sizeData,
+        backgroundColor: [
+          'rgba(99,102,241,.80)',
+          'rgba(59,130,246,.80)',
+          'rgba(6,182,212,.80)',
+          'rgba(16,185,129,.80)',
+          'rgba(245,158,11,.80)'
+        ],
+        borderWidth: 0,
+        borderRadius: 7,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => ctx[0].label + ' élèves/groupe',
+            label: ctx => ' ' + ctx.raw + ' groupe(s)'
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { font: { size: 11, weight: '600' }, color: '#64748B' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { stepSize: 1, font: { size: 11 }, color: '#94A3B8' },
+          grid: { color: '#F1F5F9' }
+        }
+      }
+    }
+  });
+
+  // ── Heatmap ──────────────────────────────────────────────────────
+  const hm = {{ peak_hours|safe }};
+  const DAY_LABELS = {
+    MON: 'Lundi', TUE: 'Mardi', WED: 'Mercredi', THU: 'Jeudi',
+    FRI: 'Vendredi', SAT: 'Samedi', SUN: 'Dimanche'
+  };
+  const DAYS  = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+  const HOURS = ['08:00', '09:00', '10:00', '11:00', '12:00', '13:00',
+                 '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
+
+  const grid = document.getElementById('roHeatmap');
+  grid.style.gridTemplateColumns = '64px repeat(7, 1fr)';
+
+  // Header row
+  const blankCorner = document.createElement('div');
+  blankCorner.style.cssText = 'padding:.5rem;';
+  grid.appendChild(blankCorner);
+
+  DAYS.forEach(d => {
+    const h = document.createElement('div');
+    h.className = 'ro-hm-header';
+    h.textContent = DAY_LABELS[d].substring(0, 3).toUpperCase();
+    grid.appendChild(h);
+  });
+
+  // Data rows by hour
+  HOURS.forEach(hour => {
+    const timeEl = document.createElement('div');
+    timeEl.className = 'ro-hm-time';
+    timeEl.textContent = hour;
+    grid.appendChild(timeEl);
+
+    DAYS.forEach(day => {
+      const dayData  = hm[day] || {};
+      const count    = dayData[hour] || 0;
+      const cell     = document.createElement('div');
+      cell.className = 'ro-hm-cell ro-tooltip-anchor';
+
+      if (count === 0) {
+        cell.classList.add('ro-hm-empty');
+      } else if (count >= 8) {
+        cell.classList.add('ro-hm-high');
+        cell.textContent = count;
+      } else if (count >= 4) {
+        cell.classList.add('ro-hm-med');
+        cell.textContent = count;
+      } else {
+        cell.classList.add('ro-hm-low');
+        cell.textContent = count;
+      }
+
+      const tip = document.createElement('div');
+      tip.className = 'ro-tooltip';
+      tip.textContent = count > 0
+        ? `${DAY_LABELS[day]} ${hour} — ${count} séance(s)`
+        : `${DAY_LABELS[day]} ${hour} — aucune séance`;
+      cell.appendChild(tip);
+      grid.appendChild(cell);
+    });
+  });
+
+})();
+</script>
+{% endblock %}

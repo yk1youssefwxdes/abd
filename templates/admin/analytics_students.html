@@ -1,0 +1,260 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Rétention &amp; LTV Élèves — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+.as { font-family:'Inter',system-ui,sans-serif; display:flex; flex-direction:column; gap:1.5rem; padding:.25rem 0 3rem; }
+.as-hero {
+  position:relative; border-radius:24px; padding:2.25rem 2.75rem; overflow:hidden;
+  background:#0f172a; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+}
+.as-hero::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,#0f172a 0%,#1e293b 40%,#334155 100%);
+  background-size:200% 200%; animation:asGrad 10s ease infinite;
+}
+@keyframes asGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.as-hero-content { position:relative; z-index:2; }
+.as-hero-title { font-size:1.8rem; font-weight:900; letter-spacing:-.03em; margin:0; }
+.as-hero-sub { font-size:.85rem; color:rgba(255,255,255,.6); margin:.3rem 0 0; }
+.as-hero-actions { position:relative; z-index:2; display:flex; gap:.5rem; }
+.as-btn { display:inline-flex; align-items:center; gap:.4rem; padding:.5rem 1.1rem; border-radius:10px; font-size:.8rem; font-weight:700; text-decoration:none; cursor:pointer; border:none; }
+.as-btn-amber { background:#f59e0b; color:#fff; }
+.as-btn-amber:hover { background:#d97706; color:#fff; }
+.as-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+.as-kpi { background:#fff; border-radius:20px; padding:1.4rem 1.5rem 1.25rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); transition:transform .2s; display:flex; align-items:center; gap:1rem; }
+.as-kpi:hover { transform:translateY(-3px); }
+.dark .as-kpi { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.as-kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.as-kpi-label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; }
+.as-kpi-val { font-size:1.6rem; font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.dark .as-kpi-val { color:#f1f5f9; }
+.as-grid-2-1 { display:grid; grid-template-columns:2fr 1fr; gap:1.25rem; }
+.as-card { background:#fff; border-radius:20px; padding:1.6rem 1.75rem; border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05); }
+.dark .as-card { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.as-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; border-bottom:1px solid #f1f5f9; padding-bottom:.9rem; }
+.dark .as-card-hdr { border-bottom-color:rgba(255,255,255,.05); }
+.as-card-title { font-size:.92rem; font-weight:800; color:#0f172a; }
+.dark .as-card-title { color:#f1f5f9; }
+.as-list-item { display:flex; align-items:center; justify-content:space-between; padding:.7rem .9rem; border-radius:12px; background:#f8fafc; border:1px solid rgba(0,0,0,.04); margin-bottom:.5rem; }
+.dark .as-list-item { background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.05); }
+.as-chip { display:inline-flex; align-items:center; padding:.2rem .7rem; border-radius:99px; font-size:.7rem; font-weight:800; }
+.as-chip-blue { background:#dbeafe; color:#2563eb; }
+.as-chip-red { background:#fee2e2; color:#ef4444; }
+.as-chip-green { background:#d1fae5; color:#059669; }
+.as-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.as-table th { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; border-bottom:1px solid #e2e8f0; padding:.7rem 1rem; text-align:left; }
+.as-table td { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; color:#334155; }
+.dark .as-table th { border-bottom-color:rgba(255,255,255,.07); }
+.dark .as-table td { border-bottom-color:rgba(255,255,255,.04); color:#cbd5e1; }
+.as-table tr:last-child td { border-bottom:none; }
+.as-table tr:hover td { background:#f8fafc; }
+.dark .as-table tr:hover td { background:rgba(255,255,255,.03); }
+.as-rank { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:50%; font-size:.75rem; font-weight:800; }
+.as-rank-1 { background:#fef9c3; color:#92400e; }
+.as-rank-2 { background:#f1f5f9; color:#334155; }
+.as-rank-3 { background:#fff7ed; color:#c2410c; }
+.as-rank-n { background:#f8fafc; color:#94a3b8; }
+@media(max-width:992px) { .as-kpi-grid{grid-template-columns:repeat(2,1fr);} .as-grid-2-1{grid-template-columns:1fr;} }
+@media(max-width:576px) { .as-kpi-grid{grid-template-columns:1fr;} }
+.as-level-card { background:#f8fafc; border-radius:14px; padding:1.2rem; border:1px solid rgba(0,0,0,.04); }
+.dark .as-level-card { background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.05); }
+.as-level-title { display:flex; justify-content:space-between; font-size:.78rem; font-weight:600; color:#334155; margin-bottom:2px; }
+.dark .as-level-title { color:#cbd5e1; }
+</style>
+
+<div class="as">
+
+  <!-- HERO -->
+  <div class="as-hero">
+    <div class="as-hero-content">
+      <h1 class="as-hero-title">Rétention, Fidélité &amp; Lifetime Value</h1>
+      <p class="as-hero-sub">Signaux de départ, clients premium &amp; tendances d'inscription</p>
+    </div>
+    <div class="as-hero-actions">
+      <a href="{% url 'core:export_churn_pdf' %}" class="as-btn as-btn-amber">
+        <span class="material-symbols-outlined" style="font-size:15px;">picture_as_pdf</span> PDF Rétention
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="as-kpi-grid">
+    <div class="as-kpi">
+      <div class="as-kpi-icon" style="background:#fee2e2; color:#ef4444;"><span class="material-symbols-outlined">notifications_active</span></div>
+      <div><div class="as-kpi-val" style="color:#ef4444;">{{ churn|length }}</div><div class="as-kpi-label">Risques de départ</div></div>
+    </div>
+    <div class="as-kpi">
+      <div class="as-kpi-icon" style="background:#e0f2fe; color:#0284c7;"><span class="material-symbols-outlined">star</span></div>
+      <div><div class="as-kpi-val">{{ multi_group|length }}</div><div class="as-kpi-label">Loyaux multi-groupes</div></div>
+    </div>
+    <div class="as-kpi">
+      <div class="as-kpi-icon" style="background:#d1fae5; color:#10b981;"><span class="material-symbols-outlined">school</span></div>
+      <div><div class="as-kpi-val">{{ enroll_stats.total_active_enrollments }}</div><div class="as-kpi-label">Inscriptions Actives</div></div>
+    </div>
+    <div class="as-kpi">
+      <div class="as-kpi-icon" style="background:#fef3c7; color:#d97706;"><span class="material-symbols-outlined">collections_bookmark</span></div>
+      <div><div class="as-kpi-val">{{ enroll_stats.avg_classes_per_student }}</div><div class="as-kpi-label">Cours par élève (Moy)</div></div>
+    </div>
+  </div>
+
+  <!-- CHART + MULTI GROUP -->
+  <div class="as-grid-2-1">
+    <div class="as-card">
+      <div class="as-card-hdr">
+        <span class="as-card-title">Nouvelles inscriptions (12 derniers mois)</span>
+      </div>
+      <div style="position:relative; height:260px;"><canvas id="asEnrollChart"></canvas></div>
+    </div>
+
+    <div class="as-card">
+      <div class="as-card-hdr">
+        <span class="as-card-title">Élèves multi-groupes</span>
+      </div>
+      <p style="font-size:.76rem; color:#94a3b8; margin-bottom:12px;">Inscrits dans 2 cours ou plus simultanément.</p>
+      <div style="max-height:240px; overflow-y:auto;">
+        {% for m in multi_group %}
+        <div class="as-list-item">
+          <span style="font-size:.82rem; font-weight:700;"><a href="{% url 'core:student_page' m.student_id %}" style="color:#4f46e5; text-decoration:none;">{{ m.student_name }}</a></span>
+          <span class="as-chip as-chip-blue">{{ m.group_count }} cours</span>
+        </div>
+        {% empty %}<div style="text-align:center; color:#94a3b8; padding:1.5rem;">Aucun élève multi-groupes.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- CHURN BOARD -->
+  <div class="as-card">
+    <div class="as-card-hdr">
+      <span class="as-card-title">⚠ Signaux de départ détectés</span>
+      <span class="as-chip as-chip-red">{{ churn|length }} alertes</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="as-table">
+        <thead>
+          <tr><th>Élève</th><th>Signaux d'alerte</th><th>Groupes affectés</th><th>Contact parent</th></tr>
+        </thead>
+        <tbody>
+          {% for c in churn %}
+          <tr>
+            <td style="font-weight:700;"><a href="{% url 'core:student_page' c.student_id %}" style="color:#4f46e5; text-decoration:none;">{{ c.student_name }}</a></td>
+            <td>
+              <div style="display:flex; flex-wrap:wrap; gap:.3rem;">
+                {% for sig in c.signals %}<span class="as-chip as-chip-red" style="font-size:.68rem;">{{ sig }}</span>{% endfor %}
+              </div>
+            </td>
+            <td style="font-size:.78rem;">{% for g in c.groups %}• {{ g }}<br>{% endfor %}</td>
+            <td>{% if c.parent_contact %}<strong>{{ c.parent_contact }}</strong>{% if c.parent_contact_2 %}<br><span style="color:#94a3b8; font-size:.75rem;">{{ c.parent_contact_2 }}</span>{% endif %}{% elif c.parent_contact_2 %}<strong>{{ c.parent_contact_2 }}</strong>{% else %}<span style="color:#94a3b8; font-size:.78rem;">Aucun</span>{% endif %}</td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="4" style="text-align:center; color:#94a3b8; padding:2rem;">✓ Aucun signal de départ détecté.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- LEVEL DISTRIBUTION -->
+  <div class="as-card">
+    <div class="as-card-hdr">
+      <span class="as-card-title">🏫 Répartition des élèves par niveau académique</span>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:1.25rem; margin-top:0.5rem;">
+      <!-- Garderie Category Card -->
+      <div class="as-level-card">
+        <div style="font-weight:800; font-size:.85rem; color:#ec4899; margin-bottom:1rem; text-transform:uppercase; letter-spacing:.05em;">La Garderie</div>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          {% for lvl in level_dist %}
+            {% if lvl.category == 'La Garderie' or lvl.category == 'Garderie' %}
+            <div>
+              <div class="as-level-title">
+                <span>{{ lvl.level_name }}</span>
+                <strong>{{ lvl.count }} élèves ({{ lvl.pct }}%)</strong>
+              </div>
+              <div style="height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+                <div style="height:100%; width:{{ lvl.pct }}%; background:#ec4899; border-radius:99px;"></div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Primaire Category Card -->
+      <div class="as-level-card">
+        <div style="font-weight:800; font-size:.85rem; color:#4f46e5; margin-bottom:1rem; text-transform:uppercase; letter-spacing:.05em;">Primaire</div>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          {% for lvl in level_dist %}
+            {% if lvl.category == 'Primaire' %}
+            <div>
+              <div class="as-level-title">
+                <span>{{ lvl.level_name }}</span>
+                <strong>{{ lvl.count }} élèves ({{ lvl.pct }}%)</strong>
+              </div>
+              <div style="height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+                <div style="height:100%; width:{{ lvl.pct }}%; background:#4f46e5; border-radius:99px;"></div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Collège Category Card -->
+      <div class="as-level-card">
+        <div style="font-weight:800; font-size:.85rem; color:#06b6d4; margin-bottom:1rem; text-transform:uppercase; letter-spacing:.05em;">Collège</div>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          {% for lvl in level_dist %}
+            {% if lvl.category == 'Collège' %}
+            <div>
+              <div class="as-level-title">
+                <span>{{ lvl.level_name }}</span>
+                <strong>{{ lvl.count }} élèves ({{ lvl.pct }}%)</strong>
+              </div>
+              <div style="height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+                <div style="height:100%; width:{{ lvl.pct }}%; background:#06b6d4; border-radius:99px;"></div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- Lycée Category Card -->
+      <div class="as-level-card">
+        <div style="font-weight:800; font-size:.85rem; color:#f59e0b; margin-bottom:1rem; text-transform:uppercase; letter-spacing:.05em;">Lycée</div>
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          {% for lvl in level_dist %}
+            {% if lvl.category == 'Lycée' %}
+            <div>
+              <div class="as-level-title">
+                <span>{{ lvl.level_name }}</span>
+                <strong>{{ lvl.count }} élèves ({{ lvl.pct }}%)</strong>
+              </div>
+              <div style="height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden;">
+                <div style="height:100%; width:{{ lvl.pct }}%; background:#f59e0b; border-radius:99px;"></div>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+(function(){
+  const trend=[{% for e in enrollment_trend %}{month:"{{ e.month_label }}",count:{{ e.new_enrollments }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  new Chart(document.getElementById('asEnrollChart').getContext('2d'),{type:'line',data:{labels:trend.map(x=>x.month),datasets:[{label:"Inscriptions",data:trend.map(x=>x.count),borderColor:'rgba(59,130,246,.85)',backgroundColor:'rgba(59,130,246,.05)',borderWidth:2.5,pointBackgroundColor:'#3b82f6',tension:.3,fill:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+})();
+</script>
+{% endblock %}

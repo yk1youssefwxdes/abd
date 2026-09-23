@@ -1,0 +1,284 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Borne Parent — {{ SCHOOL_NAME }}">
+  <title>{% block title %}{{ SCHOOL_NAME }} — Borne Interactive{% endblock %}</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+
+  <!-- Google Fonts — Inter -->
+  <link rel="stylesheet" href="{% static 'fonts/fonts.css' %}">
+
+  <!-- Vendor CSS -->
+  <link href="{% static 'bootstrap.min.css' %}" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'bootstrap-icons.css' %}">
+
+  <style>
+    :root {
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --primary-rgb: 37, 99, 235;
+
+      /* Surfaces */
+      --body-bg: #f8fafc;
+      --surface: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      
+      /* Kiosk-specific glow and gradients */
+      --kiosk-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+      --glass-bg: rgba(255, 255, 255, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.6);
+      --glass-shadow: 0 10px 30px -10px rgba(30, 41, 59, 0.1);
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--body-bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+      user-select: none; /* Prevent text selection on touchscreen */
+    }
+
+    /* Kiosk Header */
+    .kiosk-navbar {
+      background: var(--kiosk-gradient);
+      color: #ffffff;
+      padding: 20px 32px;
+      box-shadow: 0 4px 20px rgba(30, 41, 59, 0.15);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .kiosk-brand {
+      font-weight: 800;
+      font-size: 24px;
+      color: #ffffff;
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .kiosk-logo {
+      height: 40px;
+      width: auto;
+      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+    }
+
+    .kiosk-clock-container {
+      text-align: right;
+    }
+
+    .kiosk-time {
+      font-size: 24px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5px;
+    }
+
+    .kiosk-date {
+      font-size: 13px;
+      font-weight: 500;
+      opacity: 0.85;
+    }
+
+    /* Main Container Layout */
+    .kiosk-main {
+      flex: 1;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 32px 24px 64px 24px;
+    }
+
+    /* Card styling */
+    .kiosk-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      box-shadow: var(--glass-shadow);
+      padding: 32px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* Kiosk Action Button */
+    .btn-kiosk {
+      border-radius: 14px;
+      padding: 16px 28px;
+      font-weight: 700;
+      font-size: 16px;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    
+    .btn-kiosk-primary {
+      background-color: var(--primary);
+      border: none;
+      color: white;
+    }
+
+    .btn-kiosk-primary:hover, .btn-kiosk-primary:active {
+      background-color: var(--primary-dark);
+      transform: scale(0.98);
+    }
+
+    .btn-kiosk-secondary {
+      background-color: #ffffff;
+      border: 2px solid var(--border);
+      color: var(--text);
+    }
+
+    .btn-kiosk-secondary:hover, .btn-kiosk-secondary:active {
+      background-color: #f1f5f9;
+      border-color: #cbd5e1;
+      transform: scale(0.98);
+    }
+
+    /* Progress bar / Timeout indicator */
+    .kiosk-timeout-bar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: rgba(37, 99, 235, 0.1);
+      z-index: 9999;
+    }
+
+    .kiosk-timeout-progress {
+      height: 100%;
+      width: 100%;
+      background: var(--primary);
+      transition: width 1s linear;
+    }
+
+    /* Notification Center Toasts */
+    #toast-container {
+      position: fixed;
+      bottom: 32px;
+      right: 32px;
+      z-index: 10060;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .erp-toast {
+      background: #0f172a;
+      color: #fff;
+      padding: 16px 24px;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 320px;
+      animation: toast-in 0.3s ease;
+    }
+
+    .erp-toast.success { background: #10b981; }
+    .erp-toast.error { background: #ef4444; }
+    .erp-toast.warning { background: #f59e0b; }
+    .erp-toast.info { background: #3b82f6; }
+
+    @keyframes toast-in {
+      from { transform: translateY(100%) scale(0.9); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @keyframes toast-out {
+      to { transform: translateY(20px); opacity: 0; }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Kiosk Top Header -->
+  <header class="kiosk-navbar">
+    <a href="{% url 'core:kiosk_clear' %}" class="kiosk-brand">
+      {% if SCHOOL_LOGO_PATH %}
+        <img src="{% static SCHOOL_LOGO_PATH %}" alt="Logo" class="kiosk-logo">
+      {% else %}
+        <i class="bi bi-mortarboard-fill"></i>
+      {% endif %}
+      <span>{{ SCHOOL_NAME }} — Espace Parent</span>
+    </a>
+    
+    <div class="kiosk-clock-container">
+      <div id="kiosk-clock-time" class="kiosk-time">--:--:--</div>
+      <div id="kiosk-clock-date" class="kiosk-date">chargement...</div>
+    </div>
+  </header>
+
+  <!-- Main Kiosk Body -->
+  <main class="kiosk-main">
+    {% include 'core/_messages.html' %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toast Alert Container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Vendor JS -->
+  <script src="{% static 'jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'bootstrap.bundle.min.js' %}"></script>
+
+  <script>
+    // Digital Clock Updates
+    function updateClock() {
+      const optionsTime = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+      const optionsDate = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+      const now = new Date();
+      
+      document.getElementById('kiosk-clock-time').textContent = now.toLocaleTimeString('fr-FR', optionsTime);
+      
+      let dateStr = now.toLocaleDateString('fr-FR', optionsDate);
+      // Capitalize first letter
+      dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+      document.getElementById('kiosk-clock-date').textContent = dateStr;
+    }
+    
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // Global toast notifier
+    window.erpToast = function (msg, type = 'info', duration = 4000) {
+      const icons = { 
+        success: 'bi-check-circle-fill', 
+        error: 'bi-x-circle-fill', 
+        info: 'bi-info-circle-fill', 
+        warning: 'bi-exclamation-triangle-fill' 
+      };
+      const el = document.createElement('div');
+      el.className = 'erp-toast ' + type;
+      el.setAttribute('role', 'status');
+      el.innerHTML = `<i class="bi ${icons[type] || icons.info}" aria-hidden="true" style="font-size: 20px;"></i> <span>${msg}</span>`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => {
+        el.style.animation = 'toast-out 0.25s ease forwards';
+        setTimeout(() => el.remove(), 260);
+      }, duration);
+    };
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

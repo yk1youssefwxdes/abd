@@ -1,0 +1,10 @@
+Bonjour {name} 👋,
+
+📢 Nous vous informons que {student_name} n'a pas assisté au cours de {course_name}{time_info} le 📅 {date}.
+
+ℹ️ Si cette absence est due à une raison particulière ou si vous souhaitez obtenir plus d'informations, n'hésitez pas à nous contacter.
+
+🤝 Merci de votre confiance.
+
+Cordialement,
+🎓 L'équipe pédagogique

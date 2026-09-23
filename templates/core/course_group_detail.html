@@ -1,0 +1,535 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ group.name }} — Détails du groupe{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:courses_list' %}"><i class="bi bi-book-fill"></i> Groupes</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ group.name }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .avatar-circle {
+    width: 64px; height: 64px; border-radius: 16px;
+    background: var(--primary-light); color: var(--primary);
+    font-size: 26px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .teacher-avatar {
+    width: 42px; height: 42px; border-radius: 10px;
+    background: var(--primary-light); color: var(--primary);
+    font-weight: 700; font-size: 16px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+  .fw-600 { font-weight: 600; }
+  .fw-700 { font-weight: 700; }
+  .schedule-slot {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; border-radius: 8px;
+    background: var(--surface-alt); border: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .schedule-day-badge {
+    font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 5px;
+    background: var(--primary-light); color: var(--primary); flex-shrink: 0;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Group Header ──────────────────────────────────────────────── -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row align-items-center g-4">
+      <div class="col-auto">
+        <div class="avatar-circle"><i class="bi bi-book-half"></i></div>
+      </div>
+      <div class="col">
+        <h1 class="page-title mb-1">{{ group.name }}</h1>
+        <div class="d-flex flex-wrap gap-2 align-items-center mt-1">
+          <span class="text-muted" style="font-size:13.5px;">
+            <i class="bi bi-journal-text me-1"></i><strong>{{ group.subject }}</strong>
+          </span>
+          {% if group.levels.all %}
+            {% for lvl in group.levels.all %}
+              <a href="{% url 'core:level_detail' lvl.id %}" class="text-decoration-none">
+                <span class="badge badge-secondary"><i class="bi bi-layers-fill me-1"></i>{{ lvl.name }}</span>
+              </a>
+            {% endfor %}
+          {% elif group.level %}
+            <a href="{% url 'core:level_detail' group.level.id %}" class="text-decoration-none">
+              <span class="badge badge-secondary"><i class="bi bi-layers-fill me-1"></i>{{ group.level.name }}</span>
+            </a>
+          {% endif %}
+          {% if not group.is_active %}
+            <span class="badge badge-danger"><i class="bi bi-pause-circle"></i> Inactif</span>
+          {% else %}
+            <span class="badge badge-success"><i class="bi bi-check-circle"></i> Actif</span>
+          {% endif %}
+        </div>
+        <div class="mt-2 d-flex flex-wrap gap-2">
+          <span class="badge badge-primary"><i class="bi bi-people"></i> {{ total_students }} élève{{ total_students|pluralize }}</span>
+          <span class="badge badge-info"><i class="bi bi-cash-coin"></i> {{ group.monthly_price }} DH / mois</span>
+          <span class="badge badge-secondary"><i class="bi bi-calendar3"></i> {{ total_sessions }} session{{ total_sessions|pluralize }}</span>
+        </div>
+      </div>
+      <div class="col-auto d-flex gap-2 flex-wrap">
+        <a href="{% url 'core:course_group_edit' group.id %}" class="btn btn-outline-primary">
+          <i class="bi bi-pencil"></i> Éditer
+        </a>
+        <a href="{% url 'core:payment_create' %}" class="btn btn-success">
+          <i class="bi bi-cash-coin"></i> Paiement élève
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Quick Stats ───────────────────────────────────────────────── -->
+<div class="row g-4 mb-4">
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Élèves inscrits</div>
+          <div class="stat-card-value">{{ total_students }}</div>
+          <small class="text-muted">Actifs dans ce groupe</small>
+        </div>
+        <div class="stat-card-icon" style="background:var(--primary-light);">
+          <i class="bi bi-people-fill" style="color:var(--primary);"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Revenus mensuels</div>
+          <div class="stat-card-value">{{ monthly_revenue|floatformat:0 }}<span style="font-size:13px;font-weight:400;color:var(--text-muted);"> DH</span></div>
+          <small class="text-muted">{{ total_students }} × {{ group.monthly_price }} DH</small>
+        </div>
+        <div class="stat-card-icon" style="background:#dcfce7;">
+          <i class="bi bi-cash-coin" style="color:#16a34a;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Sessions planifiées</div>
+          <div class="stat-card-value">{{ planned_sessions }}</div>
+          <small class="text-muted">Sessions à venir</small>
+        </div>
+        <div class="stat-card-icon" style="background:#dbeafe;">
+          <i class="bi bi-calendar-check" style="color:#3b82f6;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="stat-card">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <div class="stat-card-label">Sessions terminées</div>
+          <div class="stat-card-value">{{ done_sessions }}</div>
+          <small class="text-muted">Sessions réalisées</small>
+        </div>
+        <div class="stat-card-icon" style="background:#d1fae5;">
+          <i class="bi bi-check-circle-fill" style="color:#10b981;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Professeur & Horaires (side by side) ──────────────────────── -->
+<div class="row g-4 mb-4">
+  <!-- Teacher card -->
+  <div class="col-md-4">
+    <div class="card h-100">
+      <div class="card-header fw-600"><i class="bi bi-person-badge me-1"></i>Professeur</div>
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div class="teacher-avatar">{{ group.teacher.name|slice:":1"|upper }}</div>
+          <div>
+            <div class="fw-700" style="font-size:15px;">{{ group.teacher.name }}</div>
+            <small class="text-muted"><i class="bi bi-telephone me-1"></i>{{ group.teacher.phone }}</small>
+            {% if group.teacher.email %}
+              <br><small class="text-muted"><i class="bi bi-envelope me-1"></i>{{ group.teacher.email }}</small>
+            {% endif %}
+          </div>
+        </div>
+        <div class="p-2 rounded" style="background:var(--surface-alt); font-size:13px;">
+          <div class="info-label">Mode de rémunération</div>
+          <div class="info-value">{{ group.teacher.get_payment_method_display }}</div>
+          {% if group.teacher.payment_method == 'PERCENTAGE' %}
+            <small class="text-muted">{{ group.teacher.payment_percentage }}% des revenus du groupe</small>
+          {% elif group.teacher.payment_method == 'SESSION' %}
+            <small class="text-muted">{{ group.teacher.session_rate }} DH / session</small>
+          {% else %}
+            <small class="text-muted">{{ group.teacher.hourly_rate }} DH / heure</small>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Schedules card -->
+  <div class="col-md-8">
+    <div class="card h-100">
+      <div class="card-header fw-600"><i class="bi bi-clock me-1"></i>Horaires hebdomadaires</div>
+      <div class="card-body">
+        {% if schedules %}
+          {% for sch in schedules %}
+            <div class="schedule-slot">
+              <span class="schedule-day-badge">{{ sch.get_day_display }}</span>
+              <div class="flex-grow-1">
+                <span class="fw-600">{{ sch.start_time|time:"H:i" }}</span>
+                <span class="text-muted mx-1">–</span>
+                <span class="fw-600">{{ sch.end_time|time:"H:i" }}</span>
+                <small class="text-muted ms-2">({{ sch.duration_hours|floatformat:1 }}h)</small>
+              </div>
+              <span class="badge badge-secondary"><i class="bi bi-door-open me-1"></i>{{ sch.room.name }}</span>
+            </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state py-4">
+            <div class="empty-state-icon"><i class="bi bi-clock"></i></div>
+            <div class="empty-state-title" style="font-size:14px;">Aucun horaire défini</div>
+            <a href="{% url 'core:course_group_edit' group.id %}" class="btn btn-sm btn-primary mt-2">
+              <i class="bi bi-plus-lg"></i> Ajouter un horaire
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Tabs ──────────────────────────────────────────────────────── -->
+<ul class="nav nav-tabs mb-4">
+  <li class="nav-item">
+    <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#students-tab">
+      <i class="bi bi-people"></i> Élèves ({{ total_students }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#sessions-tab">
+      <i class="bi bi-calendar3"></i> Sessions ({{ total_sessions }})
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" data-bs-toggle="tab" data-bs-target="#payments-tab">
+      <i class="bi bi-receipt"></i> Paiements du mois
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+
+  <!-- Students Tab -->
+  <div class="tab-pane fade show active" id="students-tab">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <span class="fw-600">Élèves inscrits dans ce groupe ({{ total_students }})</span>
+        <div class="d-flex gap-2">
+          {% if available_students %}
+            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#enrollStudentModal">
+              <i class="bi bi-person-plus-fill me-1"></i> + Inscrire un élève
+            </button>
+          {% endif %}
+          <a href="{% url 'core:student_create' %}" class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-plus-lg me-1"></i> Nouvel élève
+          </a>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Nom de l'élève</th>
+              <th>Niveau</th>
+              <th>Contact parent</th>
+              <th class="text-end">Frais totaux/mois</th>
+              <th class="text-center">Paiement</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for student in students %}
+              <tr {% if not student.is_active %}class="opacity-75"{% endif %}>
+                <td>
+                  <strong>{{ student.name }}</strong>
+                  {% if not student.is_active %}
+                    <span class="badge badge-secondary ms-1">Inactif</span>
+                  {% endif %}
+                </td>
+                <td>
+                  {% if student.level %}
+                    <a href="{% url 'core:level_detail' student.level.id %}" class="text-decoration-none">
+                      <span class="badge badge-secondary"><i class="bi bi-layers"></i> {{ student.level.name }}</span>
+                    </a>
+                  {% else %}
+                    <span class="text-muted small">—</span>
+                  {% endif %}
+                </td>
+                <td>
+                  <div>{{ student.parent_name|default:"—" }}</div>
+                  <small class="text-muted"><i class="bi bi-telephone"></i> {{ student.parent_contact }}</small>
+                  {% if student.parent_contact_2 %}
+                    <small class="text-muted d-block"><i class="bi bi-telephone"></i> {{ student.parent_contact_2 }}</small>
+                  {% endif %}
+                </td>
+                <td class="text-end"><strong>{{ student.total_monthly_fees|floatformat:0 }} DH</strong></td>
+                <td class="text-center">
+                  {% with status=student.payment_status %}
+                    {% if status == 'OK' %}
+                      <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Payé</span>
+                    {% elif status == 'PARTIAL' %}
+                      <span class="badge badge-warning"><i class="bi bi-exclamation-circle-fill"></i> Partiel</span>
+                    {% else %}
+                      <span class="badge badge-danger"><i class="bi bi-x-circle-fill"></i> Impayé</span>
+                    {% endif %}
+                  {% endwith %}
+                </td>
+                <td class="text-end">
+                  <div class="d-flex gap-1 justify-content-end">
+                    <a href="{% url 'core:student_page' student.id %}" class="btn btn-sm btn-outline-primary" title="Voir le profil">
+                      <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{% url 'core:payment_create' %}?student_id={{ student.id }}" class="btn btn-sm btn-outline-secondary" title="Paiement">
+                      <i class="bi bi-cash-coin"></i>
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-5 text-muted">
+                  Aucun élève inscrit dans ce groupe.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sessions Tab -->
+  <div class="tab-pane fade" id="sessions-tab">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-600">Sessions récentes &amp; à venir</span>
+        <div class="d-flex gap-2">
+          <span class="badge badge-success">{{ done_sessions }} terminées</span>
+          <span class="badge badge-primary">{{ planned_sessions }} planifiées</span>
+          <span class="badge badge-danger">{{ cancelled_sessions }} annulées</span>
+        </div>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Horaire</th>
+              <th>Salle</th>
+              <th>Professeur</th>
+              <th class="text-center">Statut</th>
+              <th class="text-end">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for session in recent_sessions %}
+              <tr>
+                <td><strong>{{ session.date|date:"d/m/Y" }}</strong></td>
+                <td>
+                  <span class="badge badge-secondary">{{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}</span>
+                  <small class="text-muted ms-1">({{ session.duration_hours|floatformat:1 }}h)</small>
+                </td>
+                <td><i class="bi bi-door-open text-muted"></i> {{ session.room.name }}</td>
+                <td>
+                  {% if session.substitute_teacher %}
+                    <span class="text-warning fw-600">{{ session.substitute_teacher.name }}</span>
+                    <small class="text-muted d-block">Remplaçant</small>
+                  {% else %}
+                    {{ session.group.teacher.name }}
+                  {% endif %}
+                </td>
+                <td class="text-center">
+                  {% if session.status == 'DONE' %}
+                    <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Terminée</span>
+                  {% elif session.status == 'CANCELLED' %}
+                    <span class="badge badge-danger"><i class="bi bi-x-circle-fill"></i> Annulée</span>
+                  {% else %}
+                    <span class="badge badge-primary"><i class="bi bi-clock-fill"></i> Planifiée</span>
+                  {% endif %}
+                </td>
+                <td class="text-end">
+                  <a href="{% url 'core:session_attendance' session.id %}" class="btn btn-sm btn-outline-primary" title="Présences">
+                    <i class="bi bi-check2-circle"></i>
+                  </a>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-5 text-muted">Aucune session pour ce groupe.</td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if total_sessions > recent_sessions|length %}
+        <div class="card-footer text-muted small">
+          Affichage des 20 dernières / prochaines sessions. Total : {{ total_sessions }}.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Payments Tab -->
+  <div class="tab-pane fade" id="payments-tab">
+    <div class="card">
+      <div class="card-header fw-600">
+        <i class="bi bi-receipt me-1"></i>Paiements du mois en cours
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Élève</th>
+              <th>N° Reçu</th>
+              <th>Date paiement</th>
+              <th class="text-end">Montant</th>
+              <th>Mode</th>
+              <th class="text-center">Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in current_month_payments %}
+              <tr>
+                <td>
+                  <a href="{% url 'core:student_page' payment.student.id %}" class="text-decoration-none fw-600">
+                    {{ payment.student.name }}
+                  </a>
+                </td>
+                <td><code>{{ payment.receipt_number }}</code></td>
+                <td>{{ payment.payment_date|date:"d/m/Y" }}</td>
+                <td class="text-end"><strong>{{ payment.amount }} DH</strong></td>
+                <td><small>{{ payment.get_payment_method_display }}</small></td>
+                <td class="text-center">
+                  <span class="badge {% if payment.status == 'PAID' %}badge-success{% else %}badge-secondary{% endif %}">
+                    {{ payment.get_status_display }}
+                  </span>
+                </td>
+              </tr>
+            {% empty %}
+              <tr>
+                <td colspan="6" class="text-center py-5 text-muted">
+                  Aucun paiement enregistré ce mois pour les élèves de ce groupe.
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="card-footer d-flex justify-content-between align-items-center">
+        <span class="text-muted small">{{ current_month_payments|length }} paiement{{ current_month_payments|length|pluralize }} ce mois</span>
+        <strong>Total : {{ current_month_total|floatformat:0 }} DH</strong>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Breadcrumb actions -->
+<div class="mt-4 d-flex gap-2 flex-wrap">
+  <a href="{% url 'core:courses_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour à la liste
+  </a>
+  {% for lvl in group.levels.all %}
+    <a href="{% url 'core:level_detail' lvl.id %}" class="btn btn-outline-secondary">
+      <i class="bi bi-layers-fill"></i> Voir le niveau « {{ lvl.name }} »
+    </a>
+  {% empty %}
+    {% if group.level %}
+      <a href="{% url 'core:level_detail' group.level.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-layers-fill"></i> Voir le niveau « {{ group.level.name }} »
+      </a>
+    {% endif %}
+  {% endfor %}
+  <a href="{% url 'core:course_group_edit' group.id %}" class="btn btn-outline-primary ms-auto">
+    <i class="bi bi-pencil"></i> Modifier ce groupe
+  </a>
+  <a href="{% url 'core:course_group_delete_confirm' group.id %}" class="btn btn-outline-danger">
+    <i class="bi bi-trash"></i> Supprimer
+  </a>
+</div>
+<!-- Enroll Student Modal -->
+{% if available_students %}
+<div class="modal fade" id="enrollStudentModal" tabindex="-1" aria-labelledby="enrollStudentModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="post" id="enrollStudentForm">
+        {% csrf_token %}
+        <input type="hidden" name="course_group_id" value="{{ group.id }}">
+        <input type="hidden" name="next" value="{% url 'core:group_detail' group.id %}">
+        <div class="modal-header">
+          <h5 class="modal-title" id="enrollStudentModalLabel">
+            <i class="bi bi-person-plus-fill text-primary me-2"></i>Inscrire un élève au groupe
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label for="studentSelect" class="form-label fw-600">Sélectionner l'élève :</label>
+            <select id="studentSelect" class="form-select select2" required style="width:100%;">
+              <option value="">-- Choisir un élève --</option>
+              {% for s in available_students %}
+                <option value="{{ s.id }}">{{ s.name }} {% if s.level %}({{ s.level.name }}){% endif %} - {{ s.parent_contact }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="alert alert-info small py-2 mb-0">
+            <i class="bi bi-info-circle me-1"></i> L'élève sera immédiatement ajouté au groupe « {{ group.name }} ».
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary" id="confirmEnrollBtn">
+            <i class="bi bi-check-lg me-1"></i> Confirmer l'inscription
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('enrollStudentForm');
+  const select = document.getElementById('studentSelect');
+  if (form && select) {
+    form.addEventListener('submit', function(e) {
+      const studentId = select.value;
+      if (!studentId) {
+        e.preventDefault();
+        alert("Veuillez sélectionner un élève.");
+        return;
+      }
+      form.action = "/students/" + studentId + "/enrollment/add/";
+    });
+  }
+});
+</script>
+{% endif %}
+
+{% endblock %}

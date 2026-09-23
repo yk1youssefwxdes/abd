@@ -1,0 +1,467 @@
+{% extends 'core/base.html' %}
+{% block title %}Sessions du {{ view_date|date:"d/m/Y" }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-calendar2-event-fill"></i> Sessions du jour</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ─── Session Cards ───────────────────────────────────────── */
+  .session-card {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 0.18s, transform 0.18s;
+    overflow: hidden;
+    position: relative;
+  }
+  .session-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+  }
+  .session-card.status-done  { border-left: 5px solid #10b981; }
+  .session-card.status-cancelled { border-left: 5px solid #ef4444; background: #fff5f5; }
+  .session-card.status-planned   { border-left: 5px solid #3b82f6; }
+  .session-card.status-done .card-body-inner  { background: #f0fdf4; }
+
+  .session-card .card-body-inner {
+    padding: 16px 20px;
+  }
+
+  .session-time-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-primary);
+    margin-bottom: 4px;
+  }
+  .session-group-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .session-meta {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .session-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .session-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--surface-alt);
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .btn-attendance {
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius-sm);
+    padding: 9px 20px;
+    font-size: 14.5px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    text-decoration: none;
+    transition: background 0.15s, box-shadow 0.15s;
+    white-space: nowrap;
+  }
+  .btn-attendance:hover {
+    background: var(--primary-dark);
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(37,99,216,0.3);
+  }
+  .session-card.status-done .btn-attendance {
+    background: #10b981;
+  }
+  .session-card.status-done .btn-attendance:hover {
+    background: #059669;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+  }
+
+  /* ─── Date nav bar ─────────────────────────────────────────── */
+  .date-nav {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 10px 16px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-xs);
+  }
+  .date-nav-label {
+    flex: 1;
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--text-primary);
+    letter-spacing: -0.01em;
+  }
+  .date-nav-btn {
+    width: 44px; /* WCAG 2.5.5 - target size */
+    height: 44px; /* WCAG 2.5.5 - target size */
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    transition: background 0.12s, color 0.12s;
+    flex-shrink: 0;
+  }
+  .date-nav-btn:hover { background: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+
+  /* ─── Quick stats row ──────────────────────────────────────── */
+  .quick-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .qs-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    text-align: center;
+    box-shadow: var(--shadow-xs);
+  }
+  .qs-num {
+    font-size: 26px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .qs-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); } /* WCAG contrast boost */
+  @media (max-width: 576px) {
+    .quick-stats { grid-template-columns: repeat(2, 1fr); }
+    .date-nav-label { font-size: 14px; }
+    .session-time-badge { font-size: 17px; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Header ─────────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between gap-3 flex-wrap">
+  <div>
+    {% if mode == 'uncompleted' %}
+      <h1 class="page-title">
+        <i class="bi bi-exclamation-triangle-fill me-2" style="color:#ef4444;"></i>
+        Séances en retard
+      </h1>
+      <p class="page-subtitle">Présences non encore enregistrées pour ces séances passées</p>
+    {% else %}
+      <h1 class="page-title">
+        <i class="bi bi-calendar2-event-fill me-2" style="color:var(--primary);"></i>
+        Sessions du {% if is_today %}<span style="color:var(--success);">Aujourd'hui</span>{% else %}{{ view_date|date:"l d F Y" }}{% endif %}
+      </h1>
+      {% if is_today %}
+        <p class="page-subtitle">Toutes les sessions programmées pour aujourd'hui</p>
+      {% endif %}
+    {% endif %}
+  </div>
+  {% if mode == 'uncompleted' %}
+    <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary flex-shrink-0">
+      <i class="bi bi-arrow-left"></i> Retour
+    </a>
+  {% endif %}
+</div>
+
+<!-- ── Date nav (only in normal mode) ────────────────────────────── -->
+{% if mode != 'uncompleted' %}
+<div class="date-nav" role="navigation" aria-label="Navigation de date">
+  <a class="date-nav-btn" href="?{% if querystring %}{{ querystring }}&{% endif %}date={{ prev_day|date:'Y-m-d' }}" title="Jour précédent" aria-label="Jour précédent">
+    <i class="bi bi-chevron-left" aria-hidden="true"></i>
+  </a>
+  <div class="date-nav-label">
+    {{ view_date|date:"l d F Y" }}
+    {% if is_today %}
+      <span class="badge badge-success ms-2" style="font-size:12px;vertical-align:middle;">Aujourd'hui</span>
+    {% elif view_date > today %}
+      <span class="badge badge-info ms-2" style="font-size:12px;vertical-align:middle;">À venir</span>
+    {% else %}
+      <span class="badge badge-secondary ms-2" style="font-size:12px;vertical-align:middle;">Passé</span>
+    {% endif %}
+  </div>
+  <a class="date-nav-btn" href="?{% if querystring %}{{ querystring }}&{% endif %}date={{ next_day|date:'Y-m-d' }}" title="Jour suivant" aria-label="Jour suivant">
+    <i class="bi bi-chevron-right" aria-hidden="true"></i>
+  </a>
+  {% if not is_today %}
+    <a href="?{% if querystring %}{{ querystring }}{% endif %}" class="btn btn-sm btn-outline-primary ms-2" style="min-height:44px;">
+      <i class="bi bi-calendar-check" aria-hidden="true"></i> Aujourd'hui
+    </a>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Mode toggle ─────────────────────────────────────────────── -->
+<div class="d-flex align-items-center gap-2 mb-4 flex-wrap">
+  <a href="{% url 'core:sessions_today' %}" class="btn btn-sm {% if not mode %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-calendar-day"></i> Par date
+  </a>
+  <a href="{% url 'core:sessions_today' %}?mode=uncompleted" class="btn btn-sm {% if mode == 'uncompleted' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+    <i class="bi bi-exclamation-triangle"></i> Séances en retard
+    {% if past_uncompleted_count %}
+      <span class="badge bg-danger ms-1" style="background:#ef4444!important;">{{ past_uncompleted_count }}</span>
+    {% endif %}
+  </a>
+  <!-- Quick-add session buttons -->
+  <div class="d-flex align-items-center gap-2 ms-auto">
+    <a href="{% url 'core:session_create' %}" class="btn btn-sm btn-primary d-flex align-items-center gap-1"
+       title="Ajouter une nouvelle séance">
+      <i class="bi bi-plus-circle-fill"></i> Ajouter séance
+    </a>
+  </div>
+</div>
+
+<!-- ── Interactive Status Filter Pills ────────────────────────── -->
+<div class="quick-stats mb-3">
+  <div class="qs-card filter-card active cursor-pointer" data-filter="all" role="button" tabindex="0" title="Afficher toutes les sessions">
+    <div class="qs-num" style="color:var(--text-primary);">{{ stats.total }}</div>
+    <div class="qs-label">Toutes</div>
+  </div>
+  <div class="qs-card filter-card cursor-pointer" data-filter="planned" role="button" tabindex="0" title="Filtrer les sessions prévues">
+    <div class="qs-num" style="color:#3b82f6;">{{ stats.planned }}</div>
+    <div class="qs-label">Prévues</div>
+  </div>
+  <div class="qs-card filter-card cursor-pointer" data-filter="done" role="button" tabindex="0" title="Filtrer les sessions terminées">
+    <div class="qs-num" style="color:#10b981;">{{ stats.done }}</div>
+    <div class="qs-label">Terminées</div>
+  </div>
+  <div class="qs-card filter-card cursor-pointer" data-filter="cancelled" role="button" tabindex="0" title="Filtrer les sessions annulées">
+    <div class="qs-num" style="color:#ef4444;">{{ stats.cancelled }}</div>
+    <div class="qs-label">Annulées</div>
+  </div>
+</div>
+
+<!-- ── Progress Bar ────────────────────────────────────────────────── -->
+{% if stats.total > 0 %}
+<div class="progress mb-4" style="height: 16px; border-radius: 6px; background-color: var(--border); overflow: hidden;">
+  <div class="progress-bar bg-success progress-bar-striped progress-bar-animated" role="progressbar" 
+       id="session-progress-bar" style="width: 0%; transition: width 0.5s ease; font-size: 12px; font-weight: 700; line-height: 16px;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0%</div>
+</div>
+{% endif %}
+
+
+<!-- ── Active filters ──────────────────────────────────────────────── -->
+{% if filters_active %}
+  <div class="d-flex gap-2 flex-wrap mb-4">
+    <small class="text-secondary align-self-center">Filtres actifs :</small>
+    {% if request.GET.room %}
+      <span class="filter-pill">Salle<a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'room' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">×</a></span>
+    {% endif %}
+    {% if request.GET.teacher %}
+      <span class="filter-pill">Professeur<a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'teacher' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">×</a></span>
+    {% endif %}
+    {% if request.GET.status %}
+      <span class="filter-pill">Statut: {{ request.GET.status }}<a href="?date={{ view_date|date:'Y-m-d' }}{% for key, value in request.GET.items %}{% if key != 'status' and key != 'date' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">×</a></span>
+    {% endif %}
+  </div>
+{% endif %}
+
+<!-- ── Session cards ──────────────────────────────────────────────── -->
+{% if sessions %}
+  {% if stats.done == stats.total and stats.total > 0 %}
+    <div class="alert alert-success d-flex align-items-center gap-2 mb-4" style="border-left:5px solid #10b981;">
+      <i class="bi bi-check-circle-fill" style="font-size:1.3rem;color:#10b981;"></i>
+      <strong>Toutes les sessions sont terminées !</strong> Excellent travail pour aujourd'hui.
+    </div>
+  {% endif %}
+  <div class="row g-3">
+    {% for session in sessions %}
+      <div class="col-12 col-lg-6">
+        <div class="session-card status-{% if session.status == 'DONE' %}done{% elif session.status == 'CANCELLED' %}cancelled{% else %}planned{% endif %}">
+          <div class="card-body-inner">
+
+            <!-- Time & Group name -->
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+              <div>
+                {% if mode == 'uncompleted' %}
+                  <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:2px;">
+                    <i class="bi bi-calendar-event" aria-hidden="true"></i>
+                    {{ session.date|date:"d/m/Y" }} — {{ session.date|date:"l" }}
+                  </div>
+                {% endif %}
+                <div class="session-time-badge">
+                  <i class="bi bi-clock" style="font-size:16px;color:var(--primary);" aria-hidden="true"></i>
+                  {{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}
+                  <span style="font-size:13.5px;font-weight:600;color:var(--text-secondary);">({{ session.duration_hours|floatformat:1 }}h)</span>
+                </div>
+                <div class="session-group-name">
+                  <a href="{% url 'core:group_detail' session.group.id %}" class="text-decoration-none" style="color:inherit;">
+                    {{ session.group.name }}
+                  </a>
+                </div>
+              </div>
+              <!-- Status badge -->
+              {% if session.status == 'DONE' %}
+                <span class="badge badge-success flex-shrink-0" style="font-size:13px;padding:5px 10px;">
+                  <i class="bi bi-check-circle-fill"></i> Terminée
+                </span>
+              {% elif session.status == 'CANCELLED' %}
+                <span class="badge badge-danger flex-shrink-0" style="font-size:13px;padding:5px 10px;">
+                  <i class="bi bi-x-circle-fill"></i> Annulée
+                </span>
+              {% else %}
+                <span class="badge badge-primary flex-shrink-0" style="font-size:13px;padding:5px 10px;">
+                  <i class="bi bi-clock-fill"></i> Prévue
+                </span>
+              {% endif %}
+            </div>
+
+            <!-- Meta info -->
+            <div class="session-meta">
+              <span class="session-meta-item">
+                <i class="bi bi-book" style="color:var(--primary);" aria-hidden="true"></i>
+                {{ session.group.subject }}
+                {% if session.group.level %}
+                  — <a href="{% url 'core:level_detail' session.group.level.id %}" class="fw-bold text-decoration-none" style="color:var(--primary);">{{ session.group.level.name }}</a>
+                {% endif %}
+              </span>
+              <span class="session-meta-item">
+                <i class="bi bi-door-open" style="color:var(--text-secondary);" aria-hidden="true"></i>
+                <span class="badge badge-secondary">{{ session.room.name }}</span>
+              </span>
+              <span class="session-meta-item">
+                <i class="bi bi-person" style="color:var(--text-secondary);" aria-hidden="true"></i>
+                {{ session.group.teacher.name }}
+              </span>
+              <span class="session-meta-item">
+                <i class="bi bi-people" style="color:var(--text-secondary);" aria-hidden="true"></i>
+                <span class="badge badge-info">{{ session.group.students.count }} élèves</span>
+              </span>
+            </div>
+
+          </div>
+          <!-- Footer actions -->
+          <div class="session-footer">
+            <a href="{% url 'core:session_attendance' session.id %}" class="btn-attendance" style="min-height: 44px;">
+              <i class="bi bi-{% if session.status == 'DONE' %}clipboard-check{% else %}check2-circle{% endif %}" aria-hidden="true"></i>
+              {% if session.status == 'DONE' %}Modifier les présences{% else %}Marquer les présences{% endif %}
+            </a>
+            <a href="{% url 'core:whatsapp_session_reminder' session.id %}"
+               class="btn btn-sm btn-outline-secondary" title="Rappel WhatsApp" aria-label="Rappel WhatsApp pour {{ session.group.name }}"
+               style="color:#25d366;border-color:#25d366;min-height: 44px;display: inline-flex;align-items: center;">
+              <i class="bi bi-whatsapp" aria-hidden="true"></i> Rappel
+            </a>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+{% else %}
+  <div class="card">
+    <div class="card-body empty-state">
+      <div class="empty-state-icon"><i class="bi bi-calendar-x"></i></div>
+      <div class="empty-state-title">
+        {% if filters_active %}Aucune session avec ces filtres{% else %}Aucune session programmée{% endif %}
+      </div>
+      {% if filters_active %}
+        <div class="empty-state-text">
+          <a href="?date={{ view_date|date:'Y-m-d' }}">Effacer les filtres</a>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const total = parseInt("{{ stats.total }}") || 0;
+  const done = parseInt("{{ stats.done }}") || 0;
+  const cancelled = parseInt("{{ stats.cancelled }}") || 0;
+  const completed = done + cancelled;
+  if (total > 0) {
+    const percent = Math.round((completed / total) * 100);
+    const pb = document.getElementById('session-progress-bar');
+    if (pb) {
+      pb.style.width = percent + '%';
+      pb.setAttribute('aria-valuenow', percent);
+      pb.innerText = percent + '%';
+    }
+  }
+
+  // ── Client-side Instant Filter by Status ─────────────────────
+  const filterCards = document.querySelectorAll('.filter-card');
+  const sessionCards = document.querySelectorAll('.session-card');
+
+  filterCards.forEach(card => {
+    card.addEventListener('click', function () {
+      filterCards.forEach(c => c.style.boxShadow = 'var(--shadow-xs)', c.style.borderColor = 'var(--border)');
+      this.style.boxShadow = '0 0 0 2px var(--primary)';
+      this.style.borderColor = 'var(--primary)';
+
+      const filter = this.getAttribute('data-filter');
+      sessionCards.forEach(sCard => {
+        const col = sCard.closest('.col-12');
+        if (filter === 'all') {
+          col.style.display = '';
+        } else if (filter === 'planned') {
+          col.style.display = sCard.classList.contains('status-planned') ? '' : 'none';
+        } else if (filter === 'done') {
+          col.style.display = sCard.classList.contains('status-done') ? '' : 'none';
+        } else if (filter === 'cancelled') {
+          col.style.display = sCard.classList.contains('status-cancelled') ? '' : 'none';
+        }
+      });
+    });
+  });
+
+  // ── Keyboard Navigation (Alt+Left, Alt+Right, T for today) ────
+  document.addEventListener('keydown', function (e) {
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) {
+      return;
+    }
+
+    if ((e.altKey && e.key === 'ArrowLeft') || (e.key === 'j' && !e.ctrlKey && !e.metaKey && !e.altKey)) {
+      const prevBtn = document.querySelector('a[title="Jour précédent"]');
+      if (prevBtn) {
+        e.preventDefault();
+        window.location.href = prevBtn.href;
+      }
+    } else if ((e.altKey && e.key === 'ArrowRight') || (e.key === 'k' && !e.ctrlKey && !e.metaKey && !e.altKey)) {
+      const nextBtn = document.querySelector('a[title="Jour suivant"]');
+      if (nextBtn) {
+        e.preventDefault();
+        window.location.href = nextBtn.href;
+      }
+    } else if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey && !e.altKey && !e.shiftKey) {
+      e.preventDefault();
+      window.location.href = "{% url 'core:sessions_today' %}";
+    }
+  });
+});
+</script>
+{% endblock %}
+
+{% endblock %}

@@ -1,0 +1,240 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}Cockpit Directeur — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+.ad { font-family: 'Inter', system-ui, sans-serif; display:flex; flex-direction:column; gap:1.5rem; padding:.25rem 0 3rem; }
+.ad-hero {
+  position:relative; border-radius:24px; padding:2.5rem 2.75rem; overflow:hidden;
+  background:#0f172a; color:#fff; min-height:150px; display:flex; align-items:center; gap:2rem;
+}
+.ad-hero::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,#1e1b4b 0%,#312e81 25%,#1d4ed8 55%,#0369a1 80%,#065f46 100%);
+  background-size:300% 300%; animation:adHeroGrad 8s ease infinite;
+}
+@keyframes adHeroGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.ad-hero-content { position:relative; z-index:2; flex:1; }
+.ad-hero-badge {
+  display:inline-flex; align-items:center; gap:.45rem;
+  background:rgba(255,255,255,.1); backdrop-filter:blur(10px);
+  border:1px solid rgba(255,255,255,.2);
+  padding:.35rem .9rem; border-radius:99px;
+  font-size:.72rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase;
+  color:rgba(255,255,255,.85); margin-bottom:.8rem;
+}
+.ad-hero-title {
+  font-size:2rem; font-weight:900; letter-spacing:-.04em; line-height:1.05;
+  background:linear-gradient(135deg,#fff 0%,#c7d2fe 60%,#93c5fd 100%);
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+}
+.ad-hero-sub { font-size:.85rem; color:rgba(255,255,255,.55); margin-top:.5rem; }
+.ad-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+.ad-kpi {
+  background:#fff; border-radius:20px; padding:1.4rem 1.5rem 1.25rem;
+  border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05);
+  transition:transform .2s, box-shadow .2s; cursor:default; position:relative; overflow:hidden;
+}
+.ad-kpi:hover { transform:translateY(-3px); box-shadow:0 12px 36px rgba(0,0,0,.1); }
+.dark .ad-kpi { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.ad-kpi-stripe { position:absolute; top:0; left:0; right:0; height:4px; border-radius:20px 20px 0 0; }
+.ad-kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:1rem; }
+.ad-kpi-icon .material-symbols-outlined { font-size:22px; }
+.ad-kpi-label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; margin-bottom:.3rem; }
+.ad-kpi-val { font-size:1.85rem; font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.dark .ad-kpi-val { color:#f1f5f9; }
+.ad-kpi-sub { font-size:.73rem; color:#94a3b8; margin-top:.5rem; }
+.ad-grid-2 { display:grid; grid-template-columns:3fr 2fr; gap:1.25rem; }
+.ad-card {
+  background:#fff; border-radius:20px; padding:1.6rem 1.75rem;
+  border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05);
+}
+.dark .ad-card { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.ad-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; }
+.ad-card-title { font-size:.95rem; font-weight:800; color:#0f172a; letter-spacing:-.02em; }
+.dark .ad-card-title { color:#f1f5f9; }
+.ad-alert-item {
+  display:flex; align-items:center; gap:.75rem;
+  padding:.75rem 1rem; border-radius:12px; margin-bottom:.6rem;
+  border:1px solid rgba(0,0,0,.06);
+}
+.ad-alert-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.ad-alert-text { font-size:.82rem; flex:1; color:#334155; }
+.dark .ad-alert-text { color:#cbd5e1; }
+.ad-badge { display:inline-flex; align-items:center; gap:.15rem; padding:.2rem .65rem; border-radius:99px; font-size:.68rem; font-weight:800; }
+.ad-badge-up { background:#d1fae5; color:#059669; }
+.ad-badge-dn { background:#fee2e2; color:#ef4444; }
+.ad-badge-neu { background:#f1f5f9; color:#64748b; }
+.ad-badge-warn { background:#fef9c3; color:#a16207; }
+.ad-progress-bar { height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden; margin-top:.5rem; }
+.ad-progress-fill { height:100%; border-radius:99px; }
+.ad-links { display:flex; flex-wrap:wrap; gap:.5rem; margin-top:1rem; }
+.ad-link-btn {
+  display:inline-flex; align-items:center; gap:.4rem;
+  padding:.5rem 1rem; border-radius:10px; font-size:.78rem; font-weight:700;
+  text-decoration:none; transition:all .2s; border:1px solid transparent;
+}
+.ad-link-btn-primary { background:#4f46e5; color:#fff; }
+.ad-link-btn-primary:hover { background:#4338ca; color:#fff; }
+.ad-link-btn-outline { background:transparent; border-color:#e2e8f0; color:#334155; }
+.dark .ad-link-btn-outline { border-color:rgba(255,255,255,.1); color:#cbd5e1; }
+.ad-link-btn-outline:hover { background:#f8fafc; }
+.dark .ad-link-btn-outline:hover { background:rgba(255,255,255,.05); }
+@media(max-width:992px) { .ad-kpi-grid{grid-template-columns:repeat(2,1fr);} .ad-grid-2{grid-template-columns:1fr;} }
+@media(max-width:576px) { .ad-kpi-grid{grid-template-columns:1fr;} }
+</style>
+
+<div class="ad">
+
+  <!-- HERO -->
+  <div class="ad-hero">
+    <div class="ad-hero-content">
+      <div class="ad-hero-badge">
+        <span class="material-symbols-outlined" style="font-size:14px;">insights</span>
+        COCKPIT DIRECTEUR
+      </div>
+      <div class="ad-hero-title">Tableau de Bord Analytique</div>
+      <div class="ad-hero-sub">Vue d'ensemble en temps réel · Afnane center</div>
+    </div>
+  </div>
+
+  <!-- QUICK NAV LINKS -->
+  <div class="ad-links">
+    <a href="{% url 'admin:analytics_revenue' %}" class="ad-link-btn ad-link-btn-primary">
+      <span class="material-symbols-outlined" style="font-size:15px;">payments</span> Revenus
+    </a>
+    <a href="{% url 'admin:analytics_attendance' %}" class="ad-link-btn ad-link-btn-outline">
+      <span class="material-symbols-outlined" style="font-size:15px;">fact_check</span> Absences
+    </a>
+    <a href="{% url 'admin:analytics_students' %}" class="ad-link-btn ad-link-btn-outline">
+      <span class="material-symbols-outlined" style="font-size:15px;">school</span> Rétention &amp; Niveaux
+    </a>
+    <a href="{% url 'admin:analytics_rooms' %}" class="ad-link-btn ad-link-btn-outline">
+      <span class="material-symbols-outlined" style="font-size:15px;">meeting_room</span> Salles &amp; Occupations
+    </a>
+    <a href="{% url 'admin:analytics_teachers' %}" class="ad-link-btn ad-link-btn-outline">
+      <span class="material-symbols-outlined" style="font-size:15px;">calculate</span> Paie Enseignants
+    </a>
+    <a href="{% url 'admin:analytics_operational' %}" class="ad-link-btn ad-link-btn-outline">
+      <span class="material-symbols-outlined" style="font-size:15px;">analytics</span> Opérationnel
+    </a>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="ad-kpi-grid">
+    <div class="ad-kpi">
+      <div class="ad-kpi-stripe" style="background:#6366f1;"></div>
+      <div class="ad-kpi-icon" style="background:#ede9fe; color:#6366f1;">
+        <span class="material-symbols-outlined">school</span>
+      </div>
+      <div class="ad-kpi-label">Élèves Actifs</div>
+      <div class="ad-kpi-val">{{ counts.students }}</div>
+      <div class="ad-kpi-sub">Inscrits dans au moins un groupe</div>
+    </div>
+    <div class="ad-kpi">
+      <div class="ad-kpi-stripe" style="background:#10b981;"></div>
+      <div class="ad-kpi-icon" style="background:#d1fae5; color:#10b981;">
+        <span class="material-symbols-outlined">groups</span>
+      </div>
+      <div class="ad-kpi-label">Groupes de Cours</div>
+      <div class="ad-kpi-val">{{ counts.groups }}</div>
+      <div class="ad-kpi-sub">Groupes actifs en ce moment</div>
+    </div>
+    <div class="ad-kpi">
+      <div class="ad-kpi-stripe" style="background:#f59e0b;"></div>
+      <div class="ad-kpi-icon" style="background:#fef3c7; color:#f59e0b;">
+        <span class="material-symbols-outlined">person_book</span>
+      </div>
+      <div class="ad-kpi-label">Professeurs</div>
+      <div class="ad-kpi-val">{{ counts.teachers }}</div>
+      <div class="ad-kpi-sub">Enseignants actifs</div>
+    </div>
+    <div class="ad-kpi">
+      <div class="ad-kpi-stripe" style="background:#0284c7;"></div>
+      <div class="ad-kpi-icon" style="background:#e0f2fe; color:#0284c7;">
+        <span class="material-symbols-outlined">meeting_room</span>
+      </div>
+      <div class="ad-kpi-label">Salles de Cours</div>
+      <div class="ad-kpi-val">{{ counts.rooms }}</div>
+      <div class="ad-kpi-sub">Salles disponibles</div>
+    </div>
+  </div>
+
+  <!-- REVENUE MONTH SUMMARY + ALERTS -->
+  <div class="ad-grid-2">
+    <!-- Revenue progress -->
+    <div class="ad-card">
+      <div class="ad-card-hdr">
+        <span class="ad-card-title">
+          <span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; color:#6366f1; margin-right:6px;">bar_chart</span>
+          Revenus en cours — {{ current_month_label }}
+        </span>
+        <a href="{% url 'admin:analytics_revenue' %}" class="ad-badge ad-badge-neu" style="text-decoration:none;">Voir tout →</a>
+      </div>
+
+      {% for m in monthly_series|slice:"-6:" %}
+      <div style="margin-bottom:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+          <span style="font-size:.8rem; font-weight:600; color:#475569;">{{ m.month_label }}</span>
+          <span style="font-size:.8rem; font-weight:800; color:#0f172a;">{{ m.revenue_paid|floatformat:0 }} DH</span>
+        </div>
+        <div class="ad-progress-bar">
+          <div class="ad-progress-fill" style="width:{{ m.collection_rate }}%; background:{% if m.collection_rate >= 80 %}#10b981{% elif m.collection_rate >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+        </div>
+        <div style="font-size:.69rem; color:#94a3b8; margin-top:2px;">
+          {{ m.collection_rate }}% recouvrés (sur {{ m.revenue_expected|floatformat:0 }} DH attendus)
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Alerts panel -->
+    <div class="ad-card">
+      <div class="ad-card-hdr">
+        <span class="ad-card-title">
+          <span class="material-symbols-outlined" style="font-size:18px; vertical-align:middle; color:#ef4444; margin-right:6px;">warning</span>
+          Alertes
+        </span>
+      </div>
+
+      {% if uncompleted_sessions %}
+        <div style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin-bottom:.5rem;">
+          Séances en retard
+        </div>
+        {% for s in uncompleted_sessions|slice:":5" %}
+        <div class="ad-alert-item" style="background:#fef2f2;">
+          <div class="ad-alert-dot" style="background:#ef4444;"></div>
+          <div class="ad-alert-text">{{ s.date|date:"d/m" }} — {{ s.group.name }}</div>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="ad-alert-item" style="background:#f0fdf4;">
+          <div class="ad-alert-dot" style="background:#10b981;"></div>
+          <div class="ad-alert-text">Aucune séance en retard ✓</div>
+        </div>
+      {% endif %}
+
+      {% if conflicts %}
+        <div style="font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#94a3b8; margin:.75rem 0 .5rem;">
+          Conflits planif.
+        </div>
+        {% for c in conflicts|slice:":3" %}
+        <div class="ad-alert-item" style="background:#fff7ed;">
+          <div class="ad-alert-dot" style="background:#f59e0b;"></div>
+          <div class="ad-alert-text">{{ c }}</div>
+        </div>
+        {% endfor %}
+      {% endif %}
+
+      <div style="margin-top:1rem;">
+        <a href="{% url 'admin:analytics_operational' %}" class="ad-link-btn ad-link-btn-outline" style="font-size:.75rem;">
+          <span class="material-symbols-outlined" style="font-size:14px;">open_in_new</span> Santé opérationnelle
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

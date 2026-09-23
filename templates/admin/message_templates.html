@@ -1,0 +1,348 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+{% block title %}Modèles de Messages{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+.mt-wrap {
+  font-family: 'Inter', system-ui, sans-serif;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: .25rem 0 3rem;
+}
+.mt-hero {
+  position: relative; border-radius: 24px; padding: 2.25rem 2.75rem;
+  overflow: hidden; background: #0f172a; color: #fff; min-height: 130px;
+  display: flex; align-items: center; gap: 2rem;
+}
+.mt-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 25%, #7c3aed 55%, #6d28d9 80%, #4c1d95 100%);
+  background-size: 300% 300%; animation: heroGrad 9s ease infinite;
+}
+@keyframes heroGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.mt-hero-content { position: relative; z-index: 2; flex: 1; }
+.mt-hero-badge {
+  display: inline-flex; align-items: center; gap: .45rem;
+  background: rgba(255,255,255,.12); backdrop-filter: blur(10px);
+  border: 1px solid rgba(255,255,255,.2); padding: .35rem .9rem; border-radius: 99px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .07em; text-transform: uppercase;
+  color: rgba(255,255,255,.85); margin-bottom: .75rem;
+}
+.mt-hero-title {
+  font-size: 1.85rem; font-weight: 900; letter-spacing: -.04em; line-height: 1.1;
+  background: linear-gradient(135deg, #fff 0%, #ddd6fe 60%, #c4b5fd 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
+.mt-hero-sub { font-size: .85rem; color: rgba(255,255,255,.5); margin-top: .5rem; }
+
+.mt-layout { display: grid; grid-template-columns: 280px 1fr; gap: 1.25rem; align-items: start; }
+
+.mt-sidebar {
+  background: #fff; border: 1px solid rgba(0,0,0,.07); border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.05); overflow: hidden; position: sticky; top: 1.5rem;
+}
+.mt-sidebar-header {
+  padding: 1rem 1.25rem .75rem; border-bottom: 1px solid rgba(0,0,0,.06);
+  font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #94a3b8;
+}
+.mt-file-list { list-style: none; margin: 0; padding: .5rem 0; }
+.mt-file-item a {
+  display: flex; align-items: center; gap: .6rem; padding: .65rem 1.25rem;
+  font-size: .83rem; font-weight: 500; color: #475569; text-decoration: none;
+  border-left: 3px solid transparent; transition: background .15s, color .15s, border-color .15s;
+  word-break: break-all;
+}
+.mt-file-item a:hover { background: #f8f5ff; color: #7c3aed; border-left-color: #c4b5fd; }
+.mt-file-item.active a { background: #f3e8ff; color: #6d28d9; border-left-color: #7c3aed; font-weight: 700; }
+
+.mt-editor-panel {
+  background: #fff; border: 1px solid rgba(0,0,0,.07); border-radius: 18px;
+  box-shadow: 0 4px 20px rgba(0,0,0,.05); overflow: hidden;
+}
+.mt-editor-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 1.5rem; border-bottom: 1px solid rgba(0,0,0,.06); background: #fafafa;
+}
+.mt-editor-filename { display: flex; align-items: center; gap: .6rem; }
+.mt-editor-filename .badge {
+  background: #7c3aed; color: #fff; font-size: .68rem; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase; padding: .25rem .65rem; border-radius: 6px;
+}
+.mt-editor-filename h2 { font-size: .95rem; font-weight: 700; color: #1e293b; margin: 0; }
+
+.mt-toolbar {
+  display: flex; align-items: center; gap: .5rem; padding: .75rem 1.5rem;
+  border-bottom: 1px solid rgba(0,0,0,.06); background: #f8f5ff; flex-wrap: wrap;
+}
+.mt-toolbar-label { font-size: .72rem; font-weight: 700; color: #94a3b8; letter-spacing: .06em; text-transform: uppercase; margin-right: .25rem; }
+.mt-var-chip {
+  display: inline-flex; align-items: center; gap: .3rem; background: #ede9fe; color: #5b21b6;
+  border: 1px solid #c4b5fd; font-size: .75rem; font-weight: 600; padding: .25rem .6rem;
+  border-radius: 6px; cursor: pointer; transition: background .15s, transform .1s;
+  font-family: 'Courier New', monospace; user-select: none;
+}
+.mt-var-chip:hover { background: #ddd6fe; transform: translateY(-1px); }
+.mt-var-chip:active { transform: translateY(0); }
+
+.mt-textarea {
+  width: 100%; box-sizing: border-box; padding: 1.25rem 1.5rem;
+  font-family: 'Courier New', Courier, monospace; font-size: .9rem; line-height: 1.7;
+  color: #1e293b; border: none; outline: none; resize: vertical; min-height: 280px; background: #fff;
+}
+.mt-textarea:focus { background: #fffbff; }
+
+.mt-preview-section { border-top: 1px solid rgba(0,0,0,.06); padding: 1.25rem 1.5rem 1.5rem; background: #fafafa; }
+.mt-preview-label { font-size: .72rem; font-weight: 700; color: #94a3b8; letter-spacing: .06em; text-transform: uppercase; margin-bottom: .75rem; }
+.mt-preview-bubble {
+  background: #25d366; color: #fff; border-radius: 0 14px 14px 14px;
+  padding: .85rem 1.1rem; font-size: .88rem; line-height: 1.65; white-space: pre-wrap;
+  max-width: 420px; box-shadow: 0 4px 14px rgba(37,211,102,.25); font-family: system-ui, sans-serif;
+  position: relative;
+}
+.mt-preview-bubble::before {
+  content: ''; position: absolute; left: -8px; top: 0;
+  width: 0; height: 0; border-top: 0 solid transparent;
+  border-right: 8px solid #25d366; border-bottom: 8px solid transparent;
+}
+
+.mt-actions { display: flex; align-items: center; gap: .75rem; padding: 1rem 1.5rem; border-top: 1px solid rgba(0,0,0,.06); background: #fafafa; }
+.mt-btn {
+  display: inline-flex; align-items: center; gap: .4rem; padding: .6rem 1.3rem; border-radius: 10px;
+  font-size: .88rem; font-weight: 600; cursor: pointer; border: none; text-decoration: none;
+  transition: transform .15s, box-shadow .15s, opacity .15s;
+}
+.mt-btn:hover { transform: translateY(-1px); }
+.mt-btn:active { transform: translateY(0); opacity: .85; }
+.mt-btn-primary { background: linear-gradient(135deg, #7c3aed, #6d28d9); color: #fff; box-shadow: 0 4px 14px rgba(124,58,237,.3); }
+.mt-btn-secondary { background: #f1f5f9; color: #475569; border: 1px solid rgba(0,0,0,.1); }
+
+.mt-empty { padding: 3.5rem 2rem; text-align: center; color: #94a3b8; }
+.mt-empty-icon { font-size: 3rem; margin-bottom: .75rem; }
+.mt-empty-text { font-size: .95rem; font-weight: 500; }
+
+.mt-alert { border-radius: 12px; padding: .85rem 1.25rem; font-size: .87rem; font-weight: 500; display: flex; align-items: center; gap: .6rem; }
+.mt-alert-success { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.mt-alert-error   { background: #fee2e2; color: #dc2626; border: 1px solid #fecaca; }
+
+@media (max-width: 900px) { .mt-layout { grid-template-columns: 1fr; } .mt-sidebar { position: static; } }
+</style>
+
+<div class="mt-wrap">
+
+  <div class="mt-hero">
+    <div class="mt-hero-content">
+      <div class="mt-hero-badge">💬 Templates</div>
+      <div class="mt-hero-title">Modèles de Messages</div>
+      <div class="mt-hero-sub">Éditez les modèles WhatsApp &amp; SMS envoyés aux parents et élèves</div>
+    </div>
+  </div>
+
+  {% if save_success %}
+  <div class="mt-alert mt-alert-success">✅ Template « {{ saved_file }} » enregistré avec succès.</div>
+  {% elif save_error %}
+  <div class="mt-alert mt-alert-error">❌ Erreur : {{ save_error }}</div>
+  {% endif %}
+
+  <div class="mt-layout">
+
+    <aside class="mt-sidebar">
+      <div class="mt-sidebar-header">📁 Fichiers ({{ templates|length }})</div>
+      <ul class="mt-file-list">
+        {% for tpl in templates %}
+        <li class="mt-file-item {% if tpl.name == current_file %}active{% endif %}">
+          <a href="?file={{ tpl.name }}">
+            <span>{% if 'whatsapp' in tpl.name %}💬{% elif 'sms' in tpl.name %}📱{% else %}📄{% endif %}</span>
+            {{ tpl.label }}
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+    </aside>
+
+    <section class="mt-editor-panel">
+      {% if current_file %}
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="filename" value="{{ current_file }}">
+
+        <div class="mt-editor-head">
+          <div class="mt-editor-filename">
+            <span class="badge">{% if 'whatsapp' in current_file %}WhatsApp{% elif 'sms' in current_file %}SMS{% else %}MSG{% endif %}</span>
+            <h2>{{ current_file }}</h2>
+          </div>
+          <span style="font-size:.82rem; color:#94a3b8;">{{ current_size }} octets</span>
+        </div>
+
+        {% if detected_vars %}
+        <div class="mt-toolbar">
+          <span class="mt-toolbar-label">Variables&nbsp;:</span>
+          {% for v in detected_vars %}
+          <button type="button" class="mt-var-chip" onclick="insertVar('{{ v }}')">&#123;{{ v }}&#125;</button>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <textarea id="mt-content" class="mt-textarea" name="content" rows="14" oninput="updatePreview()">{{ content }}</textarea>
+
+        <div class="mt-preview-section">
+          <div class="mt-preview-label-row">
+            <span class="mt-preview-label">📱 Aperçu WhatsApp</span>
+            <span class="mt-toggle-wrap">
+              <button type="button" class="mt-toggle active" id="btn-preview" onclick="setMode('preview')">Données test</button>
+              <button type="button" class="mt-toggle" id="btn-raw" onclick="setMode('raw')">Brut</button>
+            </span>
+          </div>
+          <div class="mt-preview-bubble" id="mt-preview"></div>
+        </div>
+
+        <div class="mt-actions">
+          <button type="submit" class="mt-btn mt-btn-primary">💾 Enregistrer</button>
+          <a href="?file={{ current_file }}" class="mt-btn mt-btn-secondary">↩ Réinitialiser</a>
+        </div>
+      </form>
+      {% else %}
+      <div class="mt-empty">
+        <div class="mt-empty-icon">💬</div>
+        <div class="mt-empty-text">Sélectionnez un modèle dans la liste de gauche pour l'éditer.</div>
+      </div>
+      {% endif %}
+    </section>
+
+  </div>
+</div>
+
+<style>
+.mt-preview-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: .75rem;
+}
+.mt-toggle-wrap {
+  display: inline-flex;
+  background: #e2e8f0;
+  border-radius: 8px;
+  padding: 2px;
+  gap: 2px;
+}
+.mt-toggle {
+  padding: .28rem .75rem;
+  font-size: .74rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: transparent;
+  color: #64748b;
+  transition: background .15s, color .15s;
+}
+.mt-toggle.active {
+  background: #fff;
+  color: #6d28d9;
+  box-shadow: 0 1px 4px rgba(0,0,0,.1);
+}
+.mt-preview-var {
+  background: rgba(255,255,255,.25);
+  border-radius: 4px;
+  padding: 0 3px;
+  font-weight: 700;
+  font-style: italic;
+}
+</style>
+
+<script>
+// ── Sample data for every known variable ────────────────────────────────────
+const SAMPLE = {
+  // People
+  name:             'M. Benali',
+  student_name:     'Yasmine Benali',
+  parent_name:      'M. Benali',
+  business_name:    'Afnane Center',
+  school_name:      'Afnane Center',
+
+  // Finance
+  amount:           '350',
+  invoice_id:       'FAC-2024-087',
+  order_id:         'CMD-4521',
+  receipt_number:   'REC-2024-0312',
+  month:            'Juillet 2025',
+  month_covered:    'Juillet 2025',
+
+  // Course / school
+  course_name:      'Mathématiques',
+  subject:          'Physique-Chimie',
+  group_name:       '3AC - Groupe A',
+  assignment_name:  'Exercices chapitre 4',
+  due_date:         '18 juillet 2025',
+  grade:            '16/20',
+
+  // Date / time
+  date:             '14 juillet 2025',
+  time:             '10h30',
+  time_info:        ' à 10h30',
+  start_time:       '10h00',
+  end_time:         '11h30',
+  delivery_date:    '16 juillet 2025',
+
+  // Session / misc
+  room_name:        'Salle B',
+  change_lines:     '• Salle : A → B\n• Heure : 10h → 11h',
+  tracking_url:     'https://suivi.exemple.ma/CMD-4521',
+};
+
+let previewMode = 'preview'; // 'preview' | 'raw'
+
+function applyTestData(text) {
+  // Replace every {variable} with sample value (highlighted span)
+  return text.replace(/\{(\w+)\}/g, (match, key) => {
+    const val = SAMPLE[key];
+    return val !== undefined ? val : match;
+  });
+}
+
+function updatePreview() {
+  const text = document.getElementById('mt-content').value;
+  const bubble = document.getElementById('mt-preview');
+  if (!bubble) return;
+  if (previewMode === 'preview') {
+    bubble.textContent = applyTestData(text);
+  } else {
+    bubble.textContent = text;
+  }
+}
+
+function setMode(mode) {
+  previewMode = mode;
+  document.getElementById('btn-preview').classList.toggle('active', mode === 'preview');
+  document.getElementById('btn-raw').classList.toggle('active', mode === 'raw');
+  updatePreview();
+}
+
+function insertVar(varName) {
+  const ta = document.getElementById('mt-content');
+  if (!ta) return;
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const insert = '{' + varName + '}';
+  ta.value = ta.value.substring(0, start) + insert + ta.value.substring(end);
+  ta.selectionStart = ta.selectionEnd = start + insert.length;
+  ta.focus();
+  updatePreview();
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+  updatePreview();
+  const alertEl = document.querySelector('.mt-alert');
+  if (alertEl) {
+    setTimeout(() => {
+      alertEl.style.transition = 'opacity .6s';
+      alertEl.style.opacity = '0';
+      setTimeout(() => alertEl.remove(), 700);
+    }, 4000);
+  }
+});
+</script>
+{% endblock %}

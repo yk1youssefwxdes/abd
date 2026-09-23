@@ -1,0 +1,1 @@
+Bonjour {name}, nous organisons un événement le [DATE]. Votre enfant {student_name} est invité à participer.

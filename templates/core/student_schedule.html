@@ -1,0 +1,98 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Mon Emploi du Temps — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <!-- Portal Header -->
+  <div class="row mb-4 align-items-center">
+    <div class="col-12 col-md-8">
+      <h1 class="h2 text-dark font-weight-bold">Espace Élève & Parent</h1>
+      <p class="text-secondary">Consultez vos cours planifiés, vos séances de rattrapage et vos changements d'horaires.</p>
+    </div>
+    <div class="col-12 col-md-4 text-md-right">
+      <a href="{% url 'export_calendar_feed' token=student_token %}" class="btn btn-primary shadow-sm hover-scale transition-all">
+        <i class="bi bi-calendar3 mr-2"></i>S'abonner à mon agenda iCal
+      </a>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Student profile card -->
+    <div class="col-12 col-md-4 mb-4">
+      <div class="card border-0 shadow-sm text-center p-4 h-100" style="border-radius: var(--radius-lg); background: linear-gradient(135deg, #f8fafc, #f1f5f9);">
+        <div class="my-3">
+          <div class="bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px; font-size: 2.5rem; font-weight: bold;">
+            {{ student.name|slice:":1" }}
+          </div>
+        </div>
+        <h4 class="font-weight-bold text-dark mb-1">{{ student.name }}</h4>
+        <p class="text-muted small mb-3">Élève Actif</p>
+        
+        <hr class="w-100">
+        
+        <div class="text-left mt-3">
+          <h6 class="font-weight-bold text-secondary text-uppercase small mb-2">Groupes inscrits</h6>
+          {% for enroll in enrollments %}
+            <div class="d-flex justify-content-between align-items-center mb-2 bg-white p-2 rounded shadow-xs">
+              <span class="text-dark font-weight-semibold">{{ enroll.course_group.name }}</span>
+              <span class="badge badge-secondary">{{ enroll.course_group.subject }}</span>
+            </div>
+          {% empty %}
+            <p class="text-muted small">Non inscrit à des groupes.</p>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Upcoming sessions list -->
+    <div class="col-12 col-md-8 mb-4">
+      <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
+        <div class="card-header border-0 bg-transparent p-4 d-flex justify-content-between align-items-center">
+          <h5 class="card-title font-weight-bold text-dark mb-0">Cours à venir</h5>
+          <span class="badge badge-pill badge-primary-light text-primary font-weight-bold px-3 py-2">{{ upcoming_sessions|length }} cours</span>
+        </div>
+        <div class="card-body p-4 pt-0">
+          {% if upcoming_sessions %}
+            <div class="list-group list-group-flush">
+              {% for s in upcoming_sessions %}
+                <div class="list-group-item px-0 py-3 border-bottom d-flex justify-content-between align-items-center">
+                  <div>
+                    <div class="d-flex align-items-center mb-1">
+                      <h6 class="font-weight-bold text-dark mb-0 mr-2">{{ s.group.name }}</h6>
+                      <span class="badge badge-secondary">{{ s.group.subject }}</span>
+                      
+                      {% if s.substitute_teacher %}
+                        <span class="badge badge-warning text-white ml-2"><i class="bi bi-person-badge mr-1"></i>Remplaçant</span>
+                      {% endif %}
+                    </div>
+                    <p class="text-secondary mb-1">
+                      <i class="bi bi-calendar-event text-muted mr-1"></i>{{ s.date|date:"l d F Y" }} de {{ s.start_time|time:"H:i" }} à {{ s.end_time|time:"H:i" }}
+                    </p>
+                    <p class="text-muted small mb-0">
+                      <i class="bi bi-geo-alt text-muted mr-1"></i>Salle : {{ s.room.name }} 
+                      &bull; Enseignant : {% if s.substitute_teacher %}{{ s.substitute_teacher.name }}{% else %}{{ s.group.teacher.name }}{% endif %}
+                    </p>
+                  </div>
+                  
+                  <!-- If makeup session -->
+                  {% if s in makeup_sessions %}
+                    <span class="badge bg-warning text-white font-weight-bold px-3 py-2" style="border-radius: 50px;">
+                      <i class="bi bi-clock-history mr-1"></i>Rattrapage
+                    </span>
+                  {% endif %}
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-center py-5 text-muted">
+              <i class="bi bi-calendar-x" style="font-size: 3rem;"></i>
+              <h5 class="mt-3 text-secondary">Aucun cours planifié pour le moment.</h5>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

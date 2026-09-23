@@ -1,0 +1,192 @@
+{% extends 'core/base.html' %}
+{% block title %}Confirmation WhatsApp — Paiement{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:whatsapp_dashboard' %}"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Confirmation de paiement</span>
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="margin-top:40px;">
+  <div class="col-lg-6">
+
+    <!-- Success badge -->
+    <div class="text-center mb-4">
+      <div class="stat-card-icon mx-auto mb-3" style="width:64px;height:64px;font-size:28px;background:#d1fae5;">
+        <i class="bi bi-check-circle-fill" style="color:#10b981;"></i>
+      </div>
+      <h1 class="page-title">Paiement enregistré</h1>
+      <p class="page-subtitle">Envoyez la confirmation WhatsApp au parent</p>
+    </div>
+
+    <!-- Payment info -->
+    <div class="card mb-4" style="border-color:#a7f3d0;">
+      <div class="card-header d-flex align-items-center gap-2" style="background:#d1fae5;">
+        <i class="bi bi-receipt" style="color:#10b981;font-size:16px;"></i>
+        <span class="fw-600" style="color:#065f46;">Détails du paiement</span>
+      </div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-6">
+            <div class="info-label">Élève</div>
+            <div class="info-value">{{ student.name }}</div>
+          </div>
+          <div class="col-6">
+            <div class="info-label">Montant</div>
+            <div class="info-value fw-700" style="color:var(--success);">{{ payment.amount }} DH</div>
+          </div>
+          <div class="col-6">
+            <div class="info-label">Reçu N°</div>
+            <div class="info-value">{{ payment.receipt_number }}</div>
+          </div>
+          <div class="col-6">
+            <div class="info-label">Date</div>
+            <div class="info-value">{{ payment.payment_date|date:"d/m/Y" }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enrolled WhatsApp groups -->
+    {% if enrolled_groups_with_links %}
+    <div class="card mb-4" style="border-color:#bbf7d0;">
+      <div class="card-header d-flex align-items-center justify-content-between" style="background:#f0fdf4;">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-chat-dots-fill" style="color:#16a34a;font-size:16px;"></i>
+          <span class="fw-600" style="color:#166534;">Groupes WhatsApp associés</span>
+        </div>
+        <span class="badge bg-success-subtle text-success border border-success-subtle">
+          <i class="bi bi-check-circle-fill me-1"></i> {{ enrolled_groups_with_links|length }} groupe(s)
+        </span>
+      </div>
+      <div class="card-body">
+        <div class="text-muted small mb-2">Liens d'invitation automatiquement notifiés au premier paiement :</div>
+        <div class="d-flex flex-column gap-2">
+          {% for group in enrolled_groups_with_links %}
+          <div class="d-flex align-items-center justify-content-between p-2 rounded border bg-light">
+            <div>
+              <span class="fw-semibold text-dark">{{ group.name }}</span>
+              {% if group.subject %}<span class="text-muted small">({{ group.subject }})</span>{% endif %}
+            </div>
+            <a href="{{ group.whatsapp_group_link }}" target="_blank" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-box-arrow-up-right me-1"></i> Ouvrir le groupe
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Message preview -->
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-whatsapp" style="color:#25d366;font-size:16px;"></i>
+        <span class="fw-600">Message WhatsApp</span>
+      </div>
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-3 p-2 rounded" style="background:var(--surface-alt);">
+          <div class="stat-card-icon" style="width:36px;height:36px;font-size:16px;background:var(--primary-light);">
+            <i class="bi bi-person" style="color:var(--primary);"></i>
+          </div>
+          <div>
+            <div class="fw-600">{{ student.parent_name|default:"Parent" }}</div>
+            <small class="text-muted"><i class="bi bi-phone me-1"></i>{{ student.parent_contact }}</small>
+            {% if student.parent_contact and student.parent_contact_2 %}
+            <small class="text-muted d-block"><i class="bi bi-phone me-1"></i>{{ student.parent_contact_2 }} <span style="font-size:10px;opacity:.7;">(2)</span></small>
+            {% endif %}
+          </div>
+        </div>
+        <div class="p-3 rounded" style="background:var(--surface-alt);white-space:pre-wrap;font-size:13px;border:1px solid var(--border);">{{ message }}</div>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="d-grid gap-2">
+      {% if not status_data.offline and status_data.status == 'READY' %}
+        <button id="auto-send-btn" class="btn btn-success btn-lg animate-pulse" style="background:#25d366;border-color:#25d366;">
+          <i class="bi bi-send-fill me-1"></i> Envoyer automatiquement
+        </button>
+        <div id="sending-status" class="text-center my-2 d-none">
+          <div class="spinner-border spinner-border-sm text-success me-2" role="status"></div>
+          <span class="text-muted">Envoi du message en cours...</span>
+        </div>
+        <a href="{{ whatsapp_link }}" target="_blank" class="btn btn-outline-success text-center">
+          <i class="bi bi-whatsapp"></i> Ouvrir dans WhatsApp Web (manuel)
+        </a>
+      {% else %}
+        <div class="alert alert-warning py-2 px-3 mb-2" style="font-size:13px; border-radius:8px;">
+          <i class="bi bi-exclamation-triangle me-1"></i> Le service d'automatisation est hors ligne. Envoi en mode manuel.
+        </div>
+        <a href="{{ whatsapp_link }}" target="_blank" class="btn btn-success btn-lg"
+           style="background:#25d366;border-color:#25d366;">
+          <i class="bi bi-whatsapp"></i> Envoyer via WhatsApp (manuel)
+        </a>
+      {% endif %}
+      
+      {% if whatsapp_link_2 %}
+        <a href="{{ whatsapp_link_2 }}" target="_blank" class="btn btn-outline-success text-center">
+          <i class="bi bi-whatsapp"></i> Envoyer au parent 2 ({{ student.parent_contact_2 }})
+        </a>
+      {% endif %}
+      <a href="{% url 'core:receipt_download' payment.id %}" class="btn btn-outline-primary mt-2">
+        <i class="bi bi-file-earmark-pdf"></i> Télécharger le reçu PDF
+      </a>
+      <a href="{% url 'core:student_page' student.id %}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Retour à la fiche élève
+      </a>
+    </div>
+
+  </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+  $("#auto-send-btn").on('click', function() {
+    const $btn = $(this);
+    const $status = $("#sending-status");
+    
+    $btn.addClass('d-none');
+    $status.removeClass('d-none');
+    
+    $.ajax({
+      url: "{% url 'core:whatsapp_send_ajax' %}",
+      method: "POST",
+      data: {
+        phone: "{{ student.parent_contact|default:student.parent_contact_2 }}",
+        message: `{{ message|escapejs }}`,
+        message_type: "payment_confirmation",
+
+        student_schedule: "{{ student.id }}",
+        week: "2026-07-13",
+
+        csrfmiddlewaretoken: "{{ csrf_token }}"
+      },
+      success: function(response) {
+        $status.html('<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Message envoyé avec succès ! Redirection...</span>');
+        setTimeout(function() {
+          window.location.href = "{% url 'core:student_page' student.id %}";
+        }, 1500);
+      },
+      error: function(xhr) {
+        $btn.removeClass('d-none');
+        $status.addClass('d-none');
+        const errMsg = xhr.responseJSON?.error || "Erreur de connexion.";
+        alert("Échec de l'envoi automatique : " + errMsg + "\nVeuillez utiliser l'envoi manuel.");
+      }
+    });
+  });
+});
+</script>
+{% endblock %}
+
+<style>
+  .fw-600 { font-weight: 600; }
+  .fw-700 { font-weight: 700; }
+  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; }
+</style>
+{% endblock %}

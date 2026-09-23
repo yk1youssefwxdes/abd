@@ -1,0 +1,217 @@
+{% extends 'core/base.html' %}
+{% load extras %}
+
+{% block title %}Charge de Travail Enseignant — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row mb-4 align-items-center">
+    <div class="col-12 col-md-6">
+      <h1 class="h2 text-dark font-weight-bold">Charge de Travail & Analytique</h1>
+      <p class="text-secondary">Visualisez la charge de travail horaire des enseignants et configurez les abonnements d'agenda.</p>
+    </div>
+    <div class="col-12 col-md-6 text-md-right">
+      {% if selected_teacher %}
+        {% with token=teacher_tokens|dict_key:selected_teacher.id %}
+          {% if token %}
+            <a href="{% url 'export_calendar_feed' token=token %}" class="btn btn-outline-primary shadow-sm hover-scale transition-all">
+              <i class="bi bi-calendar-event mr-2"></i>S'abonner au flux iCal
+            </a>
+          {% endif %}
+        {% endwith %}
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Filter Card -->
+  <div class="card border-0 shadow-sm mb-4" style="background: rgba(255,255,255,0.8); backdrop-filter: blur(10px); border-radius: var(--radius-lg);">
+    <div class="card-body p-4">
+      <form method="GET" action="" class="row align-items-end">
+        <div class="col-12 col-md-4 mb-3 mb-md-0">
+          <label class="form-label font-weight-semibold text-secondary">Enseignant</label>
+          <select name="teacher_id" class="form-control select2" required>
+            <option value="">Sélectionnez un enseignant...</option>
+            {% for t in teachers %}
+              <option value="{{ t.id }}" {% if selected_teacher and selected_teacher.id == t.id %}selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 col-md-3 mb-3 mb-md-0">
+          <label class="form-label font-weight-semibold text-secondary">Date de début</label>
+          <input type="date" name="start_date" class="form-control" value="{{ start_date|date:'Y-m-d' }}">
+        </div>
+        <div class="col-12 col-md-3 mb-3 mb-md-0">
+          <label class="form-label font-weight-semibold text-secondary">Date de fin</label>
+          <input type="date" name="end_date" class="form-control" value="{{ end_date|date:'Y-m-d' }}">
+        </div>
+        <div class="col-12 col-md-2">
+          <button type="submit" class="btn btn-primary btn-block shadow-sm">
+            <i class="bi bi-filter mr-1"></i>Filtrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {% if selected_teacher %}
+    {% if metrics %}
+      <!-- Workload Metric Cards -->
+      <div class="row">
+        <!-- Card 1: Total Hours -->
+        <div class="col-12 col-md-3 mb-4">
+          <div class="card border-0 shadow-sm h-100 overflow-hidden text-white" style="background: linear-gradient(135deg, #3b82f6, #1d4ed8); border-radius: var(--radius-lg);">
+            <div class="card-body p-4 position-relative">
+              <div class="position-absolute" style="right: 15px; top: 15px; opacity: 0.15;">
+                <i class="bi bi-clock-history" style="font-size: 4rem;"></i>
+              </div>
+              <h6 class="text-white-50 text-uppercase font-weight-bold mb-1">Heures Totales</h6>
+              <h2 class="display-4 font-weight-bold mb-0">{{ metrics.total_hours }}h</h2>
+              <div class="mt-3">
+                <span class="badge badge-light px-2 py-1" style="border-radius: 50px;">Target: 40h/semaine</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 2: Overtime -->
+        <div class="col-12 col-md-3 mb-4">
+          <div class="card border-0 shadow-sm h-100 overflow-hidden text-white" style="background: linear-gradient(135deg, #10b981, #047857); border-radius: var(--radius-lg);">
+            <div class="card-body p-4 position-relative">
+              <div class="position-absolute" style="right: 15px; top: 15px; opacity: 0.15;">
+                <i class="bi bi-graph-up-arrow" style="font-size: 4rem;"></i>
+              </div>
+              <h6 class="text-white-50 text-uppercase font-weight-bold mb-1">Heures Supplémentaires</h6>
+              <h2 class="display-4 font-weight-bold mb-0">{{ metrics.overtime }}h</h2>
+              <div class="mt-3">
+                <span class="badge badge-light px-2 py-1" style="border-radius: 50px;">Rémunérées en extra</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 3: Substitutions -->
+        <div class="col-12 col-md-3 mb-4">
+          <div class="card border-0 shadow-sm h-100 overflow-hidden text-white" style="background: linear-gradient(135deg, #f59e0b, #d97706); border-radius: var(--radius-lg);">
+            <div class="card-body p-4 position-relative">
+              <div class="position-absolute" style="right: 15px; top: 15px; opacity: 0.15;">
+                <i class="bi bi-people" style="font-size: 4rem;"></i>
+              </div>
+              <h6 class="text-white-50 text-uppercase font-weight-bold mb-1">Remplacements (Sub)</h6>
+              <h2 class="display-4 font-weight-bold mb-0">{{ metrics.substitution_hours }}h</h2>
+              <div class="mt-3">
+                <span class="badge badge-light px-2 py-1" style="border-radius: 50px;">Aide aux confrères</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Card 4: Cancellations -->
+        <div class="col-12 col-md-3 mb-4">
+          <div class="card border-0 shadow-sm h-100 overflow-hidden text-white" style="background: linear-gradient(135deg, #ef4444, #b91c1c); border-radius: var(--radius-lg);">
+            <div class="card-body p-4 position-relative">
+              <div class="position-absolute" style="right: 15px; top: 15px; opacity: 0.15;">
+                <i class="bi bi-x-circle" style="font-size: 4rem;"></i>
+              </div>
+              <h6 class="text-white-50 text-uppercase font-weight-bold mb-1">Heures Annulées</h6>
+              <h2 class="display-4 font-weight-bold mb-0">{{ metrics.cancelled_hours }}h</h2>
+              <div class="mt-3">
+                <span class="badge badge-light px-2 py-1" style="border-radius: 50px;">Rattrapages requis</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Advanced Analytics row -->
+      <div class="row">
+        <!-- Workload Indicators -->
+        <div class="col-12 col-md-6 mb-4">
+          <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg);">
+            <div class="card-header border-0 bg-transparent p-4">
+              <h5 class="card-title font-weight-bold text-dark mb-0">Indicateurs de Charge de Travail</h5>
+            </div>
+            <div class="card-body p-4 pt-0">
+              <div class="mb-4">
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="text-secondary font-weight-semibold">Séances consécutives max</span>
+                  <span class="font-weight-bold">{{ metrics.consecutive_sessions }} séances</span>
+                </div>
+                <div class="progress" style="height: 10px; border-radius: 50px;">
+                  <div class="progress-bar {% if metrics.consecutive_sessions > 3 %}bg-danger{% else %}bg-primary{% endif %}" role="progressbar" style="width: {{ metrics.consecutive_sessions|add:metrics.consecutive_sessions|add:"20" }}%" aria-valuenow="{{ metrics.consecutive_sessions }}" aria-valuemin="0" aria-valuemax="10"></div>
+                </div>
+                <small class="text-muted mt-1 d-block">Le seuil recommandé est de 3 séances consécutives sans pause.</small>
+              </div>
+
+              <div class="mb-4">
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="text-secondary font-weight-semibold">Temps de battement total (Gaps)</span>
+                  <span class="font-weight-bold">{{ metrics.daily_gaps_minutes }} minutes</span>
+                </div>
+                <div class="progress" style="height: 10px; border-radius: 50px;">
+                  <div class="progress-bar bg-warning" role="progressbar" style="width: {% if metrics.daily_gaps_minutes > 120 %}100{% else %}{{ metrics.daily_gaps_minutes }}{% endif %}%" aria-valuenow="{{ metrics.daily_gaps_minutes }}" aria-valuemin="0" aria-valuemax="120"></div>
+                </div>
+                <small class="text-muted mt-1 d-block">Temps libre cumulé entre les cours d'une même journée.</small>
+              </div>
+
+              <div>
+                <div class="d-flex justify-content-between mb-2">
+                  <span class="text-secondary font-weight-semibold">Volume de cours total dispensé</span>
+                  <span class="font-weight-bold">{{ metrics.session_count }} séances complétées</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- iCal Calendar Feed Subscription Details -->
+        <div class="col-12 col-md-6 mb-4">
+          <div class="card border-0 shadow-sm h-100" style="border-radius: var(--radius-lg); background: linear-gradient(135deg, #f8fafc, #f1f5f9);">
+            <div class="card-body p-4 d-flex flex-column justify-content-between">
+              <div>
+                <h5 class="font-weight-bold text-dark mb-3"><i class="bi bi-calendar-event text-primary mr-2"></i>Abonnement d'agenda iCal</h5>
+                <p class="text-secondary">Synchronisez en temps réel l'emploi du temps de cet enseignant avec Google Calendar, Outlook, ou Apple Calendar.</p>
+                <p class="text-secondary">Copiez l'adresse ci-dessous et insérez-la comme abonnement URL dans votre logiciel de calendrier préféré.</p>
+              </div>
+              <div class="mt-3">
+                {% with token=teacher_tokens|dict_key:selected_teacher.id %}
+                  {% if token %}
+                    <div class="input-group">
+                      <input type="text" id="ics-url-input" class="form-control bg-white text-muted border-0 shadow-sm" style="border-radius: var(--radius-sm);" readonly value="{{ request.scheme }}://{{ request.get_host }}{% url 'export_calendar_feed' token=token %}">
+                      <div class="input-group-append">
+                        <button class="btn btn-primary" onclick="copyIcsUrl()" type="button">
+                          <i class="bi bi-clipboard"></i>
+                        </button>
+                      </div>
+                    </div>
+                  {% endif %}
+                {% endwith %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="alert alert-warning border-0 shadow-sm p-4" style="border-radius: var(--radius-md);">
+        <i class="bi bi-exclamation-triangle mr-2"></i>Aucune donnée disponible pour les critères sélectionnés.
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="text-center py-5">
+      <div class="mb-3 text-muted">
+        <i class="bi bi-people" style="font-size: 4rem;"></i>
+      </div>
+      <h4 class="text-secondary">Veuillez sélectionner un enseignant pour afficher sa charge de travail et son flux iCal.</h4>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  function copyIcsUrl() {
+    var copyText = document.getElementById("ics-url-input");
+    copyText.select();
+    copyText.setSelectionRange(0, 99999);
+    navigator.clipboard.writeText(copyText.value);
+    alert("URL copiée dans le presse-papiers avec succès !");
+  }
+</script>
+{% endblock %}

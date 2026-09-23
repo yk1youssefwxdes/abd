@@ -1,0 +1,638 @@
+{% extends 'core/base.html' %}
+{% block title %}Paie des professeurs — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-calculator-fill"></i> Paie des professeurs</span>
+{% endblock %}
+
+{% block content %}
+<div class="teacher-payroll-page pb-5">
+
+  <!-- Header -->
+  <div class="page-header d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+      <h1 class="page-title d-flex align-items-center gap-2 mb-1">
+        <i class="bi bi-calculator-fill text-primary"></i> Paie des professeurs
+      </h1>
+      <p class="page-subtitle text-muted mb-0">
+        Sélectionnez un professeur et un mois pour calculer sa rémunération.
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'core:payroll_calculator' %}" class="btn btn-outline-primary btn-sm">
+        <i class="bi bi-calculator me-1"></i> Simulateur / Calculateur en direct
+      </a>
+      {% if result %}
+        <a href="{% url 'core:export_teacher_payslip_pdf' %}?teacher_id={{ result.teacher.id }}&start_date={{ result.start_date_str }}&end_date={{ result.end_date_str }}"
+           class="btn btn-outline-secondary btn-sm" target="_blank">
+          <i class="bi bi-file-earmark-pdf-fill me-1"></i> Bulletin de paie (PDF)
+        </a>
+        <button type="button" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+          <i class="bi bi-plus-circle-fill me-1"></i> Enregistrer un versement
+        </button>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ── 1. SELECTOR CARD ───────────────────────────────────────────── -->
+  <div class="card border-0 shadow-sm rounded-3 mb-4">
+    <div class="card-body p-4">
+      <form method="post" class="row g-3 align-items-end" id="payrollFilterForm">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="calculate">
+
+        <!-- Teacher select -->
+        <div class="col-md-5">
+          <label for="teacherSelect" class="form-label fw-bold text-dark mb-1">
+            <i class="bi bi-person-badge text-primary me-1"></i> Professeur
+          </label>
+          <select name="teacher_id" id="teacherSelect" class="form-select form-select-lg" required>
+            <option value="">-- Choisir un professeur --</option>
+            {% for t in teacher_qs %}
+              <option value="{{ t.id }}" {% if selected_teacher_id == t.id|stringformat:"s" %}selected{% endif %}>
+                {{ t.name }}
+                ({% if t.payment_method == 'PERCENTAGE' %}{{ t.payment_percentage|floatformat:0 }}%{% elif t.payment_method == 'SESSION' %}{{ t.session_rate|floatformat:0 }} DH/séance{% else %}{{ t.hourly_rate|floatformat:0 }} DH/heure{% endif %})
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Month select -->
+        <div class="col-md-4">
+          <label for="monthSelect" class="form-label fw-bold text-dark mb-1">
+            <i class="bi bi-calendar-month text-primary me-1"></i> Mois
+          </label>
+          <select name="month" id="monthSelect" class="form-select form-select-lg" required>
+            {% for m in months_list %}
+              <option value="{{ m.value }}" {% if selected_month == m.value %}selected{% endif %}>
+                {{ m.label }}
+              </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Submit button -->
+        <div class="col-md-3">
+          <button type="submit" class="btn btn-primary btn-lg w-100 fw-bold d-flex align-items-center justify-content-center gap-2">
+            <i class="bi bi-cpu-fill"></i> Calculer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ── 2. CALCULATION RESULTS ──────────────────────────────────────── -->
+  {% if result %}
+    
+    <!-- Summary Header & KPIs -->
+    <div class="card border-0 shadow-sm rounded-3 mb-4 overflow-hidden">
+      <div class="card-header bg-white py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:44px;height:44px;border-radius:12px;background:var(--primary-light,#ede9fe);color:var(--primary,#6366f1);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:bold;">
+            {{ result.teacher.name|slice:":1"|upper }}
+          </div>
+          <div>
+            <h5 class="fw-bold text-dark mb-0">{{ result.teacher.name }}</h5>
+            <small class="text-muted">
+              Période : <strong>{{ result.month_label }}</strong> (du {{ result.start_date_str }} au {{ result.end_date_str }})
+            </small>
+          </div>
+        </div>
+
+        <span class="badge rounded-pill px-3 py-2 bg-light text-dark border">
+          <i class="bi bi-info-circle me-1 text-primary"></i>
+          Mode : <strong>{{ result.teacher.get_payment_method_display }}</strong>
+          ({% if result.teacher.payment_method == 'PERCENTAGE' %}{{ result.teacher.payment_percentage|floatformat:0 }}% des recettes
+          {% elif result.teacher.payment_method == 'SESSION' %}{{ result.teacher.session_rate|floatformat:0 }} DH / séance
+          {% else %}{{ result.teacher.hourly_rate|floatformat:0 }} DH / heure{% endif %})
+        </span>
+      </div>
+
+      <!-- 3 Key Numbers Grid -->
+      <div class="card-body p-4 bg-light-subtle">
+        <div class="row g-3">
+          
+          <!-- 1. Total Calculated Salary -->
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-white border shadow-2xs h-100">
+              <div class="text-muted small fw-bold text-uppercase mb-1">Rémunération calculée</div>
+              <div class="fs-2 fw-bolder text-primary mb-1">
+                {{ result.salary_taught|floatformat:0 }} <span class="fs-6 fw-normal text-muted">DH</span>
+              </div>
+              <div class="small text-muted">
+                <i class="bi bi-clock-history me-1"></i>
+                {% if result.teacher.payment_method == 'PERCENTAGE' %}
+                  Recettes totales : <strong>{{ result.total_revenue|floatformat:0 }} DH</strong>
+                {% else %}
+                  <strong>{{ result.total_sessions_taught }}</strong> séance{{ result.total_sessions_taught|pluralize }} • <strong>{{ result.total_hours|floatformat:1 }}h</strong> de cours
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. Already Paid -->
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-white border shadow-2xs h-100">
+              <div class="text-muted small fw-bold text-uppercase mb-1">Déjà versé (ce mois)</div>
+              <div class="fs-2 fw-bolder text-success mb-1">
+                {{ result.total_paid|floatformat:0 }} <span class="fs-6 fw-normal text-muted">DH</span>
+              </div>
+              <div class="small text-muted">
+                <i class="bi bi-receipt me-1"></i>
+                <strong>{{ result.logged_payments|length }}</strong> versement{{ result.logged_payments|length|pluralize }} enregistré{{ result.logged_payments|length|pluralize }}
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. Remaining Balance -->
+          <div class="col-md-4">
+            <div class="p-3 rounded-3 bg-white border shadow-2xs h-100" style="border-left: 4px solid {% if result.balance > 0 %}#f59e0b{% else %}#10b981{% endif %} !important;">
+              <div class="text-muted small fw-bold text-uppercase mb-1">Reste à payer</div>
+              <div class="fs-2 fw-bolder {% if result.balance > 0 %}text-warning-emphasis{% else %}text-success{% endif %} mb-1">
+                {{ result.balance|floatformat:0 }} <span class="fs-6 fw-normal text-muted">DH</span>
+              </div>
+              <div class="small {% if result.balance > 0 %}text-warning-emphasis{% else %}text-success{% endif %}">
+                {% if result.balance > 0 %}
+                  <i class="bi bi-exclamation-circle-fill me-1"></i> Solde en attente de versement
+                {% else %}
+                  <i class="bi bi-check-circle-fill me-1"></i> Rémunération entièrement réglée
+                {% endif %}
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 2.5. PAYMENT METHOD SPECIFIC BREAKDOWN ──────────────────── -->
+    {% if result.teacher.payment_method == 'PERCENTAGE' %}
+      <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-pie-chart-fill text-primary fs-5"></i>
+            <h5 class="fw-bold text-dark mb-0">Détail des Recettes & Part Professeur (Pourcentage : {{ result.teacher.payment_percentage|floatformat:0 }}%)</h5>
+          </div>
+          <div class="d-flex align-items-center gap-2 flex-wrap small">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 fs-7">
+              {{ result.total_active_students|default:0 }} élèves au total
+            </span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 fs-7">
+              {{ result.total_paid_students|default:0 }} payés ({{ result.global_recovery_rate|default:0 }}%)
+            </span>
+            <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1 fs-7">
+              {{ result.total_unpaid_students|default:0 }} impayés
+            </span>
+            <span class="badge bg-dark text-white px-3 py-1 fs-7">
+              Part Prof Totale : {{ result.salary_taught|floatformat:2 }} DH
+            </span>
+          </div>
+        </div>
+        <div class="card-body p-4">
+          {% if result.courses_breakdown %}
+            <div class="accordion" id="groupsAccordion">
+              {% for cb in result.courses_breakdown %}
+                <div class="card border mb-3 rounded-3 overflow-hidden shadow-2xs">
+                  <div class="card-header bg-light py-3 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2" id="headingGroup{{ forloop.counter }}">
+                    <div class="d-flex align-items-center gap-2">
+                      <button class="btn btn-sm btn-outline-secondary p-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGroup{{ forloop.counter }}" aria-expanded="true">
+                        <i class="bi bi-chevron-down"></i>
+                      </button>
+                      <div>
+                        <span class="fw-bold fs-6 text-dark">{{ cb.course.name }}</span>
+                        <span class="text-muted small ms-1">({{ cb.course.subject }})</span>
+                        <span class="ms-2">
+                          {% for l in cb.course.levels_list %}
+                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle small me-1">{{ l.name }}</span>
+                          {% empty %}
+                            <span class="badge bg-light text-dark border small">Standard</span>
+                          {% endfor %}
+                        </span>
+                      </div>
+                    </div>
+
+                    <!-- Group KPI summary pills -->
+                    <div class="d-flex flex-wrap align-items-center gap-3 small">
+                      <div class="text-muted">
+                        Tarif : <strong>{% if cb.monthly_fee %}{{ cb.monthly_fee|floatformat:0 }}{% else %}{{ cb.course.monthly_price|floatformat:0 }}{% endif %} DH</strong>/m
+                      </div>
+                      <div class="text-muted">
+                        Élèves : <strong>{{ cb.student_count }}</strong>
+                        {% if cb.paid_count %}
+                          (<span class="text-success fw-bold">{{ cb.paid_count }} payé{{ cb.paid_count|pluralize }}</span>, <span class="text-danger fw-bold">{{ cb.unpaid_count }} impayé{{ cb.unpaid_count|pluralize }}</span>)
+                        {% endif %}
+                      </div>
+                      <div>
+                        Taux : <span class="badge {% if cb.recovery_pct >= 80 %}bg-success{% elif cb.recovery_pct >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %}">{% if cb.recovery_pct %}{{ cb.recovery_pct }}{% else %}0{% endif %}%</span>
+                      </div>
+                      <div>
+                        Recettes : <strong class="text-dark">{% if cb.collected_revenue %}{{ cb.collected_revenue|floatformat:2 }}{% else %}{{ cb.gains_actual|floatformat:2 }}{% endif %} DH</strong>
+                      </div>
+                      <div class="bg-success-subtle text-success px-2 py-1 rounded fw-bold border border-success-subtle">
+                        Part Prof : {{ cb.share_actual|floatformat:2 }} DH
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Students detailed table inside accordion collapse -->
+                  <div id="collapseGroup{{ forloop.counter }}" class="collapse show" aria-labelledby="headingGroup{{ forloop.counter }}">
+                    <div class="card-body p-0">
+                      {% if cb.students_info %}
+                        <div class="table-responsive">
+                          <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light">
+                              <tr>
+                                <th style="width: 40px;" class="text-center">#</th>
+                                <th>Élève</th>
+                                <th>Code</th>
+                                <th>Téléphone</th>
+                                <th class="text-end">Tarif Mensuel</th>
+                                <th class="text-end">Montant Réglé</th>
+                                <th class="text-center">Statut</th>
+                                <th>Date & Mode de règlement</th>
+                                <th class="text-end text-success fw-bold">Part Prof ({{ result.teacher.payment_percentage|floatformat:0 }}%)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for st_item in cb.students_info %}
+                                <tr>
+                                  <td class="text-center text-muted">{{ forloop.counter }}</td>
+                                  <td>
+                                    <a href="{% url 'core:student_page' st_item.student.id %}" class="fw-bold text-decoration-none text-dark">
+                                      {{ st_item.student.name }}
+                                    </a>
+                                  </td>
+                                  <td><span class="text-muted">{{ st_item.student.matricule|default:"—" }}</span></td>
+                                  <td><small class="text-muted">{{ st_item.student.phone|default:"—" }}</small></td>
+                                  <td class="text-end">{{ st_item.fee|floatformat:0 }} DH</td>
+                                  <td class="text-end fw-bold {% if st_item.status == 'PAID' %}text-success{% elif st_item.status == 'PARTIAL' %}text-warning-emphasis{% else %}text-danger{% endif %}">
+                                    {{ st_item.paid_amount|floatformat:0 }} DH
+                                  </td>
+                                  <td class="text-center">
+                                    {% if st_item.status == 'PAID' %}
+                                      <span class="badge bg-success-subtle text-success border border-success-subtle"><i class="bi bi-check-circle me-1"></i>Payé</span>
+                                    {% elif st_item.status == 'PARTIAL' %}
+                                      <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle"><i class="bi bi-pie-chart me-1"></i>Partiel</span>
+                                    {% else %}
+                                      <span class="badge bg-danger-subtle text-danger border border-danger-subtle"><i class="bi bi-x-circle me-1"></i>Impayé</span>
+                                    {% endif %}
+                                  </td>
+                                  <td>
+                                    {% if st_item.payment_date %}
+                                      <small>{{ st_item.payment_date|date:"d/m/Y" }} <span class="text-muted">({{ st_item.payment_method }})</span></small>
+                                    {% else %}
+                                      <small class="text-muted">—</small>
+                                    {% endif %}
+                                  </td>
+                                  <td class="text-end fw-bold text-success">{{ st_item.teacher_share|floatformat:2 }} DH</td>
+                                </tr>
+                              {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                              <tr>
+                                <td colspan="4">Sous-total {{ cb.course.name }}</td>
+                                <td class="text-end">{% if cb.gains_theoretical %}{{ cb.gains_theoretical|floatformat:0 }}{% else %}{{ cb.course.monthly_price|floatformat:0 }}{% endif %} DH</td>
+                                <td class="text-end text-success">{% if cb.collected_revenue %}{{ cb.collected_revenue|floatformat:2 }}{% else %}{{ cb.gains_actual|floatformat:2 }}{% endif %} DH</td>
+                                <td class="text-center">{% if cb.recovery_pct %}{{ cb.recovery_pct }}{% else %}0{% endif %}%</td>
+                                <td></td>
+                                <td class="text-end text-success fs-6">{{ cb.share_actual|floatformat:2 }} DH</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      {% elif cb.course.enrollment_set.all %}
+                        <!-- Direct fallback to course enrollments if students_info not available -->
+                        <div class="table-responsive">
+                          <table class="table table-hover align-middle mb-0 small">
+                            <thead class="table-light">
+                              <tr>
+                                <th style="width: 40px;" class="text-center">#</th>
+                                <th>Élève</th>
+                                <th>Code</th>
+                                <th>Téléphone</th>
+                                <th class="text-end">Tarif Mensuel</th>
+                                <th class="text-center">Statut Inscription</th>
+                                <th class="text-end text-muted">Groupe</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {% for enr in cb.course.enrollment_set.all %}
+                                {% if enr.student.is_active %}
+                                  <tr>
+                                    <td class="text-center text-muted">{{ forloop.counter }}</td>
+                                    <td>
+                                      <a href="{% url 'core:student_page' enr.student.id %}" class="fw-bold text-decoration-none text-dark">
+                                        {{ enr.student.name }}
+                                      </a>
+                                    </td>
+                                    <td><span class="text-muted">{{ enr.student.matricule|default:"—" }}</span></td>
+                                    <td><small class="text-muted">{{ enr.student.phone|default:"—" }}</small></td>
+                                    <td class="text-end">{{ cb.course.monthly_price|floatformat:0 }} DH</td>
+                                    <td class="text-center">
+                                      {% if enr.is_active %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle">Actif</span>
+                                      {% else %}
+                                        <span class="badge bg-secondary-subtle text-muted">Inactif</span>
+                                      {% endif %}
+                                    </td>
+                                    <td class="text-end text-muted">{{ cb.course.name }}</td>
+                                  </tr>
+                                {% endif %}
+                              {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                              <tr>
+                                <td colspan="4">Sous-total {{ cb.course.name }}</td>
+                                <td class="text-end">{{ cb.course.monthly_price|floatformat:0 }} DH</td>
+                                <td></td>
+                                <td class="text-end text-success fs-6">{{ cb.share_actual|floatformat:2 }} DH</td>
+                              </tr>
+                            </tfoot>
+                          </table>
+                        </div>
+                      {% else %}
+                        <div class="text-center py-3 text-muted small">Aucun élève actif inscrit dans ce groupe.</div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-center py-4 text-muted">
+              <p class="mb-0">Aucun groupe actif rattaché à ce professeur.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% elif result.teacher.payment_method == 'HOURLY' %}
+      <div class="card border-0 shadow-sm rounded-3 mb-4">
+        <div class="card-header bg-white py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-clock-history text-primary fs-5"></i>
+            <h5 class="fw-bold text-dark mb-0">Détail de la Rémunération au Taux Horaire ({{ result.hourly_rate|floatformat:0 }} DH / heure)</h5>
+          </div>
+          <div class="d-flex align-items-center gap-2 small">
+            <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 fs-7">
+              {{ result.total_hours|floatformat:1 }} h enseignées
+            </span>
+            <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 fs-7">
+              Total : {{ result.salary_taught|floatformat:2 }} DH
+            </span>
+          </div>
+        </div>
+        <div class="card-body p-4">
+          {% if result.hourly_groups %}
+            <div class="table-responsive">
+              <h6 class="fw-bold text-dark mb-3"><i class="bi bi-collection text-primary me-1"></i> Récapitulatif par groupe</h6>
+              <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                  <tr>
+                    <th>Groupe</th>
+                    <th>Matière</th>
+                    <th class="text-center">Séances terminées</th>
+                    <th class="text-center">Heures effectuées</th>
+                    <th class="text-end">Taux Horaire</th>
+                    <th class="text-end text-success fw-bold">Sous-total dû</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for hg in result.hourly_groups %}
+                    <tr>
+                      <td><strong>{{ hg.group.name }}</strong></td>
+                      <td>{{ hg.group.subject }}</td>
+                      <td class="text-center"><span class="badge bg-light text-dark border">{{ hg.sessions_count }}</span></td>
+                      <td class="text-center fw-bold text-primary">{{ hg.hours_taught|floatformat:1 }} h</td>
+                      <td class="text-end">{{ hg.rate|floatformat:0 }} DH/h</td>
+                      <td class="text-end fw-bold text-success">{{ hg.subtotal|floatformat:2 }} DH</td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+                <tfoot class="table-light fw-bold">
+                  <tr>
+                    <td colspan="3">TOTAL HEURES</td>
+                    <td class="text-center text-primary">{{ result.total_hours|floatformat:1 }} h</td>
+                    <td>—</td>
+                    <td class="text-end text-success fs-6">{{ result.salary_taught|floatformat:2 }} DH</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    {% endif %}
+
+    <!-- ── 3. DETAILS TABS (PAYMENTS & SESSIONS) ────────────────────────── -->
+    <div class="row g-4">
+      
+      <!-- Payments history for this period -->
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-3 h-100">
+          <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between border-bottom">
+            <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+              <i class="bi bi-cash-stack text-success"></i> Versements effectués ({{ result.logged_payments|length }})
+            </h6>
+            <button type="button" class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+              <i class="bi bi-plus-lg me-1"></i> Ajouter
+            </button>
+          </div>
+          <div class="card-body p-0">
+            {% if result.logged_payments %}
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Date</th>
+                      <th>Type</th>
+                      <th>Mode</th>
+                      <th class="text-end">Montant</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for pay in result.logged_payments %}
+                      <tr>
+                        <td>
+                          <strong>{{ pay.payment_date|date:"d/m/Y" }}</strong>
+                          {% if pay.notes %}
+                            <small class="text-muted d-block">{{ pay.notes }}</small>
+                          {% endif %}
+                        </td>
+                        <td>
+                          <span class="badge {% if pay.payment_type == 'SALARY' %}bg-success-subtle text-success{% else %}bg-warning-subtle text-warning-emphasis{% endif %}">
+                            {{ pay.get_payment_type_display }}
+                          </span>
+                        </td>
+                        <td><small class="text-muted">{{ pay.get_payment_method_display }}</small></td>
+                        <td class="text-end fw-bold text-success">{{ pay.amount|floatformat:0 }} DH</td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                  <tfoot class="table-light">
+                    <tr>
+                      <th colspan="3" class="text-end">Total versé :</th>
+                      <th class="text-end fw-bold text-success">{{ result.total_paid|floatformat:0 }} DH</th>
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            {% else %}
+              <div class="text-center py-5 text-muted">
+                <i class="bi bi-wallet2 fs-2 mb-2 d-block text-muted"></i>
+                <p class="mb-2">Aucun versement enregistré pour {{ result.month_label }}.</p>
+                <button type="button" class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addPaymentModal">
+                  <i class="bi bi-plus-circle me-1"></i> Enregistrer le premier versement
+                </button>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Completed sessions details -->
+      <div class="col-lg-6">
+        <div class="card border-0 shadow-sm rounded-3 h-100">
+          <div class="card-header bg-white py-3 border-bottom">
+            <h6 class="fw-bold text-dark mb-0 d-flex align-items-center gap-2">
+              <i class="bi bi-calendar-check text-primary"></i> Séances réalisées ({{ result.sessions|length }})
+            </h6>
+          </div>
+          <div class="card-body p-0">
+            {% if result.sessions %}
+              <div class="table-responsive" style="max-height: 380px; overflow-y: auto;">
+                <table class="table table-hover align-middle mb-0">
+                  <thead class="table-light sticky-top">
+                    <tr>
+                      <th>Date</th>
+                      <th>Groupe</th>
+                      <th>Horaire</th>
+                      <th class="text-end">Durée</th>
+                      {% if result.teacher.payment_method == 'HOURLY' or result.teacher.payment_method == 'SESSION' %}
+                        <th class="text-end">Sous-total</th>
+                      {% endif %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for item in result.sessions %}
+                      <tr>
+                        <td><strong>{{ item.session.date|date:"d/m/Y" }}</strong></td>
+                        <td>
+                          <a href="{% url 'core:group_detail' item.session.group.id %}" class="text-decoration-none text-dark fw-semibold">
+                            {{ item.session.group.name }}
+                          </a>
+                        </td>
+                        <td><small class="text-muted">{{ item.session.start_time|time:"H:i" }} – {{ item.session.end_time|time:"H:i" }}</small></td>
+                        <td class="text-end"><span class="badge bg-light text-dark border">{{ item.hours|floatformat:1 }}h</span></td>
+                        {% if result.teacher.payment_method == 'HOURLY' or result.teacher.payment_method == 'SESSION' %}
+                          <td class="text-end fw-bold text-success">{{ item.subtotal|floatformat:0 }} DH</td>
+                        {% endif %}
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <div class="text-center py-5 text-muted">
+                <i class="bi bi-calendar-x fs-2 mb-2 d-block text-muted"></i>
+                <p class="mb-0">Aucune séance terminée trouvée pour ce professeur sur ce mois.</p>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ── 4. RECORD PAYMENT MODAL ────────────────────────────────────── -->
+    <div class="modal fade" id="addPaymentModal" tabindex="-1" aria-labelledby="addPaymentModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+          <form method="post" id="savePaymentForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="save_payment">
+            <input type="hidden" name="teacher_id" value="{{ result.teacher.id }}">
+            <input type="hidden" name="month" value="{{ result.month_str }}">
+
+            <div class="modal-header bg-success text-white">
+              <h5 class="modal-title fw-bold" id="addPaymentModalLabel">
+                <i class="bi bi-cash-coin me-2"></i> Enregistrer un versement
+              </h5>
+              <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Fermer"></button>
+            </div>
+
+            <div class="modal-body p-4">
+              <div class="alert alert-light border d-flex align-items-center gap-2 mb-3">
+                <i class="bi bi-person-check text-success fs-5"></i>
+                <div>
+                  <strong>{{ result.teacher.name }}</strong> • Période : <strong>{{ result.month_label }}</strong>
+                  <div class="small text-muted">Reste dû : <strong>{{ result.balance|floatformat:0 }} DH</strong></div>
+                </div>
+              </div>
+
+              <!-- Amount -->
+              <div class="mb-3">
+                <label for="payAmount" class="form-label fw-bold">Montant versé (DH) :</label>
+                <div class="input-group">
+                  <input type="number" name="amount" id="payAmount" class="form-control form-control-lg fw-bold"
+                         step="1" min="1" placeholder="0" value="{% if result.balance > 0 %}{{ result.balance|floatformat:0 }}{% endif %}" required autofocus>
+                  <span class="input-group-text fw-bold">DH</span>
+                </div>
+              </div>
+
+              <!-- Date & Method -->
+              <div class="row g-2 mb-3">
+                <div class="col-md-6">
+                  <label for="payDate" class="form-label small fw-semibold">Date de versement :</label>
+                  <input type="date" name="payment_date" id="payDate" class="form-control" value="{% now 'Y-m-d' %}">
+                </div>
+                <div class="col-md-6">
+                  <label for="payMethod" class="form-label small fw-semibold">Mode de règlement :</label>
+                  <select name="payment_method" id="payMethod" class="form-select">
+                    <option value="CASH" selected>Espèces</option>
+                    <option value="TRANSFER">Virement bancaire</option>
+                    <option value="CHECK">Chèque</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Type & Notes -->
+              <div class="mb-3">
+                <label for="payType" class="form-label small fw-semibold">Type de versement :</label>
+                <select name="payment_type" id="payType" class="form-select">
+                  <option value="SALARY" selected>Règlement de salaire</option>
+                  <option value="ADVANCE">Avance / Acompte</option>
+                  <option value="ADJUSTMENT">Régularisation</option>
+                </select>
+              </div>
+
+              <div class="mb-0">
+                <label for="payNotes" class="form-label small fw-semibold">Notes / Référence (facultatif) :</label>
+                <input type="text" name="notes" id="payNotes" class="form-control" placeholder="Ex: Virement reçu le 28...">
+              </div>
+            </div>
+
+            <div class="modal-footer bg-light">
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+              <button type="submit" class="btn btn-success fw-bold px-4">
+                <i class="bi bi-check-circle-fill me-1"></i> Confirmer le paiement
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+  {% else %}
+    <!-- Empty state before selection -->
+    <div class="card border-0 shadow-sm rounded-3 py-5 text-center text-muted">
+      <div class="py-4">
+        <i class="bi bi-calculator display-4 text-muted mb-3 d-inline-block"></i>
+        <h5 class="fw-bold text-dark mb-1">Prêt pour le calcul</h5>
+        <p class="text-muted mb-0">Choisissez un professeur et un mois ci-dessus, puis cliquez sur <strong>Calculer</strong>.</p>
+      </div>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,275 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+{% block title %}Analyse des Revenus — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+.ar { font-family:'Inter',system-ui,sans-serif; display:flex; flex-direction:column; gap:1.5rem; padding:.25rem 0 3rem; }
+.ar-hero {
+  position:relative; border-radius:24px; padding:2.25rem 2.75rem; overflow:hidden;
+  background:#064e3b; color:#fff; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:1rem;
+}
+.ar-hero::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,#064e3b 0%,#065f46 40%,#0369a1 100%);
+  background-size:200% 200%; animation:arGrad 10s ease infinite;
+}
+@keyframes arGrad { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+.ar-hero-content { position:relative; z-index:2; }
+.ar-hero-title { font-size:1.8rem; font-weight:900; letter-spacing:-.03em; margin:0; }
+.ar-hero-sub { font-size:.85rem; color:rgba(255,255,255,.6); margin:.3rem 0 0; }
+.ar-hero-actions { position:relative; z-index:2; display:flex; gap:.5rem; flex-wrap:wrap; }
+.ar-btn { display:inline-flex; align-items:center; gap:.4rem; padding:.5rem 1.1rem; border-radius:10px; font-size:.8rem; font-weight:700; text-decoration:none; cursor:pointer; border:none; }
+.ar-btn-green { background:#10b981; color:#fff; }
+.ar-btn-green:hover { background:#059669; color:#fff; }
+.ar-btn-outline { background:rgba(255,255,255,.15); color:#fff; border:1px solid rgba(255,255,255,.25); }
+.ar-btn-outline:hover { background:rgba(255,255,255,.25); color:#fff; }
+.ar-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; }
+.ar-kpi {
+  background:#fff; border-radius:20px; padding:1.4rem 1.5rem 1.25rem;
+  border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05);
+  transition:transform .2s; cursor:default; position:relative; overflow:hidden;
+}
+.ar-kpi:hover { transform:translateY(-3px); }
+.dark .ar-kpi { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.ar-kpi-stripe { position:absolute; top:0; left:0; right:0; height:4px; border-radius:20px 20px 0 0; }
+.ar-kpi-icon { width:44px; height:44px; border-radius:12px; display:flex; align-items:center; justify-content:center; margin-bottom:1rem; }
+.ar-kpi-label { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#94a3b8; margin-bottom:.3rem; }
+.ar-kpi-val { font-size:1.7rem; font-weight:900; letter-spacing:-.04em; color:#0f172a; }
+.dark .ar-kpi-val { color:#f1f5f9; }
+.ar-kpi-sub { font-size:.72rem; color:#94a3b8; margin-top:.45rem; }
+.ar-grid-2-1 { display:grid; grid-template-columns:2fr 1fr; gap:1.25rem; }
+.ar-card {
+  background:#fff; border-radius:20px; padding:1.6rem 1.75rem;
+  border:1px solid rgba(0,0,0,.06); box-shadow:0 4px 20px rgba(0,0,0,.05);
+}
+.dark .ar-card { background:#1e293b; border-color:rgba(255,255,255,.05); }
+.ar-card-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.25rem; border-bottom:1px solid #f1f5f9; padding-bottom:.9rem; }
+.dark .ar-card-hdr { border-bottom-color:rgba(255,255,255,.05); }
+.ar-card-title { font-size:.92rem; font-weight:800; color:#0f172a; }
+.dark .ar-card-title { color:#f1f5f9; }
+.ar-method-item {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:.75rem 1rem; border-radius:12px; margin-bottom:.6rem;
+  background:#f8fafc; border:1px solid rgba(0,0,0,.04);
+}
+.dark .ar-method-item { background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.05); }
+.ar-dot { width:10px; height:10px; border-radius:50%; display:inline-block; margin-right:6px; }
+.ar-table { width:100%; border-collapse:collapse; font-size:.82rem; }
+.ar-table th { font-size:.67rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em; color:#94a3b8; border-bottom:1px solid #e2e8f0; padding:.7rem 1rem; text-align:left; }
+.ar-table td { padding:.75rem 1rem; border-bottom:1px solid #f1f5f9; color:#334155; }
+.dark .ar-table th { border-bottom-color:rgba(255,255,255,.07); color:#64748b; }
+.dark .ar-table td { border-bottom-color:rgba(255,255,255,.04); color:#cbd5e1; }
+.ar-table tr:last-child td { border-bottom:none; }
+.ar-table tr:hover td { background:#f8fafc; }
+.dark .ar-table tr:hover td { background:rgba(255,255,255,.03); }
+.ar-progress { height:6px; background:#e2e8f0; border-radius:99px; overflow:hidden; }
+.ar-progress-fill { height:100%; border-radius:99px; }
+.ar-rate-chip { display:inline-block; padding:.2rem .65rem; border-radius:99px; font-size:.7rem; font-weight:800; }
+.ar-rate-green { background:#d1fae5; color:#059669; }
+.ar-rate-orange { background:#fef3c7; color:#d97706; }
+.ar-rate-red { background:#fee2e2; color:#ef4444; }
+@media(max-width:992px) { .ar-kpi-grid{grid-template-columns:repeat(2,1fr);} .ar-grid-2-1{grid-template-columns:1fr;} }
+@media(max-width:576px) { .ar-kpi-grid{grid-template-columns:1fr;} }
+</style>
+
+<div class="ar">
+
+  <!-- HERO -->
+  <div class="ar-hero">
+    <div class="ar-hero-content">
+      <h1 class="ar-hero-title">Analyse Financière &amp; Revenus</h1>
+      <p class="ar-hero-sub">Recouvrement, modes de paiement, historique de facturation mensuelle</p>
+    </div>
+    <div class="ar-hero-actions">
+      <form method="get" style="display:inline;">
+        <select name="months" onchange="this.form.submit()" class="ar-btn ar-btn-outline" style="appearance:none; cursor:pointer; padding:.4rem .9rem;">
+          <option value="3" {% if months == 3 %}selected{% endif %} style="color: #000000;">3 mois</option>
+          <option value="6" {% if months == 6 %}selected{% endif %} style="color: #000000;">6 mois</option>
+          <option value="12" {% if months == 12 %}selected{% endif %} style="color: #000000;">12 mois</option>
+          <option value="24" {% if months == 24 %}selected{% endif %} style="color: #000000;">24 mois</option>
+        </select>
+      </form>
+      <a href="{% url 'core:export_revenue_pdf' %}?months={{ months }}" class="ar-btn ar-btn-green">
+        <span class="material-symbols-outlined" style="font-size:15px;">picture_as_pdf</span> PDF
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI STRIP -->
+  <div class="ar-kpi-grid">
+    <div class="ar-kpi">
+      <div class="ar-kpi-stripe" style="background:#10b981;"></div>
+      <div class="ar-kpi-icon" style="background:#d1fae5; color:#10b981;">
+        <span class="material-symbols-outlined">savings</span>
+      </div>
+      <div class="ar-kpi-label">Recouvré ce mois</div>
+      <div class="ar-kpi-val">{{ current_month.collected|floatformat:0 }} DH</div>
+      <div class="ar-kpi-sub">Taux : <strong>{{ current_month.collection_rate }}%</strong></div>
+    </div>
+    <div class="ar-kpi">
+      <div class="ar-kpi-stripe" style="background:#ef4444;"></div>
+      <div class="ar-kpi-icon" style="background:#fee2e2; color:#ef4444;">
+        <span class="material-symbols-outlined">hourglass_bottom</span>
+      </div>
+      <div class="ar-kpi-label">Reste à recouvrer</div>
+      <div class="ar-kpi-val">{{ current_month.outstanding|floatformat:0 }} DH</div>
+      <div class="ar-kpi-sub">Sur {{ current_month.expected|floatformat:0 }} DH attendus</div>
+    </div>
+    <div class="ar-kpi">
+      <div class="ar-kpi-stripe" style="background:#0284c7;"></div>
+      <div class="ar-kpi-icon" style="background:#e0f2fe; color:#0284c7;">
+        <span class="material-symbols-outlined">account_balance</span>
+      </div>
+      <div class="ar-kpi-label">Cumul YTD</div>
+      <div class="ar-kpi-val">{{ ytd.ytd|floatformat:0 }} DH</div>
+      <div class="ar-kpi-sub">Depuis le {{ ytd.ytd_start|date:"d/m/Y" }}</div>
+    </div>
+    <div class="ar-kpi">
+      <div class="ar-kpi-stripe" style="background:#f59e0b;"></div>
+      <div class="ar-kpi-icon" style="background:#fef3c7; color:#d97706;">
+        <span class="material-symbols-outlined">trending_up</span>
+      </div>
+      <div class="ar-kpi-label">Croissance Annuelle</div>
+      <div class="ar-kpi-val">{% if ytd.growth_pct is not None %}{{ ytd.growth_pct|floatformat:1 }}%{% else %}N/A{% endif %}</div>
+      <div class="ar-kpi-sub">vs N-1 : {{ ytd.last_year_same_period|floatformat:0 }} DH</div>
+    </div>
+  </div>
+
+  <!-- CHART + METHODS -->
+  <div class="ar-grid-2-1">
+    <div class="ar-card">
+      <div class="ar-card-hdr">
+        <span class="ar-card-title">
+          <span class="material-symbols-outlined" style="font-size:17px; vertical-align:middle; color:#6366f1; margin-right:5px;">bar_chart</span>
+          Évolution — Attendu vs Encaissé
+        </span>
+      </div>
+      <div style="position:relative; height:300px;">
+        <canvas id="arRevChart"></canvas>
+      </div>
+    </div>
+
+    <div class="ar-card">
+      <div class="ar-card-hdr">
+        <span class="ar-card-title">
+          <span class="material-symbols-outlined" style="font-size:17px; vertical-align:middle; color:#6366f1; margin-right:5px;">wallet</span>
+          Modes de paiement
+        </span>
+      </div>
+      <div style="position:relative; height:150px; margin-bottom:16px;">
+        <canvas id="arMethodChart"></canvas>
+      </div>
+      {% for m in methods %}
+      <div class="ar-method-item">
+        <div>
+          <span class="ar-dot" style="background:{% if m.method == 'CASH' %}#10b981{% elif m.method == 'TRANSFER' %}#3b82f6{% else %}#f59e0b{% endif %};"></span>
+          <strong style="font-size:.82rem;">{{ m.label }}</strong>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:.85rem; font-weight:800;">{{ m.total|floatformat:0 }} DH</div>
+          <div style="font-size:.7rem; color:#94a3b8;">{{ m.count }} tx · {{ m.pct }}%</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- BY GROUP TABLE -->
+  <div class="ar-card">
+    <div class="ar-card-hdr">
+      <span class="ar-card-title">Revenus par groupe de cours — mois en cours</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="ar-table">
+        <thead>
+          <tr>
+            <th>Groupe</th>
+            <th>Matière</th>
+            <th>Professeur</th>
+            <th>Élèves</th>
+            <th style="text-align:right;">Attendu</th>
+            <th style="text-align:right;">Encaissé</th>
+            <th style="text-align:right;">Reste</th>
+            <th style="min-width:120px;">Taux</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in by_group %}
+          <tr>
+            <td><a href="{% url 'core:group_detail' r.group_id %}" style="font-weight:700; color:#4f46e5; text-decoration:none;">{{ r.group_name }}</a></td>
+            <td>{{ r.subject }}</td>
+            <td>{{ r.teacher }}</td>
+            <td style="font-weight:700;">{{ r.enrolled_count }}</td>
+            <td style="text-align:right; font-weight:700;">{{ r.expected|floatformat:0 }}</td>
+            <td style="text-align:right; font-weight:700; color:#10b981;">{{ r.collected|floatformat:0 }}</td>
+            <td style="text-align:right; font-weight:700; {% if r.outstanding > 0 %}color:#f59e0b;{% endif %}">{{ r.outstanding|floatformat:0 }}</td>
+            <td>
+              <div style="display:flex; align-items:center; gap:.5rem;">
+                <div class="ar-progress" style="flex:1;">
+                  <div class="ar-progress-fill" style="width:{{ r.collection_rate }}%; background:{% if r.collection_rate >= 80 %}#10b981{% elif r.collection_rate >= 50 %}#f59e0b{% else %}#ef4444{% endif %};"></div>
+                </div>
+                <span class="ar-rate-chip {% if r.collection_rate >= 80 %}ar-rate-green{% elif r.collection_rate >= 50 %}ar-rate-orange{% else %}ar-rate-red{% endif %}">{{ r.collection_rate }}%</span>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr><td colspan="8" style="text-align:center; color:#94a3b8; padding:2rem;">Aucune donnée.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MONTHLY HISTORY TABLE -->
+  <div class="ar-card">
+    <div class="ar-card-hdr">
+      <span class="ar-card-title">Historique mensuel consolidé</span>
+    </div>
+    <div style="overflow-x:auto;">
+      <table class="ar-table">
+        <thead>
+          <tr>
+            <th>Mois</th>
+            <th style="text-align:right;">Encaissé</th>
+            <th style="text-align:right;">Attendu</th>
+            <th style="text-align:center;">Taux</th>
+            <th style="text-align:center;">Paiements</th>
+            <th style="text-align:center;">Payeurs</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in monthly_series reversed %}
+          <tr>
+            <td style="font-weight:700;">{{ r.month_label }}</td>
+            <td style="text-align:right; font-weight:700; color:#10b981;">{{ r.revenue_paid|floatformat:0 }} DH</td>
+            <td style="text-align:right; font-weight:700;">{{ r.revenue_expected|floatformat:0 }} DH</td>
+            <td style="text-align:center;">
+              <span class="ar-rate-chip {% if r.collection_rate >= 80 %}ar-rate-green{% elif r.collection_rate >= 50 %}ar-rate-orange{% else %}ar-rate-red{% endif %}">{{ r.collection_rate }}%</span>
+            </td>
+            <td style="text-align:center;">{{ r.payment_count }}</td>
+            <td style="text-align:center;">{{ r.unique_payers }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block footer %}
+{{ block.super }}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+(function(){
+  const series=[{% for m in monthly_series %}{month:"{{ m.month_label }}",exp:{{ m.revenue_expected }},paid:{{ m.revenue_paid }}}{% if not forloop.last %},{% endif %}{% endfor %}];
+  const ctx=document.getElementById('arRevChart').getContext('2d');
+  new Chart(ctx,{type:'bar',data:{labels:series.map(x=>x.month),datasets:[{label:'Attendu',data:series.map(x=>x.exp),backgroundColor:'rgba(99,102,241,.25)',borderColor:'rgba(99,102,241,.9)',borderWidth:1.5,borderRadius:6},{label:'Encaissé',data:series.map(x=>x.paid),backgroundColor:'rgba(16,185,129,.8)',borderColor:'rgba(16,185,129,1)',borderWidth:1.5,borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'},tooltip:{padding:12,cornerRadius:8}},scales:{x:{grid:{display:false}},y:{beginAtZero:true,ticks:{callback:v=>v.toLocaleString('fr-FR')+' DH'}}}}});
+  const md={labels:[{% for m in methods %}"{{ m.label }}",{% endfor %}],data:[{% for m in methods %}{{ m.total }},{% endfor %}],colors:[{% for m in methods %}{% if m.method == 'CASH' %}'#10b981'{% elif m.method == 'TRANSFER' %}'#3b82f6'{% else %}'#f59e0b'{% endif %},{% endfor %}]};
+  new Chart(document.getElementById('arMethodChart').getContext('2d'),{type:'doughnut',data:{labels:md.labels,datasets:[{data:md.data,backgroundColor:md.colors,borderWidth:2,hoverOffset:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},cutout:'65%'}});
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,1020 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}{{ title }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'css/schedule_ux.css' %}">
+{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:courses_list' %}"><i class="bi bi-book-fill"></i> Groupes</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ title }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-book-half me-2" style="color:var(--primary);"></i>{{ title }}
+    </h1>
+    <p class="page-subtitle">
+      {% if course %}Modifier le groupe de cours{% else %}Créer un nouveau groupe / classe{% endif %}
+    </p>
+  </div>
+  <a href="{% url 'core:courses_list' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour
+  </a>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-4">
+      {% for error in form.non_field_errors %}
+        <div><i class="bi bi-exclamation-circle-fill"></i> {{ error }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="row justify-content-center">
+
+    <!-- Center column (no sidebar) -->
+    <div class="col-lg-9">
+
+      <!-- General info card -->
+      <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-info-circle" style="color:var(--primary);font-size:16px;"></i>
+            <span class="fw-600">Informations générales</span>
+          </div>
+          <div class="form-check form-switch mb-0">
+            {{ form.is_active }}
+            <label class="form-check-label ms-1" for="{{ form.is_active.id_for_label }}">
+              <span class="badge badge-success">Groupe Actif</span>
+            </label>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="{{ form.name.id_for_label }}" class="form-label">
+                {{ form.name.label }} <span style="color:var(--danger);">*</span>
+              </label>
+              {{ form.name }}
+              {% if form.name.errors %}<div class="invalid-feedback d-block">{% for e in form.name.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label for="{{ form.subject.id_for_label }}" class="form-label">
+                {{ form.subject.label }} <span style="color:var(--danger);">*</span>
+              </label>
+              {{ form.subject }}
+              {% if form.subject.errors %}<div class="invalid-feedback d-block">{% for e in form.subject.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="col-md-6">
+              <label for="{{ form.levels.id_for_label }}" class="form-label d-flex align-items-center justify-content-between">
+                <span><i class="bi bi-layers text-primary me-1"></i> {{ form.levels.label }}</span>
+                <small class="text-muted">Sélection multiple</small>
+              </label>
+              {{ form.levels }}
+              {% if form.levels.errors %}<div class="invalid-feedback d-block">{% for e in form.levels.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              <div class="form-text">Ce groupe peut appartenir à plusieurs niveaux (ex: Débutant + Élémentaire).</div>
+            </div>
+
+            <div class="col-md-6">
+              <label for="{{ form.monthly_price.id_for_label }}" class="form-label">
+                {{ form.monthly_price.label }} <span style="color:var(--danger);">*</span>
+              </label>
+              <div class="input-group">
+                {{ form.monthly_price }}
+                <span class="input-group-text">DH</span>
+              </div>
+              {% if form.monthly_price.errors %}<div class="invalid-feedback d-block">{% for e in form.monthly_price.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+
+            <div class="col-12">
+              <label for="{{ form.whatsapp_group_link.id_for_label }}" class="form-label">
+                <i class="bi bi-whatsapp" style="color: #25d366;"></i> {{ form.whatsapp_group_link.label }}
+              </label>
+              {{ form.whatsapp_group_link }}
+              {% if form.whatsapp_group_link.errors %}<div class="invalid-feedback d-block">{% for e in form.whatsapp_group_link.errors %}{{ e }}{% endfor %}</div>{% endif %}
+              <div class="form-text">Lien d'invitation du groupe WhatsApp pour ce groupe de cours (ex: https://chat.whatsapp.com/...)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teacher card -->
+      <div class="card mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="bi bi-person-badge" style="color:#3b82f6;font-size:16px;"></i>
+          <span class="fw-600">Professeur</span>
+        </div>
+        <div class="card-body">
+          <label for="{{ form.teacher.id_for_label }}" class="form-label">
+            {{ form.teacher.label }} <span style="color:var(--danger);">*</span>
+          </label>
+          <div class="d-flex align-items-center gap-2">
+            {{ form.teacher }}
+            <button type="button" id="open-quick-add-teacher" class="btn btn-outline-primary btn-sm flex-shrink-0"
+                    title="Ajouter un nouveau professeur" style="white-space:nowrap;">
+              <i class="bi bi-plus-circle"></i> Nouveau
+            </button>
+          </div>
+          {% if form.teacher.errors %}<div class="invalid-feedback d-block">{% for e in form.teacher.errors %}{{ e }}{% endfor %}</div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Weekly schedules card -->
+      <div class="card mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-calendar3" style="color:#f59e0b;font-size:16px;"></i>
+            <span class="fw-600">Horaires hebdomadaires récurrents</span>
+            <span class="badge bg-light text-secondary border ms-1" style="font-size:11px;font-weight:500;">Optionnel</span>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-primary" id="add-schedule-btn">
+            <i class="bi bi-plus-circle"></i> Ajouter créneau
+          </button>
+        </div>
+        <div class="card-body">
+          {{ formset.management_form }}
+          <div id="no-schedules-placeholder" class="text-center py-4 {% if formset.forms %}d-none{% endif %}">
+            <div style="width: 52px; height: 52px; border-radius: 50%; background: var(--surface-alt, #f8fafc); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 0.6rem;">
+              <i class="bi bi-calendar-x" style="font-size: 24px; color: var(--text-secondary, #64748b);"></i>
+            </div>
+            <div style="font-size: 15px; font-weight: 600; color: var(--text-primary, #1e293b);">Aucun horaire hebdomadaire défini</div>
+            <div style="font-size: 13.5px; color: var(--text-secondary, #64748b); max-width: 440px; margin: 0 auto 1rem auto;">
+              Ce groupe peut être enregistré sans horaire fixe. Si vous souhaitez planifier des créneaux récurrents, cliquez ci-dessous.
+            </div>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="document.getElementById('add-schedule-btn').click();">
+              <i class="bi bi-plus-circle"></i> Ajouter un créneau maintenant
+            </button>
+          </div>
+          <div id="schedules-container">
+            {% for f in formset %}
+              <div class="sch-slot-card schedule-form-row" data-form-index="{{ forloop.counter0 }}">
+                {% for hidden in f.hidden_fields %}{{ hidden }}{% endfor %}
+
+                <div class="sch-slot-header">
+                  <div class="d-flex align-items-center gap-2">
+                    <span class="sch-slot-number-badge">{{ forloop.counter }}</span>
+                    <span class="fw-bold text-dark" style="font-size: 0.9rem;">Créneau #{{ forloop.counter }}</span>
+                    <span class="sch-duration-pill duration-preview-badge">
+                      <i class="bi bi-clock-history"></i> <span class="duration-text">--</span>
+                    </span>
+                  </div>
+                  <div>
+                    {% if formset.can_delete %}
+                      <div class="form-check d-none">{{ f.DELETE }}</div>
+                      <button type="button" class="btn btn-outline-danger btn-sm remove-schedule-btn"
+                        title="Supprimer ce créneau"
+                        aria-label="Supprimer ce créneau horaire">
+                        <i class="bi bi-trash" aria-hidden="true"></i>
+                        <span class="d-none d-sm-inline ms-1">Supprimer</span>
+                      </button>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="row g-3">
+                  <div class="col-lg-5 col-md-12">
+                    <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+                      <i class="bi bi-calendar-event me-1 text-primary"></i>Jour <span style="color:var(--danger);">*</span>
+                    </label>
+                    {{ f.day }}
+                    {% if f.day.errors %}<div class="invalid-feedback d-block">{% for e in f.day.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                  </div>
+
+                  <div class="col-lg-4 col-md-7">
+                    <div class="row g-2">
+                      <div class="col-6">
+                        <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+                          <i class="bi bi-clock me-1 text-primary"></i>Début <span style="color:var(--danger);">*</span>
+                        </label>
+                        {{ f.start_time }}
+                        {% if f.start_time.errors %}<div class="invalid-feedback d-block">{% for e in f.start_time.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                      </div>
+                      <div class="col-6">
+                        <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+                          <i class="bi bi-clock-fill me-1 text-primary"></i>Fin <span style="color:var(--danger);">*</span>
+                        </label>
+                        {{ f.end_time }}
+                        {% if f.end_time.errors %}<div class="invalid-feedback d-block">{% for e in f.end_time.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="col-lg-3 col-md-5">
+                    <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+                      <i class="bi bi-door-open me-1 text-primary"></i>Salle <span style="color:var(--danger);">*</span>
+                    </label>
+                    <div class="d-flex align-items-center gap-1">
+                      {{ f.room }}
+                      <button type="button" class="btn btn-outline-success btn-sm flex-shrink-0 open-quick-add-room-btn"
+                              title="Ajouter une nouvelle salle" style="white-space:nowrap;">
+                        <i class="bi bi-plus-circle"></i>
+                      </button>
+                    </div>
+                    {% if f.room.errors %}<div class="invalid-feedback d-block">{% for e in f.room.errors %}{{ e }}{% endfor %}</div>{% endif %}
+                  </div>
+
+                  <!-- Conflict alert per row -->
+                  <div class="col-12 row-conflict-alert sch-conflict-alert-box d-none" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill text-danger flex-shrink-0" style="font-size: 1.1rem;"></i>
+                    <div>
+                      <strong class="d-block mb-1">Conflit détecté :</strong>
+                      <span class="alert-text"></span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+
+          <button type="button" class="sch-add-slot-dashed mt-3" id="add-schedule-btn-dashed">
+            <i class="bi bi-plus-circle-fill"></i> Ajouter un créneau hebdomadaire
+          </button>
+        </div>
+      </div>
+
+      <!-- Actions Footer -->
+      <div class="card mb-4">
+        <div class="card-body d-flex align-items-center justify-content-between flex-wrap gap-3">
+          <div style="font-size:13.5px;color:var(--text-secondary);"><!-- ↑ text-muted+small → explicit — WCAG AA -->
+            <i class="bi bi-info-circle me-1" aria-hidden="true"></i>Veuillez renseigner tous les champs obligatoires (<span style="color:var(--danger);" aria-hidden="true">*</span><span class="visually-hidden">requis</span>)
+          </div>
+          <div class="d-flex gap-2">
+            <a href="{% url 'core:courses_list' %}" class="btn btn-outline-secondary">
+              <i class="bi bi-x-lg"></i> Annuler
+            </a>
+            {% if course %}
+              <a href="{% url 'core:course_group_delete_confirm' course.id %}" class="btn btn-outline-danger">
+                <i class="bi bi-trash"></i> Supprimer ce groupe
+              </a>
+            {% endif %}
+            <button type="submit" class="btn btn-primary px-4" style="min-height:44px;"><!-- WCAG 2.5.5 -->
+              <i class="bi bi-check-lg" aria-hidden="true"></i> {{ button_text }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</form>
+
+<!-- ============================================================
+     Teacher Quick-Add Modal
+     ============================================================ -->
+<div id="quick-add-teacher-overlay" role="dialog" aria-modal="true" aria-labelledby="qat-modal-title"
+     style="display:none;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
+            display:none;align-items:center;justify-content:center;padding:1rem;">
+
+  <div id="quick-add-teacher-modal"
+       style="background:var(--bg-card,#fff);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25);
+              width:100%;max-width:520px;max-height:90vh;overflow-y:auto;
+              animation:qatSlideIn .22s ease;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:1.1rem 1.4rem;border-bottom:1px solid var(--border,#e5e7eb);">
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <div style="width:36px;height:36px;border-radius:8px;
+                    background:linear-gradient(135deg,#3b82f6,#06b6d4);
+                    display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-person-plus-fill" style="color:#fff;font-size:16px;"></i>
+        </div>
+        <span id="qat-modal-title" style="font-weight:700;font-size:1rem;color:var(--text-primary,#0f172a);">Nouveau professeur</span>
+      </div>
+      <button type="button" id="close-quick-add-teacher" aria-label="Fermer"
+              style="background:none;border:none;cursor:pointer;font-size:1.3rem;
+                     color:var(--text-secondary);line-height:1;padding:.25rem;min-width:44px;min-height:44px;"><!-- ↑ text-muted→text-secondary + 44px target — WCAG AA -->
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:1.25rem 1.4rem;">
+      <div id="qat-alert" class="alert alert-danger mb-3" style="display:none;font-size:.85rem;"></div>
+
+      <!-- Name -->
+      <div class="mb-3">
+        <label for="qat-name" class="form-label">Nom complet <span style="color:var(--danger);">*</span></label>
+        <input id="qat-name" name="qat_name" type="text" class="form-control" placeholder="Nom complet" autocomplete="off">
+        <div id="qat-name-err" class="invalid-feedback"></div>
+      </div>
+
+      <!-- Phone + Email -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-6">
+          <label for="qat-phone" class="form-label">Téléphone <span style="color:var(--danger);">*</span></label>
+          <input id="qat-phone" name="qat_phone" type="tel" class="form-control" placeholder="Téléphone" autocomplete="off">
+          <div id="qat-phone-err" class="invalid-feedback"></div>
+        </div>
+        <div class="col-md-6">
+          <label for="qat-email" class="form-label">Email</label>
+          <input id="qat-email" name="qat_email" type="email" class="form-control" placeholder="Email (optionnel)" autocomplete="off">
+          <div id="qat-email-err" class="invalid-feedback"></div>
+        </div>
+      </div>
+
+      <!-- Payment method -->
+      <div class="mb-3">
+        <label for="qat-payment-method" class="form-label">Mode de rémunération <span style="color:var(--danger);">*</span></label>
+        <select id="qat-payment-method" name="qat_payment_method" class="form-select">
+          <option value="HOURLY">Tarif horaire</option>
+          <option value="PERCENTAGE">Pourcentage des recettes</option>
+          <option value="SESSION">Tarif par séance</option>
+          <option value="FIXED">Salaire fixe</option>
+        </select>
+        <div id="qat-pm-err" class="invalid-feedback"></div>
+      </div>
+
+      <!-- Conditional rate fields -->
+      <div id="qat-field-hourly" class="mb-3">
+        <label for="qat-hourly-rate" class="form-label">Tarif horaire</label>
+        <div class="input-group">
+          <input id="qat-hourly-rate" name="qat_hourly_rate" type="number" class="form-control" step="0.01" min="0" placeholder="0.00">
+          <span class="input-group-text">DH/h</span>
+        </div>
+        <div id="qat-hourly-err" class="invalid-feedback"></div>
+      </div>
+      <div id="qat-field-percentage" class="mb-3" style="display:none;">
+        <label for="qat-percentage" class="form-label">Pourcentage (%)</label>
+        <div class="input-group">
+          <input id="qat-percentage" name="qat_percentage" type="number" class="form-control" step="0.01" min="0" max="100" placeholder="0.00">
+          <span class="input-group-text">%</span>
+        </div>
+        <div id="qat-pct-err" class="invalid-feedback"></div>
+      </div>
+      <div id="qat-field-session" class="mb-3" style="display:none;">
+        <label for="qat-session-rate" class="form-label">Tarif par séance</label>
+        <div class="input-group">
+          <input id="qat-session-rate" name="qat_session_rate" type="number" class="form-control" step="0.01" min="0" placeholder="0.00">
+          <span class="input-group-text">DH/séance</span>
+        </div>
+        <div id="qat-session-err" class="invalid-feedback"></div>
+      </div>
+
+    </div><!-- /body -->
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;gap:.6rem;
+                padding:1rem 1.4rem;border-top:1px solid var(--border,#e5e7eb);">
+      <button type="button" id="qat-cancel" class="btn btn-outline-secondary">Annuler</button>
+      <button type="button" id="qat-submit" class="btn btn-primary">
+        <i class="bi bi-check-lg"></i> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes qatSlideIn {
+  from { opacity:0; transform:translateY(-18px) scale(.97); }
+  to   { opacity:1; transform:translateY(0)      scale(1);   }
+}
+#quick-add-teacher-overlay.qat-open { display:flex !important; }
+#quick-add-room-overlay.qar-open    { display:flex !important; }
+</style>
+
+<!-- ============================================================
+     Room Quick-Add Modal
+     ============================================================ -->
+<div id="quick-add-room-overlay" role="dialog" aria-modal="true" aria-labelledby="qar-modal-title"
+     style="display:none;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
+            align-items:center;justify-content:center;padding:1rem;">
+
+  <div id="quick-add-room-modal"
+       style="background:var(--bg-card,#fff);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25);
+              width:100%;max-width:480px;max-height:90vh;overflow-y:auto;
+              animation:qatSlideIn .22s ease;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:1.1rem 1.4rem;border-bottom:1px solid var(--border,#e5e7eb);">
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <div style="width:36px;height:36px;border-radius:8px;
+                    background:linear-gradient(135deg,#10b981,#059669);
+                    display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-door-open-fill" style="color:#fff;font-size:16px;"></i>
+        </div>
+        <span id="qar-modal-title" style="font-weight:700;font-size:1rem;color:var(--text-primary,#0f172a);">Nouvelle salle</span>
+      </div>
+      <button type="button" id="close-quick-add-room" aria-label="Fermer"
+              style="background:none;border:none;cursor:pointer;font-size:1.3rem;
+                     color:var(--text-secondary);line-height:1;padding:.25rem;min-width:44px;min-height:44px;">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:1.25rem 1.4rem;">
+      <div id="qar-alert" class="alert alert-danger mb-3" style="display:none;font-size:.85rem;"></div>
+
+      <!-- Name -->
+      <div class="mb-3">
+        <label for="qar-name" class="form-label">Nom de la salle <span style="color:var(--danger);">*</span></label>
+        <input id="qar-name" name="qar_name" type="text" class="form-control" placeholder="ex: Salle A1" autocomplete="off">
+        <div id="qar-name-err" class="invalid-feedback"></div>
+      </div>
+
+      <!-- Capacity -->
+      <div class="mb-3">
+        <label for="qar-capacity" class="form-label">Capacité <span style="color:var(--danger);">*</span></label>
+        <div class="input-group">
+          <input id="qar-capacity" name="qar_capacity" type="number" class="form-control" min="1" placeholder="ex: 30">
+          <span class="input-group-text">places</span>
+        </div>
+        <div id="qar-capacity-err" class="invalid-feedback"></div>
+      </div>
+
+      <!-- Building + Floor -->
+      <div class="row g-3">
+        <div class="col-md-7">
+          <label for="qar-building" class="form-label">Bâtiment</label>
+          <input id="qar-building" name="qar_building" type="text" class="form-control" placeholder="ex: Bâtiment B (optionnel)" autocomplete="off">
+        </div>
+        <div class="col-md-5">
+          <label for="qar-floor" class="form-label">Étage</label>
+          <input id="qar-floor" name="qar_floor" type="number" class="form-control" placeholder="ex: 2">
+          <div id="qar-floor-err" class="invalid-feedback"></div>
+        </div>
+      </div>
+    </div><!-- /body -->
+
+    <!-- Footer -->
+    <div style="display:flex;justify-content:flex-end;gap:.6rem;
+                padding:1rem 1.4rem;border-top:1px solid var(--border,#e5e7eb);">
+      <button type="button" id="qar-cancel" class="btn btn-outline-secondary">Annuler</button>
+      <button type="button" id="qar-submit" class="btn btn-success">
+        <i class="bi bi-check-lg"></i> Enregistrer
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Empty form template (hidden) -->
+<div id="empty-form-template" class="d-none">
+  <div class="sch-slot-card schedule-form-row" data-form-index="__prefix__">
+    {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+    <div class="sch-slot-header">
+      <div class="d-flex align-items-center gap-2">
+        <span class="sch-slot-number-badge">#</span>
+        <span class="fw-bold text-dark" style="font-size: 0.9rem;">Nouveau créneau</span>
+        <span class="sch-duration-pill duration-preview-badge">
+          <i class="bi bi-clock-history"></i> <span class="duration-text">--</span>
+        </span>
+      </div>
+      <div>
+        <button type="button" class="btn btn-outline-danger btn-sm remove-schedule-btn" title="Supprimer" aria-label="Supprimer ce créneau horaire">
+          <i class="bi bi-trash"></i> <span class="d-none d-sm-inline ms-1">Supprimer</span>
+        </button>
+      </div>
+    </div>
+    <div class="row g-3">
+      <div class="col-lg-5 col-md-12">
+        <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+          <i class="bi bi-calendar-event me-1 text-primary"></i>Jour <span style="color:var(--danger);">*</span>
+        </label>
+        <!-- <div class="sch-day-pills mb-2" data-target-select="schedules-__prefix__-day">
+          <button type="button" class="sch-day-pill-btn" data-day="MON">Lun</button>
+          <button type="button" class="sch-day-pill-btn" data-day="TUE">Mar</button>
+          <button type="button" class="sch-day-pill-btn" data-day="WED">Mer</button>
+          <button type="button" class="sch-day-pill-btn" data-day="THU">Jeu</button>
+          <button type="button" class="sch-day-pill-btn" data-day="FRI">Ven</button>
+          <button type="button" class="sch-day-pill-btn" data-day="SAT">Sam</button>
+          <button type="button" class="sch-day-pill-btn" data-day="SUN">Dim</button>
+        </div> -->
+        {{ formset.empty_form.day }}
+      </div>
+      <div class="col-lg-4 col-md-7">
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+              <i class="bi bi-clock me-1 text-primary"></i>Début <span style="color:var(--danger);">*</span>
+            </label>
+            {{ formset.empty_form.start_time }}
+          </div>
+          <div class="col-6">
+            <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+              <i class="bi bi-clock-fill me-1 text-primary"></i>Fin <span style="color:var(--danger);">*</span>
+            </label>
+            {{ formset.empty_form.end_time }}
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-3 col-md-5">
+        <label class="form-label fw-semibold text-secondary" style="font-size: 0.825rem;">
+          <i class="bi bi-door-open me-1 text-primary"></i>Salle <span style="color:var(--danger);">*</span>
+        </label>
+        <div class="d-flex align-items-center gap-1">
+          {{ formset.empty_form.room }}
+          <button type="button" class="btn btn-outline-success btn-sm flex-shrink-0 open-quick-add-room-btn"
+                  title="Ajouter une nouvelle salle" style="white-space:nowrap;">
+            <i class="bi bi-plus-circle"></i>
+          </button>
+        </div>
+      </div>
+      <div class="col-12 row-conflict-alert sch-conflict-alert-box d-none" role="alert">
+        <i class="bi bi-exclamation-triangle-fill text-danger flex-shrink-0" style="font-size: 1.1rem;"></i>
+        <div>
+          <strong class="d-block mb-1">Conflit détecté :</strong>
+          <span class="alert-text"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>.fw-600 { font-weight: 600; }
+/* make teacher select grow to fill the flex row */
+#id_teacher { flex: 1; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const container = document.getElementById('schedules-container');
+  const emptyPlaceholder = document.getElementById('no-schedules-placeholder');
+  const addBtn = document.getElementById('add-schedule-btn');
+  const addBtnDashed = document.getElementById('add-schedule-btn-dashed');
+  const totalFormsInput = document.getElementById('id_schedules-TOTAL_FORMS');
+  const emptyTemplate = document.getElementById('empty-form-template').innerHTML;
+  const teacherSelect = document.getElementById('id_teacher');
+  const courseId = "{% if course %}{{ course.id }}{% endif %}";
+
+  function renumberSlots() {
+    const rows = container.querySelectorAll('.schedule-form-row');
+    let visibleIndex = 1;
+    rows.forEach(r => {
+      const isDeleted = r.style.opacity === '0.4' || r.querySelector('input[name$="-DELETE"]:checked');
+      if (!isDeleted) {
+        const badge = r.querySelector('.sch-slot-number-badge');
+        const title = r.querySelector('.sch-slot-header .fw-bold');
+        if (badge) badge.innerText = visibleIndex;
+        if (title) title.innerText = `Créneau #${visibleIndex}`;
+        visibleIndex++;
+      }
+    });
+  }
+
+  function updateEmptyState() {
+    if (!emptyPlaceholder) return;
+    const rows = container.querySelectorAll('.schedule-form-row');
+    let visibleCount = 0;
+    rows.forEach(r => {
+      const isDeleted = r.style.opacity === '0.4' || r.querySelector('input[name$="-DELETE"]:checked');
+      if (!isDeleted) visibleCount++;
+    });
+    if (visibleCount === 0) {
+      emptyPlaceholder.classList.remove('d-none');
+    } else {
+      emptyPlaceholder.classList.add('d-none');
+    }
+    renumberSlots();
+  }
+
+  function updateDurationBadge(row) {
+    const idx = row.getAttribute('data-form-index');
+    const startInput = row.querySelector(`[name="schedules-${idx}-start_time"]`);
+    const endInput = row.querySelector(`[name="schedules-${idx}-end_time"]`);
+    const badge = row.querySelector('.duration-preview-badge');
+    const textEl = row.querySelector('.duration-text');
+    if (!startInput || !endInput || !badge || !textEl) return;
+
+    const startVal = startInput.value;
+    const endVal = endInput.value;
+    if (startVal && endVal && startVal < endVal) {
+      const [sh, sm] = startVal.split(':').map(Number);
+      const [eh, em] = endVal.split(':').map(Number);
+      const totalMinutes = (eh * 60 + em) - (sh * 60 + sm);
+      const hours = Math.floor(totalMinutes / 60);
+      const mins = totalMinutes % 60;
+      let durStr = '';
+      if (hours > 0) durStr += `${hours}h`;
+      if (mins > 0) durStr += (hours > 0 ? ` ${mins}m` : `${mins} min`);
+      textEl.innerText = durStr;
+      badge.classList.add('active');
+    } else {
+      textEl.innerText = '--';
+      badge.classList.remove('active');
+    }
+  }
+
+  function syncDayPills(row) {
+    const idx = row.getAttribute('data-form-index');
+    const daySelect = row.querySelector(`[name="schedules-${idx}-day"]`);
+    const pillsContainer = row.querySelector('.sch-day-pills');
+    if (!daySelect || !pillsContainer) return;
+
+    const currentVal = daySelect.value;
+    pillsContainer.querySelectorAll('.sch-day-pill-btn').forEach(btn => {
+      if (btn.getAttribute('data-day') === currentVal) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+  }
+
+  function setupDayPills(row) {
+    const idx = row.getAttribute('data-form-index');
+    const daySelect = row.querySelector(`[name="schedules-${idx}-day"]`);
+    const pillsContainer = row.querySelector('.sch-day-pills');
+    if (!daySelect || !pillsContainer) return;
+
+    pillsContainer.querySelectorAll('.sch-day-pill-btn').forEach(btn => {
+      btn.onclick = function (e) {
+        e.preventDefault();
+        const chosenDay = btn.getAttribute('data-day');
+        daySelect.value = chosenDay;
+        daySelect.dispatchEvent(new Event('change'));
+        syncDayPills(row);
+      };
+    });
+    syncDayPills(row);
+  }
+
+  function checkRowConflict(row) {
+    const idx = row.getAttribute('data-form-index');
+    const day = row.querySelector(`[name="schedules-${idx}-day"]`)?.value || '';
+    const startTime = row.querySelector(`[name="schedules-${idx}-start_time"]`)?.value || '';
+    const endTime = row.querySelector(`[name="schedules-${idx}-end_time"]`)?.value || '';
+    const roomId = row.querySelector(`[name="schedules-${idx}-room"]`)?.value || '';
+    const teacherId = teacherSelect?.value || '';
+    const scheduleId = row.querySelector(`[name="schedules-${idx}-id"]`)?.value || '';
+
+    const alertDiv = row.querySelector('.row-conflict-alert');
+    if (!day || !startTime || !endTime || !roomId) { alertDiv?.classList.add('d-none'); return; }
+    if (startTime >= endTime) {
+      alertDiv.querySelector('.alert-text').innerText = "L'heure de fin doit être postérieure à l'heure de début.";
+      alertDiv.classList.remove('d-none'); return;
+    }
+
+    let url = `/schedule/check-conflict/?type=schedule&day=${day}&start_time=${startTime}&end_time=${endTime}&room_id=${roomId}`;
+    if (teacherId) url += `&teacher_id=${teacherId}`;
+    if (courseId) url += `&group_id=${courseId}`;
+    if (scheduleId) url += `&exclude_id=${scheduleId}`;
+
+    fetch(url).then(r => r.json()).then(data => {
+      if (data.has_conflict) {
+        alertDiv.querySelector('.alert-text').innerText = data.conflicts.map(c => c.message).join(' | ');
+        alertDiv.classList.remove('d-none');
+      } else {
+        alertDiv.classList.add('d-none');
+      }
+    }).catch(err => console.error(err));
+  }
+
+  function bindRowListeners(row) {
+    row.querySelectorAll('input, select').forEach(f => f.addEventListener('change', () => {
+      updateDurationBadge(row);
+      syncDayPills(row);
+      checkRowConflict(row);
+    }));
+    teacherSelect?.addEventListener('change', () => checkRowConflict(row));
+    setupDayPills(row);
+    updateDurationBadge(row);
+  }
+
+  function bindDeleteBtn(btn) {
+    btn.addEventListener('click', function () {
+      const row = btn.closest('.schedule-form-row');
+      const cb = row.querySelector('input[type="checkbox"][name$="-DELETE"]');
+      const idInput = row.querySelector('input[name$="-id"]');
+      if (cb && idInput && idInput.value) {
+        cb.checked = true;
+        row.style.opacity = '0.4';
+        row.style.pointerEvents = 'none';
+      } else {
+        row.remove();
+        const rows = container.querySelectorAll('.schedule-form-row');
+        totalFormsInput.value = rows.length;
+        rows.forEach((r, i) => {
+          r.setAttribute('data-form-index', i);
+          r.querySelectorAll('input, select, textarea').forEach(el => {
+            if (el.id) el.id = el.id.replace(/schedules-\d+/, `schedules-${i}`);
+            if (el.name) el.name = el.name.replace(/schedules-\d+/, `schedules-${i}`);
+          });
+          const pills = r.querySelector('.sch-day-pills');
+          if (pills) pills.setAttribute('data-target-select', `schedules-${i}-day`);
+        });
+      }
+      updateEmptyState();
+    });
+  }
+
+  function addNewSlot() {
+    const count = parseInt(totalFormsInput.value);
+    const html = emptyTemplate.replace(/__prefix__/g, count).replace(/schedules-__prefix__/g, `schedules-${count}`);
+    const div = document.createElement('div');
+    div.innerHTML = html.trim();
+    const row = div.firstElementChild;
+    container.appendChild(row);
+    totalFormsInput.value = count + 1;
+    bindDeleteBtn(row.querySelector('.remove-schedule-btn'));
+    bindRowListeners(row);
+    updateEmptyState();
+  }
+
+  if (addBtn) addBtn.addEventListener('click', addNewSlot);
+  if (addBtnDashed) addBtnDashed.addEventListener('click', addNewSlot);
+
+  container.querySelectorAll('.schedule-form-row').forEach(row => {
+    const btn = row.querySelector('.remove-schedule-btn');
+    if (btn) bindDeleteBtn(btn);
+    bindRowListeners(row);
+    checkRowConflict(row);
+  });
+
+  updateEmptyState();
+});
+
+// ──────────────────────────────────────────────
+// Teacher Quick-Add popup
+// ──────────────────────────────────────────────
+(function () {
+  const overlay   = document.getElementById('quick-add-teacher-overlay');
+  const openBtn   = document.getElementById('open-quick-add-teacher');
+  const closeBtn  = document.getElementById('close-quick-add-teacher');
+  const cancelBtn = document.getElementById('qat-cancel');
+  const submitBtn = document.getElementById('qat-submit');
+  const alertBox  = document.getElementById('qat-alert');
+  const pmSel     = document.getElementById('qat-payment-method');
+
+  // Payment-method conditional fields
+  const pmFields = {
+    HOURLY:     document.getElementById('qat-field-hourly'),
+    PERCENTAGE: document.getElementById('qat-field-percentage'),
+    SESSION:    document.getElementById('qat-field-session'),
+  };
+
+  function togglePmFields() {
+    const v = pmSel.value;
+    Object.entries(pmFields).forEach(([key, el]) => {
+      if (el) el.style.display = (key === v) ? '' : 'none';
+    });
+  }
+  pmSel.addEventListener('change', togglePmFields);
+  togglePmFields();
+
+  function openModal() {
+    overlay.classList.add('qat-open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('qat-name').focus();
+  }
+
+  function closeModal() {
+    overlay.classList.remove('qat-open');
+    document.body.style.overflow = '';
+    clearErrors();
+    alertBox.style.display = 'none';
+  }
+
+  function clearErrors() {
+    ['qat-name','qat-phone','qat-email','qat-pm','qat-hourly','qat-pct','qat-session'].forEach(id => {
+      const errEl = document.getElementById(id + '-err');
+      if (errEl) errEl.textContent = '';
+    });
+    document.querySelectorAll('#quick-add-teacher-modal .form-control, #quick-add-teacher-modal .form-select')
+      .forEach(el => el.classList.remove('is-invalid'));
+  }
+
+  function showFieldError(fieldKey, msg) {
+    const map = {
+      name:               ['qat-name',    'qat-name-err'],
+      phone:              ['qat-phone',   'qat-phone-err'],
+      email:              ['qat-email',   'qat-email-err'],
+      payment_method:     ['qat-payment-method', 'qat-pm-err'],
+      hourly_rate:        ['qat-hourly-rate', 'qat-hourly-err'],
+      payment_percentage: ['qat-percentage', 'qat-pct-err'],
+      session_rate:       ['qat-session-rate', 'qat-session-err'],
+    };
+    const pair = map[fieldKey];
+    if (!pair) return;
+    const inputEl = document.getElementById(pair[0]);
+    const errEl   = document.getElementById(pair[1]);
+    if (inputEl) inputEl.classList.add('is-invalid');
+    if (errEl)   errEl.textContent = msg.replace(/^\*\s*/, '');
+  }
+
+  openBtn.addEventListener('click', openModal);
+  closeBtn.addEventListener('click', closeModal);
+  cancelBtn.addEventListener('click', closeModal);
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) closeModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay.classList.contains('qat-open')) closeModal();
+  });
+
+  submitBtn.addEventListener('click', function () {
+    clearErrors();
+    alertBox.style.display = 'none';
+
+    const body = new URLSearchParams({
+      csrfmiddlewaretoken: '{{ csrf_token }}',
+      name:               document.getElementById('qat-name').value.trim(),
+      phone:              document.getElementById('qat-phone').value.trim(),
+      email:              document.getElementById('qat-email').value.trim(),
+      payment_method:     pmSel.value,
+      hourly_rate:        document.getElementById('qat-hourly-rate').value,
+      payment_percentage: document.getElementById('qat-percentage').value,
+      session_rate:       document.getElementById('qat-session-rate').value,
+    });
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Enregistrement…';
+
+    fetch('{% url "core:teacher_quick_add" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' },
+      body: body,
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (ok && data.success) {
+        // Inject new teacher into the select & auto-select it
+        const teacherSel = document.getElementById('id_teacher');
+        const opt = document.createElement('option');
+        opt.value = data.id;
+        opt.textContent = data.name;
+        opt.selected = true;
+        teacherSel.appendChild(opt);
+        // Deselect others
+        Array.from(teacherSel.options).forEach(o => { if (o !== opt) o.selected = false; });
+        // Trigger change so conflict checker refreshes
+        teacherSel.dispatchEvent(new Event('change'));
+        closeModal();
+      } else {
+        if (data.errors) {
+          Object.entries(data.errors).forEach(([k, v]) => showFieldError(k, v));
+          // Show a summary in the alert box too
+          const msgs = Object.values(data.errors).map(m => m.replace(/^\*\s*/, '')).join(' — ');
+          alertBox.textContent = msgs;
+          alertBox.style.display = 'block';
+        } else {
+          alertBox.textContent = 'Une erreur est survenue. Veuillez réessayer.';
+          alertBox.style.display = 'block';
+        }
+      }
+    })
+    .catch(() => {
+      alertBox.textContent = 'Erreur réseau. Veuillez réessayer.';
+      alertBox.style.display = 'block';
+    })
+    .finally(() => {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> Enregistrer';
+    });
+  });
+}());
+
+// ──────────────────────────────────────────────
+// Room Quick-Add popup
+// ──────────────────────────────────────────────
+(function () {
+  const overlay   = document.getElementById('quick-add-room-overlay');
+  const closeBtn  = document.getElementById('close-quick-add-room');
+  const cancelBtn = document.getElementById('qar-cancel');
+  const submitBtn = document.getElementById('qar-submit');
+  const alertBox  = document.getElementById('qar-alert');
+
+  // Which room <select> triggered the modal (so we can auto-select after save)
+  let _targetSelect = null;
+
+  function openRoomModal(targetSelect) {
+    _targetSelect = targetSelect || null;
+    overlay.classList.add('qar-open');
+    document.body.style.overflow = 'hidden';
+    document.getElementById('qar-name').focus();
+  }
+
+  function closeRoomModal() {
+    overlay.classList.remove('qar-open');
+    document.body.style.overflow = '';
+    clearRoomErrors();
+    alertBox.style.display = 'none';
+    // Reset inputs
+    ['qar-name','qar-capacity','qar-building','qar-floor'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    _targetSelect = null;
+  }
+
+  function clearRoomErrors() {
+    ['qar-name','qar-capacity','qar-floor'].forEach(errId => {
+      const errEl = document.getElementById(errId + '-err');
+      if (errEl) errEl.textContent = '';
+    });
+    document.querySelectorAll('#quick-add-room-modal .form-control')
+      .forEach(el => el.classList.remove('is-invalid'));
+  }
+
+  function showRoomFieldError(fieldKey, msg) {
+    const map = {
+      name:     ['qar-name',     'qar-name-err'],
+      capacity: ['qar-capacity', 'qar-capacity-err'],
+      floor:    ['qar-floor',    'qar-floor-err'],
+    };
+    const pair = map[fieldKey];
+    if (!pair) return;
+    const inputEl = document.getElementById(pair[0]);
+    const errEl   = document.getElementById(pair[1]);
+    if (inputEl) inputEl.classList.add('is-invalid');
+    if (errEl)   errEl.textContent = msg.replace(/^\*\s*/, '');
+  }
+
+  // Inject the new room option into ALL room selects on the page
+  function injectRoomIntoAllSelects(id, label, targetSelect) {
+    document.querySelectorAll('select[name$="-room"]').forEach(sel => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = label;
+      sel.appendChild(opt);
+      if (sel === targetSelect) {
+        // Auto-select only in the triggering dropdown
+        Array.from(sel.options).forEach(o => { o.selected = (o === opt); });
+        sel.dispatchEvent(new Event('change'));
+      }
+    });
+  }
+
+  closeBtn.addEventListener('click', closeRoomModal);
+  cancelBtn.addEventListener('click', closeRoomModal);
+  overlay.addEventListener('click', function (e) {
+    if (e.target === overlay) closeRoomModal();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && overlay.classList.contains('qar-open')) closeRoomModal();
+  });
+
+  submitBtn.addEventListener('click', function () {
+    clearRoomErrors();
+    alertBox.style.display = 'none';
+
+    const body = new URLSearchParams({
+      csrfmiddlewaretoken: '{{ csrf_token }}',
+      name:     document.getElementById('qar-name').value.trim(),
+      capacity: document.getElementById('qar-capacity').value.trim(),
+      building: document.getElementById('qar-building').value.trim(),
+      floor:    document.getElementById('qar-floor').value.trim(),
+    });
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span> Enregistrement…';
+
+    fetch('{% url "core:room_quick_add" %}', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': '{{ csrf_token }}', 'X-Requested-With': 'XMLHttpRequest' },
+      body: body,
+    })
+    .then(r => r.json().then(data => ({ ok: r.ok, data })))
+    .then(({ ok, data }) => {
+      if (ok && data.success) {
+        injectRoomIntoAllSelects(data.id, data.label, _targetSelect);
+        closeRoomModal();
+      } else {
+        if (data.errors) {
+          Object.entries(data.errors).forEach(([k, v]) => showRoomFieldError(k, v));
+          const msgs = Object.values(data.errors).map(m => m.replace(/^\*\s*/, '')).join(' — ');
+          alertBox.textContent = msgs;
+          alertBox.style.display = 'block';
+        } else {
+          alertBox.textContent = 'Une erreur est survenue. Veuillez réessayer.';
+          alertBox.style.display = 'block';
+        }
+      }
+    })
+    .catch(() => {
+      alertBox.textContent = 'Erreur réseau. Veuillez réessayer.';
+      alertBox.style.display = 'block';
+    })
+    .finally(() => {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="bi bi-check-lg"></i> Enregistrer';
+    });
+  });
+
+  // Delegate click for all ".open-quick-add-room-btn" buttons
+  // (handles both pre-rendered rows AND dynamically added rows)
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.open-quick-add-room-btn');
+    if (!btn) return;
+    // Find the closest room select sibling
+    const wrapper = btn.closest('.d-flex');
+    const roomSel = wrapper ? wrapper.querySelector('select[name$="-room"]') : null;
+    openRoomModal(roomSel);
+  });
+}());
+</script>
+{% endblock %}

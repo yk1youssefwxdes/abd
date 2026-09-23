@@ -1,0 +1,757 @@
+{% extends "core/base.html" %}
+{% load static %}
+
+{% block title %}Paramètres du Centre - {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="mx-auto" style="max-width: 960px;">
+    
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <div>
+        <h1 class="h3 mb-1 fw-bold text-dark">
+          <i class="bi bi-sliders text-primary me-2"></i>Paramètres du Centre
+        </h1>
+        <p class="text-muted mb-0" style="font-size: 0.95rem;">
+          Gérez l'identité de l'établissement, vos règles de paiement, les alertes WhatsApp et le kiosque d'accueil.
+        </p>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button type="button" class="btn btn-outline-primary btn-sm rounded-pill px-3" onclick="switchToQuickActionsTab()">
+          <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Actions Rapides
+        </button>
+        <a href="{% url 'core:admin_reset_data' %}" class="btn btn-outline-danger btn-sm rounded-pill px-3">
+          <i class="bi bi-trash3-fill me-1"></i> Réinitialiser les données
+        </a>
+        <span class="badge bg-primary-subtle text-primary px-3 py-2 rounded-pill fw-semibold border border-primary-subtle">
+          <i class="bi bi-shield-check me-1"></i> Mode Admin
+        </span>
+      </div>
+    </div>
+
+    <!-- Form Validation Banner -->
+    {% if form.errors %}
+      <div class="alert alert-danger shadow-sm border-0 rounded-3 mb-4" role="alert">
+        <div class="fw-bold mb-1"><i class="bi bi-exclamation-triangle-fill me-2"></i>Erreur dans le formulaire</div>
+        <p class="mb-0 small">Certains champs contiennent des erreurs. Veuillez vérifier les onglets marqués d'une alerte rouge.</p>
+      </div>
+    {% endif %}
+
+    <form method="post" action="{% url 'core:system_settings' %}" id="systemSettingsForm">
+      {% csrf_token %}
+
+      <div class="card shadow-sm border-0 rounded-4 overflow-hidden mb-4">
+        <!-- Card Navigation Tabs -->
+        <div class="card-header bg-white border-bottom pt-3 px-4 pb-0">
+          <ul class="nav nav-tabs card-header-tabs flex-nowrap overflow-auto pb-1" id="settingsTab" role="tablist">
+            
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active fw-semibold" id="tab-school-btn" data-bs-toggle="tab" data-bs-target="#tab-school" type="button" role="tab">
+                <i class="bi bi-building me-2"></i>Identité du Centre
+                {% if form.SCHOOL_NAME.errors or form.SCHOOL_SUBTITLE.errors or form.SCHOOL_ADDRESS.errors or form.SCHOOL_PHONE.errors or form.SCHOOL_EMAIL.errors %}
+                  <span class="badge bg-danger rounded-circle p-1 ms-1" title="Erreurs dans cet onglet"> </span>
+                {% endif %}
+              </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-semibold" id="tab-finance-btn" data-bs-toggle="tab" data-bs-target="#tab-finance" type="button" role="tab">
+                <i class="bi bi-receipt me-2"></i>Reçus & Paiements
+                {% if form.CURRENCY_SYMBOL.errors or form.RECEIPT_FOOTER_THANK_YOU.errors or form.LATE_PAYMENT_GRACE_DAYS.errors or form.ENABLE_PRORATION.errors %}
+                  <span class="badge bg-danger rounded-circle p-1 ms-1" title="Erreurs dans cet onglet"> </span>
+                {% endif %}
+              </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-semibold" id="tab-whatsapp-btn" data-bs-toggle="tab" data-bs-target="#tab-whatsapp" type="button" role="tab">
+                <i class="bi bi-whatsapp me-2"></i>Alertes WhatsApp
+                {% if form.WHATSAPP_AUTO_ABSENCE_NOTIFICATIONS.errors or form.WHATSAPP_SESSION_NOTIFICATIONS_ENABLED.errors %}
+                  <span class="badge bg-danger rounded-circle p-1 ms-1" title="Erreurs dans cet onglet"> </span>
+                {% endif %}
+              </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-semibold" id="tab-kiosk-btn" data-bs-toggle="tab" data-bs-target="#tab-kiosk" type="button" role="tab">
+                <i class="bi bi-display me-2"></i>Borne Kiosque
+                {% if form.KIOSK_TIMEOUT.errors or form.KIOSK_SEARCH_ENABLED.errors %}
+                  <span class="badge bg-danger rounded-circle p-1 ms-1" title="Erreurs dans cet onglet"> </span>
+                {% endif %}
+              </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-semibold" id="tab-payroll-btn" data-bs-toggle="tab" data-bs-target="#tab-payroll" type="button" role="tab">
+                <i class="bi bi-person-badge me-2"></i>Professeurs
+                {% if form.DEFAULT_TEACHER_PAYMENT_METHOD.errors %}
+                  <span class="badge bg-danger rounded-circle p-1 ms-1" title="Erreurs dans cet onglet"> </span>
+                {% endif %}
+              </button>
+            </li>
+
+            <li class="nav-item" role="presentation">
+              <button class="nav-link fw-semibold text-primary" id="tab-quick-actions-btn" data-bs-toggle="tab" data-bs-target="#tab-quick-actions" type="button" role="tab">
+                <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Actions Rapides
+                {% if stats.levels_count == 0 or stats.rooms_count == 0 %}
+                  <span class="badge bg-danger rounded-pill ms-1 px-2 py-0.5" style="font-size: 0.68rem;" title="Configuration de départ requise">Départ</span>
+                {% endif %}
+              </button>
+            </li>
+
+          </ul>
+        </div>
+
+        <div class="card-body p-4">
+          <div class="tab-content" id="settingsTabContent">
+            
+            <!-- TAB 1: Identité du Centre -->
+            <div class="tab-pane fade show active" id="tab-school" role="tabpanel">
+              <div class="d-flex align-items-center mb-3">
+                <div class="p-2 rounded-3 bg-primary-subtle text-primary me-2">
+                  <i class="bi bi-building fs-5"></i>
+                </div>
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark">Informations de l'établissement</h5>
+                  <p class="text-muted small mb-0">Ces informations figurent sur les documents, reçus et en-têtes.</p>
+                </div>
+              </div>
+              <hr class="text-muted opacity-25 mb-4">
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.SCHOOL_NAME.label }} <span class="text-danger">*</span></label>
+                  {{ form.SCHOOL_NAME }}
+                  {% if form.SCHOOL_NAME.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.SCHOOL_NAME.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.SCHOOL_SUBTITLE.label }}</label>
+                  {{ form.SCHOOL_SUBTITLE }}
+                  {% if form.SCHOOL_SUBTITLE.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.SCHOOL_SUBTITLE.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label fw-semibold text-dark">{{ form.SCHOOL_ADDRESS.label }}</label>
+                  {{ form.SCHOOL_ADDRESS }}
+                  {% if form.SCHOOL_ADDRESS.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.SCHOOL_ADDRESS.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.SCHOOL_PHONE.label }}</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-telephone"></i></span>
+                    {{ form.SCHOOL_PHONE }}
+                  </div>
+                  {% if form.SCHOOL_PHONE.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.SCHOOL_PHONE.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.SCHOOL_EMAIL.label }}</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-envelope"></i></span>
+                    {{ form.SCHOOL_EMAIL }}
+                  </div>
+                  {% if form.SCHOOL_EMAIL.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.SCHOOL_EMAIL.errors.0 }}</div>{% endif %}
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 2: Reçus & Paiements -->
+            <div class="tab-pane fade" id="tab-finance" role="tabpanel">
+              <div class="d-flex align-items-center mb-3">
+                <div class="p-2 rounded-3 bg-success-subtle text-success me-2">
+                  <i class="bi bi-receipt fs-5"></i>
+                </div>
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark">Règles de paiements et reçus</h5>
+                  <p class="text-muted small mb-0">Configurez la devise, les délais d'échéance et les options d'impression.</p>
+                </div>
+              </div>
+              <hr class="text-muted opacity-25 mb-4">
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.CURRENCY_SYMBOL.label }} <span class="text-danger">*</span></label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-light text-muted"><i class="bi bi-currency-exchange"></i></span>
+                    {{ form.CURRENCY_SYMBOL }}
+                  </div>
+                  <div class="form-text">Ex: DH, MAD, $, €</div>
+                  {% if form.CURRENCY_SYMBOL.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.CURRENCY_SYMBOL.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.LATE_PAYMENT_GRACE_DAYS.label }} <span class="text-danger">*</span></label>
+                  <div class="input-group">
+                    {{ form.LATE_PAYMENT_GRACE_DAYS }}
+                    <span class="input-group-text bg-light text-muted">jour(s)</span>
+                  </div>
+                  <div class="form-text">Jours après l'échéance du mois avant d'afficher l'élève en retard.</div>
+                  {% if form.LATE_PAYMENT_GRACE_DAYS.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.LATE_PAYMENT_GRACE_DAYS.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label fw-semibold text-dark">{{ form.RECEIPT_FOOTER_THANK_YOU.label }}</label>
+                  {{ form.RECEIPT_FOOTER_THANK_YOU }}
+                  <div class="form-text">Ce texte est imprimé en bas de chaque reçu de paiement PDF.</div>
+                  {% if form.RECEIPT_FOOTER_THANK_YOU.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.RECEIPT_FOOTER_THANK_YOU.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-12 mt-4">
+                  <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border">
+                    <div class="pe-3">
+                      <label class="fw-semibold text-dark mb-1 cursor-pointer" for="{{ form.ENABLE_PRORATION.id_for_label }}">
+                        {{ form.ENABLE_PRORATION.label }}
+                      </label>
+                      <div class="text-muted small">
+                        Calcul automatique au prorata des séances restantes pour toute inscription effectuée après le 1er du mois.
+                      </div>
+                    </div>
+                    <div class="form-check form-switch fs-4 mb-0">
+                      {{ form.ENABLE_PRORATION }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 3: Alertes WhatsApp -->
+            <div class="tab-pane fade" id="tab-whatsapp" role="tabpanel">
+              <div class="d-flex align-items-center mb-3">
+                <div class="p-2 rounded-3 bg-success-subtle text-success me-2">
+                  <i class="bi bi-whatsapp fs-5"></i>
+                </div>
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark">Automatisations WhatsApp</h5>
+                  <p class="text-muted small mb-0">Choisissez les alertes automatiques envoyées aux familles.</p>
+                </div>
+              </div>
+              <hr class="text-muted opacity-25 mb-4">
+
+              <div class="row g-3">
+                <div class="col-12">
+                  <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border mb-3">
+                    <div class="pe-3">
+                      <label class="fw-semibold text-dark mb-1 cursor-pointer" for="{{ form.WHATSAPP_AUTO_ABSENCE_NOTIFICATIONS.id_for_label }}">
+                        {{ form.WHATSAPP_AUTO_ABSENCE_NOTIFICATIONS.label }}
+                      </label>
+                      <div class="text-muted small">
+                        Envoie un message WhatsApp automatique aux parents dès qu'une me absence est enregistrée.
+                      </div>
+                    </div>
+                    <div class="form-check form-switch fs-4 mb-0">
+                      {{ form.WHATSAPP_AUTO_ABSENCE_NOTIFICATIONS }}
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border">
+                    <div class="pe-3">
+                      <label class="fw-semibold text-dark mb-1 cursor-pointer" for="{{ form.WHATSAPP_SESSION_NOTIFICATIONS_ENABLED.id_for_label }}">
+                        {{ form.WHATSAPP_SESSION_NOTIFICATIONS_ENABLED.label }}
+                      </label>
+                      <div class="text-muted small">
+                        Prévient automatiquement les familles en cas de décalage d'horaire ou de changement de salle.
+                      </div>
+                    </div>
+                    <div class="form-check form-switch fs-4 mb-0">
+                      {{ form.WHATSAPP_SESSION_NOTIFICATIONS_ENABLED }}
+                    </div>
+                  </div>
+
+                  <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border">
+                    <div class="pe-3">
+                      <label class="fw-semibold text-dark mb-1 cursor-pointer" for="{{ form.WHATSAPP_AUTO_GROUP_INVITE_ON_FIRST_PAYMENT.id_for_label }}">
+                        {{ form.WHATSAPP_AUTO_GROUP_INVITE_ON_FIRST_PAYMENT.label }}
+                      </label>
+                      <div class="text-muted small">
+                        Envoie automatiquement les liens d'invitation aux groupes WhatsApp des matières inscrites dès validation du 1er paiement.
+                      </div>
+                    </div>
+                    <div class="form-check form-switch fs-4 mb-0">
+                      {{ form.WHATSAPP_AUTO_GROUP_INVITE_ON_FIRST_PAYMENT }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 4: Borne Kiosque -->
+            <div class="tab-pane fade" id="tab-kiosk" role="tabpanel">
+              <div class="d-flex align-items-center mb-3">
+                <div class="p-2 rounded-3 bg-info-subtle text-info me-2">
+                  <i class="bi bi-display fs-5"></i>
+                </div>
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark">Configuration de la borne Kiosque</h5>
+                  <p class="text-muted small mb-0">Règles pour la borne tactile à la réception du centre.</p>
+                </div>
+              </div>
+              <hr class="text-muted opacity-25 mb-4">
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.KIOSK_TIMEOUT.label }} <span class="text-danger">*</span></label>
+                  <div class="input-group">
+                    {{ form.KIOSK_TIMEOUT }}
+                    <span class="input-group-text bg-light text-muted">secondes</span>
+                  </div>
+                  <div class="form-text">Délai d'inactivité avant la réinitialisation de la borne.</div>
+                  {% if form.KIOSK_TIMEOUT.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.KIOSK_TIMEOUT.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div class="col-md-6">
+                  <div class="d-flex align-items-center justify-content-between p-3 bg-light rounded-3 border h-100">
+                    <div class="pe-2">
+                      <label class="fw-semibold text-dark mb-1 cursor-pointer" for="{{ form.KIOSK_SEARCH_ENABLED.id_for_label }}">
+                        {{ form.KIOSK_SEARCH_ENABLED.label }}
+                      </label>
+                      <div class="text-muted small">Autoriser la saisie du nom ou du téléphone.</div>
+                    </div>
+                    <div class="form-check form-switch fs-4 mb-0">
+                      {{ form.KIOSK_SEARCH_ENABLED }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 5: Professeurs -->
+            <div class="tab-pane fade" id="tab-payroll" role="tabpanel">
+              <div class="d-flex align-items-center mb-3">
+                <div class="p-2 rounded-3 bg-warning-subtle text-warning me-2">
+                  <i class="bi bi-person-badge fs-5"></i>
+                </div>
+                <div>
+                  <h5 class="fw-bold mb-0 text-dark">Options pour le corps enseignant</h5>
+                  <p class="text-muted small mb-0">Valeurs par défaut lors de la création de nouveaux professeurs.</p>
+                </div>
+              </div>
+              <hr class="text-muted opacity-25 mb-4">
+
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label fw-semibold text-dark">{{ form.DEFAULT_TEACHER_PAYMENT_METHOD.label }} <span class="text-danger">*</span></label>
+                  {{ form.DEFAULT_TEACHER_PAYMENT_METHOD }}
+                  <div class="form-text">Mode de calcul présélectionné dans la fiche professeur.</div>
+                  {% if form.DEFAULT_TEACHER_PAYMENT_METHOD.errors %}<div class="text-danger small mt-1"><i class="bi bi-exclamation-circle me-1"></i>{{ form.DEFAULT_TEACHER_PAYMENT_METHOD.errors.0 }}</div>{% endif %}
+                </div>
+              </div>
+            </div>
+
+            <!-- TAB 6: Actions Rapides & Démarrage -->
+            <div class="tab-pane fade" id="tab-quick-actions" role="tabpanel">
+              
+              <!-- Tab Header -->
+              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <div class="d-flex align-items-center">
+                  <div class="p-2 rounded-3 bg-warning-subtle text-warning me-2">
+                    <i class="bi bi-lightning-charge-fill fs-5"></i>
+                  </div>
+                  <div>
+                    <h5 class="fw-bold mb-0 text-dark">Actions Rapides & Initialisation</h5>
+                    <p class="text-muted small mb-0">Outils en un clic pour configurer l'école, générer les plannings ou tester les fonctionnalités.</p>
+                  </div>
+                </div>
+              </div>
+              <hr class="text-muted opacity-25 mb-4">
+
+              <!-- System Onboarding Notice (if levels or rooms missing) -->
+              {% if stats.levels_count == 0 or stats.rooms_count == 0 %}
+              <div class="alert alert-warning border-0 shadow-sm rounded-4 p-3 mb-4 d-flex align-items-start gap-3">
+                <div class="p-2 rounded-circle bg-warning text-dark flex-shrink-0">
+                  <i class="bi bi-rocket-takeoff-fill fs-5"></i>
+                </div>
+                <div class="flex-grow-1">
+                  <h6 class="fw-bold mb-1 text-dark">Initialisation recommandée</h6>
+                  <p class="small text-muted mb-2">
+                    Votre base de données ne contient pas encore les éléments de base pour démarrer. Cliquez sur <strong>Initialiser les niveaux scolaires</strong> puis <strong>Créer les salles types</strong> ci-dessous.
+                  </p>
+                  <div class="d-flex gap-2 flex-wrap">
+                    {% if stats.levels_count == 0 %}
+                    <button type="button" class="btn btn-primary btn-sm rounded-pill px-3" onclick="runQuickAction('setup_levels', this)">
+                      <i class="bi bi-mortarboard-fill me-1"></i> 1. Initialiser les niveaux
+                    </button>
+                    {% endif %}
+                    {% if stats.rooms_count == 0 %}
+                    <button type="button" class="btn btn-success btn-sm rounded-pill px-3 text-white" onclick="runQuickAction('setup_rooms', this)">
+                      <i class="bi bi-door-open-fill me-1"></i> 2. Créer les salles types
+                    </button>
+                    {% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endif %}
+
+              <!-- System Live Status Overview -->
+              <div class="bg-light rounded-4 p-3 border mb-4">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="fw-bold small text-uppercase text-muted" style="letter-spacing: 0.5px;">
+                    <i class="bi bi-activity text-primary me-1"></i> État des Entités du Système
+                  </span>
+                  <span class="badge bg-white text-dark border shadow-xs rounded-pill small">Temps Réel</span>
+                </div>
+                <div class="row g-2 text-center">
+                  <div class="col-6 col-md-2">
+                    <div class="bg-white rounded-3 p-2 border shadow-xs h-100">
+                      <div class="fs-4 fw-bold text-dark">{{ stats.levels_count }}</div>
+                      <div class="small text-muted" style="font-size: 0.78rem;">Niveaux</div>
+                      {% if stats.levels_count > 0 %}
+                        <span class="badge bg-success-subtle text-success mt-1" style="font-size: 0.65rem;">Prêt</span>
+                      {% else %}
+                        <span class="badge bg-danger-subtle text-danger mt-1" style="font-size: 0.65rem;">À créer</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="bg-white rounded-3 p-2 border shadow-xs h-100">
+                      <div class="fs-4 fw-bold text-dark">{{ stats.rooms_count }}</div>
+                      <div class="small text-muted" style="font-size: 0.78rem;">Salles</div>
+                      {% if stats.rooms_count > 0 %}
+                        <span class="badge bg-success-subtle text-success mt-1" style="font-size: 0.65rem;">Prêt</span>
+                      {% else %}
+                        <span class="badge bg-warning-subtle text-warning mt-1" style="font-size: 0.65rem;">À créer</span>
+                      {% endif %}
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="bg-white rounded-3 p-2 border shadow-xs h-100">
+                      <div class="fs-4 fw-bold text-dark">{{ stats.groups_count }}</div>
+                      <div class="small text-muted" style="font-size: 0.78rem;">Groupes</div>
+                      <span class="badge bg-primary-subtle text-primary mt-1" style="font-size: 0.65rem;">Actifs</span>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="bg-white rounded-3 p-2 border shadow-xs h-100">
+                      <div class="fs-4 fw-bold text-dark">{{ stats.sessions_count }}</div>
+                      <div class="small text-muted" style="font-size: 0.78rem;">Séances</div>
+                      <span class="badge bg-info-subtle text-info mt-1" style="font-size: 0.65rem;">Planifiées</span>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="bg-white rounded-3 p-2 border shadow-xs h-100">
+                      <div class="fs-4 fw-bold text-dark">{{ stats.teachers_count }}</div>
+                      <div class="small text-muted" style="font-size: 0.78rem;">Professeurs</div>
+                      <span class="badge bg-secondary-subtle text-secondary mt-1" style="font-size: 0.65rem;">Inscrits</span>
+                    </div>
+                  </div>
+                  <div class="col-6 col-md-2">
+                    <div class="bg-white rounded-3 p-2 border shadow-xs h-100">
+                      <div class="fs-4 fw-bold text-dark">{{ stats.students_count }}</div>
+                      <div class="small text-muted" style="font-size: 0.78rem;">Élèves</div>
+                      <span class="badge bg-success-subtle text-success mt-1" style="font-size: 0.65rem;">Inscrits</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Action Cards Grid -->
+              <div class="row g-3">
+                
+                <!-- Action 1: Setup Levels -->
+                <div class="col-md-6">
+                  <div class="card h-100 border rounded-4 shadow-sm p-3 position-relative overflow-hidden" style="border-left: 4px solid #3b82f6 !important;">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="p-2 rounded-3 bg-primary-subtle text-primary">
+                          <i class="bi bi-mortarboard-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <h6 class="fw-bold mb-0 text-dark">Niveaux & Catégories</h6>
+                          <span class="small text-muted">Structure académique marocaine</span>
+                        </div>
+                      </div>
+                      <span class="badge bg-primary-subtle text-primary rounded-pill">15 niveaux</span>
+                    </div>
+                    <p class="small text-muted mb-3">
+                      Crée les catégories (Garderie, Primaire, Collège, Lycée) et les 15 niveaux officiels (PS, MS, GS, 1AP à 6AP, 1ASC à 3ASC, TC, 1Bac, 2Bac).
+                    </p>
+                    <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                      <span class="small text-muted"><i class="bi bi-info-circle me-1"></i>Idempotent (sans doublons)</span>
+                      <button type="button" class="btn btn-primary btn-sm rounded-pill px-3 fw-bold shadow-xs" onclick="runQuickAction('setup_levels', this)">
+                        <i class="bi bi-magic me-1"></i> Initialiser niveaux
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action 2: Setup Rooms -->
+                <div class="col-md-6">
+                  <div class="card h-100 border rounded-4 shadow-sm p-3 position-relative overflow-hidden" style="border-left: 4px solid #10b981 !important;">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="p-2 rounded-3 bg-success-subtle text-success">
+                          <i class="bi bi-door-open-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <h6 class="fw-bold mb-0 text-dark">Salles de Classe Types</h6>
+                          <span class="small text-muted">Salles de cours et laboratoires</span>
+                        </div>
+                      </div>
+                      <span class="badge bg-success-subtle text-success rounded-pill">6 salles</span>
+                    </div>
+                    <p class="small text-muted mb-3">
+                      Crée un ensemble de salles prêtes à l'emploi (Salle 1 à 4 standards, Salle Informatique et Laboratoire Sciences) avec leurs capacités.
+                    </p>
+                    <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                      <span class="small text-muted"><i class="bi bi-info-circle me-1"></i>Capacité 20-30 places</span>
+                      <button type="button" class="btn btn-success btn-sm text-white rounded-pill px-3 fw-bold shadow-xs" onclick="runQuickAction('setup_rooms', this)">
+                        <i class="bi bi-plus-circle-fill me-1"></i> Créer les salles
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action 3: Generate Sessions -->
+                <div class="col-md-6">
+                  <div class="card h-100 border rounded-4 shadow-sm p-3 position-relative overflow-hidden" style="border-left: 4px solid #06b6d4 !important;">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="p-2 rounded-3 bg-info-subtle text-info">
+                          <i class="bi bi-calendar2-week-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <h6 class="fw-bold mb-0 text-dark">Générer les Séances</h6>
+                          <span class="small text-muted">Plannings des 4 prochaines semaines</span>
+                        </div>
+                      </div>
+                      <span class="badge bg-info-subtle text-info rounded-pill">4 semaines</span>
+                    </div>
+                    <p class="small text-muted mb-3">
+                      Calcule et planifie toutes les séances à venir à partir des créneaux hebdomadaires des groupes actifs. Met à jour le calendrier.
+                    </p>
+                    <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                      <span class="small text-muted"><i class="bi bi-clock me-1"></i>Selon les horaires de groupes</span>
+                      <button type="button" class="btn btn-info btn-sm text-white rounded-pill px-3 fw-bold shadow-xs" onclick="runQuickAction('generate_sessions', this)">
+                        <i class="bi bi-play-fill me-1"></i> Planifier séances
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action 4: Init Admin -->
+                <div class="col-md-6">
+                  <div class="card h-100 border rounded-4 shadow-sm p-3 position-relative overflow-hidden" style="border-left: 4px solid #64748b !important;">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="p-2 rounded-3 bg-secondary-subtle text-dark">
+                          <i class="bi bi-shield-lock-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <h6 class="fw-bold mb-0 text-dark">Compte Super-Admin</h6>
+                          <span class="small text-muted">Identifiant admin de secours</span>
+                        </div>
+                      </div>
+                      <span class="badge bg-dark-subtle text-dark rounded-pill">admin / 1234</span>
+                    </div>
+                    <p class="small text-muted mb-3">
+                      Garantit l'existence du compte administrateur <code>admin</code> avec le mot de passe <code>1234</code> pour sécuriser l'accès en cas d'oubli.
+                    </p>
+                    <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                      <span class="small text-muted"><i class="bi bi-shield-check me-1"></i>Accès de secours</span>
+                      <button type="button" class="btn btn-outline-dark btn-sm rounded-pill px-3 fw-bold" onclick="runQuickAction('init_admin', this)">
+                        <i class="bi bi-person-check-fill me-1"></i> Vérifier admin
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action 5: Demo Data -->
+                <div class="col-md-6">
+                  <div class="card h-100 border rounded-4 shadow-sm p-3 position-relative overflow-hidden" style="border-left: 4px solid #f59e0b !important;">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="p-2 rounded-3 bg-warning-subtle text-warning">
+                          <i class="bi bi-database-fill-add fs-5"></i>
+                        </div>
+                        <div>
+                          <h6 class="fw-bold mb-0 text-dark">Données de Démonstration</h6>
+                          <span class="small text-muted">Jeu d'essai complet</span>
+                        </div>
+                      </div>
+                      <span class="badge bg-warning-subtle text-warning rounded-pill">Élèves & Profs</span>
+                    </div>
+                    <p class="small text-muted mb-3">
+                      Remplit l'application avec des dizaines d'élèves, professeurs, cours, présences et paiements réalistes pour tester toutes les fonctionnalités.
+                    </p>
+                    <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                      <span class="small text-muted"><i class="bi bi-exclamation-circle text-warning me-1"></i>Écrase les données existantes</span>
+                      <button type="button" class="btn btn-warning btn-sm rounded-pill px-3 fw-bold text-dark shadow-xs" data-bs-toggle="modal" data-bs-target="#confirmDemoModal">
+                        <i class="bi bi-cloud-arrow-down-fill me-1"></i> Charger démo...
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Action 6: Reset Data -->
+                <div class="col-md-6">
+                  <div class="card h-100 border rounded-4 shadow-sm p-3 position-relative overflow-hidden" style="border-left: 4px solid #ef4444 !important;">
+                    <div class="d-flex align-items-start justify-content-between mb-2">
+                      <div class="d-flex align-items-center gap-2">
+                        <div class="p-2 rounded-3 bg-danger-subtle text-danger">
+                          <i class="bi bi-trash3-fill fs-5"></i>
+                        </div>
+                        <div>
+                          <h6 class="fw-bold mb-0 text-danger">Purger Toutes les Données</h6>
+                          <span class="small text-muted">Remise à zéro complète</span>
+                        </div>
+                      </div>
+                      <span class="badge bg-danger-subtle text-danger rounded-pill">Danger</span>
+                    </div>
+                    <p class="small text-muted mb-3">
+                      Efface irréversiblement tous les élèves, professeurs, inscriptions, séances et paiements pour recommencer à zéro.
+                    </p>
+                    <div class="mt-auto pt-2 border-top d-flex align-items-center justify-content-between">
+                      <span class="small text-danger"><i class="bi bi-shield-slash me-1"></i>Action irréversible</span>
+                      <a href="{% url 'core:admin_reset_data' %}" class="btn btn-outline-danger btn-sm rounded-pill px-3 fw-bold">
+                        <i class="bi bi-arrow-right me-1"></i> Page de purge
+                      </a>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Submit Footer -->
+        <div class="card-footer bg-light px-4 py-3 border-top d-flex justify-content-between align-items-center">
+          <span class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i>Les modifications sont enregistrées instantanément.
+          </span>
+          <button type="submit" class="btn btn-primary px-4 py-2 fw-bold rounded-3 shadow-sm">
+            <i class="bi bi-check-lg me-2"></i>Enregistrer les modifications
+          </button>
+        </div>
+      </div>
+    </form>
+
+    <!-- Hidden Form for Quick Actions -->
+    <form id="quickActionForm" method="post" action="{% url 'core:system_quick_action' %}" style="display: none;">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="quickActionInput">
+    </form>
+
+    <!-- Confirmation Modal for Demo Data -->
+    <div class="modal fade" id="confirmDemoModal" tabindex="-1" aria-labelledby="confirmDemoModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
+          <div class="modal-header bg-warning text-dark border-0">
+            <h5 class="modal-title fw-bold" id="confirmDemoModalLabel">
+              <i class="bi bi-database-fill-add me-2"></i> Charger les Données de Démonstration
+            </h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+          </div>
+          <div class="modal-body p-4">
+            <p class="fw-bold text-dark mb-2">
+              Voulez-vous charger un jeu de données de test complet ?
+            </p>
+            <p class="text-muted small mb-3">
+              Cette opération va générer environ 60 élèves, 10 professeurs, 6 salles, 16 cours, leurs séances de cours, des paiements et des pointages de présence pour explorer l'ERP en conditions réelles.
+            </p>
+            <div class="alert alert-warning border-0 small mb-0 rounded-3">
+              <i class="bi bi-exclamation-triangle-fill me-1"></i>
+              <strong>Attention :</strong> Toutes les données opérationnelles existantes seront réinitialisées et remplacées par les données de test.
+            </div>
+          </div>
+          <div class="modal-footer bg-light border-0">
+            <button type="button" class="btn btn-outline-secondary rounded-pill px-3" data-bs-dismiss="modal">Annuler</button>
+            <button type="button" class="btn btn-warning rounded-pill px-4 fw-bold text-dark shadow-xs" id="confirmDemoBtn" onclick="runQuickAction('load_demo', this)">
+              <i class="bi bi-cloud-arrow-down-fill me-1"></i> Confirmer et Charger
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const STORAGE_KEY = 'active_system_settings_tab';
+
+  // Helper to switch to quick actions tab
+  window.switchToQuickActionsTab = function() {
+    const btn = document.getElementById('tab-quick-actions-btn');
+    if (btn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+      new bootstrap.Tab(btn).show();
+    }
+  };
+
+  // Helper to execute quick action with loading spinner
+  window.runQuickAction = function(actionName, btnElement) {
+    if (btnElement) {
+      btnElement.disabled = true;
+      btnElement.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Traitement...';
+    }
+    // Also disable modal button if inside modal
+    const modalBtn = document.getElementById('confirmDemoBtn');
+    if (modalBtn && modalBtn !== btnElement) {
+      modalBtn.disabled = true;
+      modalBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Chargement...';
+    }
+    document.getElementById('quickActionInput').value = actionName;
+    document.getElementById('quickActionForm').submit();
+  };
+
+  // Update footer visibility (hide save footer when on quick actions tab)
+  function updateFooterVisibility(targetSelector) {
+    const footer = document.querySelector('.card-footer');
+    if (footer) {
+      if (targetSelector === '#tab-quick-actions') {
+        footer.classList.add('d-none');
+      } else {
+        footer.classList.remove('d-none');
+      }
+    }
+  }
+
+  // 1. Check URL param ?tab=quick-actions first, else restore from localStorage
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('tab') === 'quick-actions') {
+    switchToQuickActionsTab();
+    updateFooterVisibility('#tab-quick-actions');
+  } else {
+    const savedTab = localStorage.getItem(STORAGE_KEY);
+    if (savedTab) {
+      const btn = document.querySelector(`button[data-bs-target="${savedTab}"]`);
+      if (btn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+        const tab = new bootstrap.Tab(btn);
+        tab.show();
+        updateFooterVisibility(savedTab);
+      }
+    }
+  }
+
+  // 2. Auto-switch to first tab containing error if form validation failed
+  const errorPane = document.querySelector('.tab-pane .text-danger');
+  if (errorPane) {
+    const parentPane = errorPane.closest('.tab-pane');
+    if (parentPane && parentPane.id) {
+      const btn = document.querySelector(`button[data-bs-target="#${parentPane.id}"]`);
+      if (btn && typeof bootstrap !== 'undefined' && bootstrap.Tab) {
+        const tab = new bootstrap.Tab(btn);
+        tab.show();
+        updateFooterVisibility(`#${parentPane.id}`);
+      }
+    }
+  }
+
+  // 3. Save active tab on click & update footer visibility
+  const tabButtons = document.querySelectorAll('button[data-bs-toggle="tab"]');
+  tabButtons.forEach(btn => {
+    btn.addEventListener('shown.bs.tab', function(e) {
+      const target = e.target.getAttribute('data-bs-target');
+      if (target) {
+        localStorage.setItem(STORAGE_KEY, target);
+        updateFooterVisibility(target);
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

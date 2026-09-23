@@ -1,0 +1,447 @@
+{% extends 'core/base.html' %}
+{% block title %}Notifications d'absence WhatsApp — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:whatsapp_dashboard' %}" class="context-bar-link"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Absences WhatsApp</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-whatsapp me-2" style="color:#25d366;"></i>Notifications d'absence WhatsApp
+    </h1>
+    <p class="page-subtitle">
+      Informez les parents des absences de leurs enfants via WhatsApp
+      {% if not status_data.offline and status_data.status == 'READY' %}
+        <span class="badge bg-success ms-2"><i class="bi bi-shield-fill-check"></i> Service Connecté</span>
+      {% else %}
+        <span class="badge bg-secondary ms-2"><i class="bi bi-exclamation-triangle"></i> Mode Manuel / Web</span>
+      {% endif %}
+    </p>
+  </div>
+</div>
+
+<div class="row g-4 mb-4">
+  <!-- Date picker -->
+  <div class="col-md-7">
+    <div class="card">
+      <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+          <div class="col-md-8">
+            <label class="form-label fw-600">Sélectionner la date des séances</label>
+            <input type="date" class="form-control" name="date" value="{{ target_date|date:'Y-m-d' }}">
+          </div>
+          <div class="col-md-4">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-search me-1"></i> Rechercher
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI -->
+  <div class="col-md-5">
+    <div class="stat-card h-100">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="stat-card-label">Total absences du jour</div>
+          <div class="stat-card-value" style="color:var(--warning);">{{ total_absences }}</div>
+          <small class="text-muted">{{ target_date|date:"d/m/Y" }}</small>
+        </div>
+        <div class="stat-card-icon" style="background:#fef3c7;">
+          <i class="bi bi-person-x-fill" style="color:#d97706;"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Absences card -->
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <span class="stat-card-icon" style="width:26px;height:26px;font-size:12px;background:#fef3c7;">
+        <i class="bi bi-person-x-fill" style="color:#d97706;"></i>
+      </span>
+      <span class="fw-600">Absences du {{ target_date|date:"d/m/Y" }}</span>
+      {% if absence_contacts %}
+        <span class="badge badge-warning ms-1">{{ total_absences }}</span>
+      {% endif %}
+    </div>
+    {% if absence_contacts %}
+      <div class="d-flex flex-wrap gap-2">
+        <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#bulkAbsenceTemplateModal">
+          <i class="bi bi-pencil-square me-1"></i> Modifier le message pour tous
+        </button>
+        {% if not status_data.offline and status_data.status == 'READY' %}
+          <button type="button" class="btn btn-sm btn-success" id="auto-send-all-btn"
+                  style="background:#25d366;border-color:#25d366;">
+            <i class="bi bi-send-fill me-1"></i> Notifier tous (Auto)
+          </button>
+        {% else %}
+          <button type="button" class="btn btn-sm btn-success" id="send-all-btn"
+                  style="background:#25d366;border-color:#25d366;">
+            <i class="bi bi-whatsapp me-1"></i> Notifier tous (Manuel)
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  {% if absence_contacts %}
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead>
+          <tr>
+            <th style="width:40px;">#</th>
+            <th>Élève</th>
+            <th>Parent</th>
+            <th>Cours</th>
+            <th>Heure</th>
+            <th>Salle</th>
+            <th>Message</th>
+            <th class="text-end" style="width:160px;">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for contact in absence_contacts %}
+            <tr data-student-row="{{ forloop.counter }}" data-student-name="{{ contact.student_name }}" data-parent-name="{{ contact.name }}" data-course-name="{{ contact.course_name }}" data-phone="{{ contact.phone }}">
+              <td class="text-muted">{{ forloop.counter }}</td>
+              <td><strong>{{ contact.student_name }}</strong></td>
+              <td>{{ contact.name }}</td>
+              <td>
+                <span class="badge badge-info">{{ contact.course_name }}</span>
+                {% if contact.teacher %}<br><small class="text-muted">{{ contact.teacher }}</small>{% endif %}
+              </td>
+              <td>{{ contact.time|default:"—" }}</td>
+              <td>{{ contact.room|default:"—" }}</td>
+              <td>
+                <button class="btn btn-sm btn-outline-secondary"
+                        data-bs-toggle="modal"
+                        data-bs-target="#absenceModal{{ forloop.counter }}">
+                  <i class="bi bi-pencil me-1"></i> Voir / Modifier
+                </button>
+              </td>
+              <td class="text-end">
+                {% if not status_data.offline and status_data.status == 'READY' %}
+                  <div class="d-flex align-items-center justify-content-end gap-1">
+                    <button class="btn btn-sm btn-success auto-send-btn row-send-btn" 
+                            data-phone="{{ contact.phone }}" 
+                            data-message="{{ contact.message }}"
+                            style="background:#25d366;border-color:#25d366;">
+                      <i class="bi bi-send-fill"></i> Notifier
+                    </button>
+                    <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-sm btn-outline-secondary row-wa-link" title="Ouvrir dans WhatsApp Web">
+                      <i class="bi bi-whatsapp text-success"></i>
+                    </a>
+                  </div>
+                {% else %}
+                  <a href="{{ contact.whatsapp_link }}" target="_blank"
+                     class="btn btn-sm btn-success whatsapp-link row-wa-link"
+                     style="background:#25d366;border-color:#25d366;">
+                    <i class="bi bi-whatsapp"></i> Notifier
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="card-body empty-state text-center py-5">
+      <div class="empty-state-icon" style="color:var(--success);opacity:1;font-size:42px;"><i class="bi bi-check-circle-fill"></i></div>
+      <div class="empty-state-title mt-2 fw-700">Aucune absence enregistrée</div>
+      <div class="empty-state-text text-muted">Tous les élèves pointés étaient présents pour cette date.</div>
+    </div>
+  {% endif %}
+</div>
+
+<!-- Modal 1: Bulk Message Template Editor -->
+<div class="modal fade" id="bulkAbsenceTemplateModal" tabindex="-1" aria-labelledby="bulkAbsenceTemplateModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bulkAbsenceTemplateModalLabel">
+          <i class="bi bi-pencil-square text-primary me-2"></i>Modifier le message d'absence pour tous
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <p class="text-muted small mb-3">
+          Vous pouvez personnaliser le texte ci-dessous. Les variables entre accolades seront automatiquement remplacées par les informations réelles :
+        </p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <button type="button" class="btn btn-xs btn-outline-secondary insert-var-abs" data-var="{parent}">+ {parent}</button>
+          <button type="button" class="btn btn-xs btn-outline-secondary insert-var-abs" data-var="{eleve}">+ {eleve}</button>
+          <button type="button" class="btn btn-xs btn-outline-secondary insert-var-abs" data-var="{cours}">+ {cours}</button>
+          <button type="button" class="btn btn-xs btn-outline-secondary insert-var-abs" data-var="{date}">+ {date}</button>
+          <button type="button" class="btn btn-xs btn-outline-secondary insert-var-abs" data-var="{ecole}">+ {ecole}</button>
+        </div>
+        <div class="mb-3">
+          <label for="bulkAbsenceTextarea" class="form-label fw-600">Modèle de message d'absence :</label>
+          <textarea id="bulkAbsenceTextarea" class="form-control" rows="5" style="font-size: 14px;">Bonjour {parent}, nous vous informons que {eleve} était absent(e) au cours de {cours} du {date}. Merci de contacter l'administration {ecole} pour plus d'informations.</textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+        <button type="button" class="btn btn-primary" id="applyBulkAbsenceBtn" data-bs-dismiss="modal">
+          <i class="bi bi-check-lg me-1"></i> Appliquer à tous les messages
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal 2: Individual Modals (Editable per student) -->
+{% for contact in absence_contacts %}
+  <div class="modal fade" id="absenceModal{{ forloop.counter }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-whatsapp text-success me-2"></i>Notification — {{ contact.name }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-2 mb-3">
+            <div class="col-6"><div class="info-label">Élève</div><div class="info-value fw-600">{{ contact.student_name }}</div></div>
+            <div class="col-6"><div class="info-label">Parent</div><div class="info-value">{{ contact.name }}</div></div>
+            <div class="col-6"><div class="info-label">Téléphone</div><div class="info-value">{{ contact.phone }}</div></div>
+            {% if contact.course_name %}<div class="col-6"><div class="info-label">Cours</div><div class="info-value">{{ contact.course_name }}</div></div>{% endif %}
+            {% if contact.time %}<div class="col-6"><div class="info-label">Heure</div><div class="info-value">{{ contact.time }}</div></div>{% endif %}
+            {% if contact.room %}<div class="col-6"><div class="info-label">Salle</div><div class="info-value">{{ contact.room }}</div></div>{% endif %}
+          </div>
+          <hr>
+          <div class="form-label mb-2 fw-600">Message WhatsApp (modifiable) :</div>
+          <textarea class="form-control ind-absence-textarea" id="indAbsenceTextarea{{ forloop.counter }}" data-row="{{ forloop.counter }}" rows="5" style="font-size:13.5px;">{{ contact.message }}</textarea>
+          <small class="text-muted d-block mt-1">Vous pouvez modifier directement le texte avant d'envoyer.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
+          {% if not status_data.offline and status_data.status == 'READY' %}
+            <button class="btn btn-success modal-abs-send-btn" data-row="{{ forloop.counter }}" data-phone="{{ contact.phone }}" data-bs-dismiss="modal"
+                    style="background:#25d366;border-color:#25d366;">
+              <i class="bi bi-send-fill me-1"></i> Envoyer
+            </button>
+          {% else %}
+            <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-success modal-abs-wa-link" data-row="{{ forloop.counter }}" data-phone="{{ contact.phone }}" data-bs-dismiss="modal"
+               style="background:#25d366;border-color:#25d366;">
+              <i class="bi bi-whatsapp me-1"></i> Envoyer via WhatsApp
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+
+<style>
+  .fw-600 { font-weight: 600; }
+  .info-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+  // CSRF Setup
+  $.ajaxSetup({
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  });
+
+  const schoolName = "{{ SCHOOL_NAME|escapejs }}";
+  const targetDateStr = "{{ target_date|date:'d/m/Y'|escapejs }}";
+
+  function makeWaLink(phone, msg) {
+    let cleanPhone = phone.replace(/[^0-9]/g, '');
+    if (cleanPhone.startsWith('0')) {
+      cleanPhone = '212' + cleanPhone.slice(1);
+    }
+    return "https://wa.me/" + cleanPhone + "?text=" + encodeURIComponent(msg);
+  }
+
+  // Insert variable into bulk template textarea
+  $('.insert-var-abs').on('click', function() {
+    const v = $(this).data('var');
+    const $txt = $('#bulkAbsenceTextarea');
+    const pos = $txt.prop('selectionStart');
+    const val = $txt.val();
+    $txt.val(val.substring(0, pos) + v + val.substring(pos));
+    $txt.focus();
+  });
+
+  // Apply Bulk Template to all rows
+  $('#applyBulkAbsenceBtn').on('click', function() {
+    const template = $('#bulkAbsenceTextarea').val();
+    
+    $('tr[data-student-row]').each(function() {
+      const $row = $(this);
+      const rowNum = $row.data('student-row');
+      const studentName = $row.data('student-name');
+      const parentName = $row.data('parent-name');
+      const courseName = $row.data('course-name');
+      const phone = $row.data('phone');
+
+      let personalizedMsg = template
+        .replace(/{parent}/g, parentName)
+        .replace(/{eleve}/g, studentName)
+        .replace(/{cours}/g, courseName)
+        .replace(/{date}/g, targetDateStr)
+        .replace(/{ecole}/g, schoolName);
+
+      // Update modal textarea
+      $('#indAbsenceTextarea' + rowNum).val(personalizedMsg);
+
+      // Update buttons
+      $row.find('.row-send-btn').data('message', personalizedMsg);
+      $row.find('.row-wa-link').attr('href', makeWaLink(phone, personalizedMsg));
+      $('#absenceModal' + rowNum).find('.modal-abs-send-btn').data('message', personalizedMsg);
+      $('#absenceModal' + rowNum).find('.modal-abs-wa-link').attr('href', makeWaLink(phone, personalizedMsg));
+    });
+
+    alert("Le modèle d'absence a été appliqué avec succès à tous les destinataires.");
+  });
+
+  // When user edits an individual absence message
+  $('.ind-absence-textarea').on('input change', function() {
+    const $textarea = $(this);
+    const rowNum = $textarea.data('row');
+    const newMsg = $textarea.val();
+    const $row = $('tr[data-student-row="' + rowNum + '"]');
+    const phone = $row.data('phone');
+
+    $row.find('.row-send-btn').data('message', newMsg);
+    $row.find('.row-wa-link').attr('href', makeWaLink(phone, newMsg));
+    $('#absenceModal' + rowNum).find('.modal-abs-send-btn').data('message', newMsg);
+    $('#absenceModal' + rowNum).find('.modal-abs-wa-link').attr('href', makeWaLink(phone, newMsg));
+  });
+
+  function sendSingleAbsence($btn, phone, message, $row) {
+    $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span>...');
+    
+    $.ajax({
+      url: "{% url 'core:whatsapp_send_ajax' %}",
+      method: "POST",
+      data: { phone: phone, message: message, message_type: "absence_notification" },
+      success: function (response) {
+        $btn.removeClass('btn-success').addClass('btn-secondary').html('<i class="bi bi-check-lg"></i> Envoyé').prop('disabled', true);
+        if ($row) {
+          $row.addClass('table-success').css('transition', 'all 0.5s ease');
+          $row.find('.row-send-btn').removeClass('btn-success').addClass('btn-secondary').html('<i class="bi bi-check-lg"></i> Envoyé').prop('disabled', true);
+        }
+      },
+      error: function (xhr) {
+        $btn.prop('disabled', false)
+          .removeClass('btn-success btn-secondary')
+          .addClass('btn-danger')
+          .html('<i class="bi bi-arrow-clockwise"></i> Réessayer');
+        alert("Erreur lors de l'envoi : " + (xhr.responseJSON?.error || xhr.statusText));
+      }
+    });
+  }
+
+  // Row Send
+  $(document).on('click', '.row-send-btn', function () {
+    const $btn = $(this);
+    const phone = $btn.data('phone');
+    const message = $btn.data('message');
+    const $row = $btn.closest('tr');
+    sendSingleAbsence($btn, phone, message, $row);
+  });
+
+  // Modal Send
+  $(document).on('click', '.modal-abs-send-btn', function () {
+    const $modalBtn = $(this);
+    const rowNum = $modalBtn.data('row');
+    const phone = $modalBtn.data('phone');
+    const message = $('#indAbsenceTextarea' + rowNum).val();
+    const $row = $('tr[data-student-row="' + rowNum + '"]');
+    const $rowBtn = $row.find('.row-send-btn');
+    sendSingleAbsence($rowBtn, phone, message, $row);
+  });
+
+  // Bulk Auto-Send
+  $('#auto-send-all-btn').on('click', function () {
+    const contacts = [];
+    $('table .row-send-btn').each(function () {
+      const $btn = $(this);
+      if (!$btn.hasClass('btn-secondary') && !$btn.closest('tr').hasClass('table-success')) {
+        contacts.push({
+          btn: $btn,
+          phone: $btn.data('phone'),
+          message: $btn.data('message')
+        });
+      }
+    });
+
+    const total = contacts.length;
+    if (total === 0) {
+      alert('Toutes les notifications ont déjà été envoyées !');
+      return;
+    }
+
+    if (!confirm(`Voulez-vous envoyer automatiquement ${total} messages d'absence ?`)) {
+      return;
+    }
+
+    const $btn = $(this);
+    const origHtml = $btn.html();
+    $btn.prop('disabled', true).html(`<i class="bi bi-hourglass-split"></i> Envoi en cours...`);
+
+    let index = 0;
+    function sendNext() {
+      if (index >= total) {
+        $btn.html('<i class="bi bi-check-circle"></i> Terminé !');
+        setTimeout(function () {
+          $btn.html(origHtml).prop('disabled', false);
+        }, 3000);
+        return;
+      }
+
+      const item = contacts[index];
+      const $itemBtn = item.btn;
+      $itemBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span>');
+      
+      $.ajax({
+        url: "{% url 'core:whatsapp_send_ajax' %}",
+        method: "POST",
+        data: { phone: item.phone, message: item.message, message_type: "absence_notification" },
+        success: function () {
+          $itemBtn.removeClass('btn-success').addClass('btn-secondary').html('<i class="bi bi-check"></i> Envoyé').prop('disabled', true);
+          $itemBtn.closest('tr').addClass('table-success');
+        },
+        error: function () {
+          $itemBtn.removeClass('btn-success').addClass('btn-danger').html('<i class="bi bi-x"></i> Échec').prop('disabled', false);
+        },
+        complete: function () {
+          index++;
+          setTimeout(sendNext, 1200);
+        }
+      });
+    }
+
+    sendNext();
+  });
+
+  // Manual bulk send
+  $('#send-all-btn').on('click', function() {
+    const $links = $('.row-wa-link');
+    if ($links.length === 0) return;
+    if (confirm(`Ouvrir ${$links.length} fenêtres WhatsApp ?`)) {
+      $links.each(function (i, el) {
+        setTimeout(function () {
+          window.open($(el).attr('href'), '_blank');
+        }, i * 800);
+      });
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends 'core/base.html' %}
+{% block title %}Calendrier Mensuel — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-calendar3"></i> Planification Mensuelle</span>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+  <!-- Header -->
+  <div class="page-header d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="page-title"><i class="bi bi-calendar3 me-2" style="color:var(--primary);"></i>Planification Mensuelle</h1>
+      <p class="page-subtitle">{{ month_name_fr }} {{ year }}</p>
+    </div>
+    <div class="d-flex gap-2">
+      <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-primary">
+        <i class="bi bi-calendar-week"></i> Vue Hebdomadaire
+      </a>
+      <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary">
+        <i class="bi bi-list"></i> Vue Liste
+      </a>
+    </div>
+  </div>
+
+  <!-- Filters & Month Navigation -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="row align-items-center g-3">
+        <!-- Month navigation -->
+        <div class="col-md-4 text-start">
+          <div class="btn-group">
+            <a href="?year={{ prev_year }}&month={{ prev_month }}&group_id={{ selected_group_id|default:'' }}&teacher_id={{ selected_teacher_id|default:'' }}&room_id={{ selected_room_id|default:'' }}" class="btn btn-outline-secondary">
+              <i class="bi bi-chevron-left"></i> Précédent
+            </a>
+            <a href="?year={{ today.year }}&month={{ today.month }}" class="btn btn-outline-secondary">
+              Aujourd'hui
+            </a>
+            <a href="?year={{ next_year }}&month={{ next_month }}&group_id={{ selected_group_id|default:'' }}&teacher_id={{ selected_teacher_id|default:'' }}&room_id={{ selected_room_id|default:'' }}" class="btn btn-outline-secondary">
+              Suivant <i class="bi bi-chevron-right"></i>
+            </a>
+          </div>
+        </div>
+
+        <!-- Filters Form -->
+        <div class="col-md-8">
+          <form method="get" class="row g-2 justify-content-end">
+            <input type="hidden" name="year" value="{{ year }}">
+            <input type="hidden" name="month" value="{{ month }}">
+
+            <div class="col-sm-3">
+              <select name="group_id" class="form-select form-select-sm">
+                <option value="">-- Tous les Groupes --</option>
+                {% for g in groups %}
+                  <option value="{{ g.id }}" {% if selected_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-sm-3">
+              <select name="teacher_id" class="form-select form-select-sm">
+                <option value="">-- Tous les Enseignants --</option>
+                {% for t in teachers %}
+                  <option value="{{ t.id }}" {% if selected_teacher_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-sm-3">
+              <select name="room_id" class="form-select form-select-sm">
+                <option value="">-- Toutes les Salles --</option>
+                {% for r in rooms %}
+                  <option value="{{ r.id }}" {% if selected_room_id == r.id %}selected{% endif %}>{{ r.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="col-sm-2">
+              <button type="submit" class="btn btn-primary btn-sm w-100"><i class="bi bi-search"></i> Filtrer</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Grid -->
+  <div class="card shadow-sm border-0">
+    <div class="table-responsive">
+      <table class="table table-bordered mb-0 calendar-table" style="min-width: 900px; table-layout: fixed;">
+        <thead>
+          <tr class="bg-light text-center">
+            <th style="width: 14.28%;">Lundi</th>
+            <th style="width: 14.28%;">Mardi</th>
+            <th style="width: 14.28%;">Mercredi</th>
+            <th style="width: 14.28%;">Jeudi</th>
+            <th style="width: 14.28%;">Vendredi</th>
+            <th style="width: 14.28%;">Samedi</th>
+            <th style="width: 14.28%;">Dimanche</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for week in weeks %}
+            <tr style="min-height: 120px;">
+              {% for day in week %}
+                <td class="p-2 {% if not day.is_current_month %}bg-light opacity-50{% endif %} {% if day.is_today %}bg-light-blue{% endif %}" style="height: 140px; vertical-align: top; border: 1px solid var(--border);">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="fw-bold {% if day.is_today %}badge bg-primary text-white rounded-circle{% endif %}" style="font-size: 13.5px; width:24px; height:24px; display:inline-flex; align-items:center; justify-content:center;">
+                      {{ day.date.day }}
+                    </span>
+                  </div>
+                  
+                  <!-- Sessions List -->
+                  <div class="d-flex flex-column gap-1 overflow-auto" style="max-height: 110px;">
+                    {% for sess in day.sessions %}
+                      <div class="p-1 rounded text-start" style="font-size: 11.5px; border-left: 3.5px solid {% if sess.status == 'DONE' %}#10b981{% elif sess.status == 'CANCELLED' %}#ef4444{% else %}#3b82f6{% endif %}; background: var(--surface-alt); margin-bottom: 2px;">
+                        <div class="d-flex justify-content-between">
+                          <strong style="color:var(--text);">{{ sess.start_time|time:"H:i" }}-{{ sess.end_time|time:"H:i" }}</strong>
+                          <span class="text-muted">{{ sess.room.name }}</span>
+                        </div>
+                        <div class="text-truncate fw-semibold">{{ sess.group.name }}</div>
+                        <div class="text-muted text-truncate">{{ sess.substitute_teacher.name|default:sess.group.teacher.name }}</div>
+                        
+                        <div class="d-flex justify-content-between align-items-center mt-1">
+                          <span class="badge {% if sess.status == 'DONE' %}bg-success{% elif sess.status == 'CANCELLED' %}bg-danger{% else %}bg-primary{% endif %}" style="font-size: 9.5px; padding: 2px 4px;">
+                            {{ sess.get_status_display }}
+                          </span>
+                          <div class="btn-group">
+                            <a href="{% url 'core:session_attendance' sess.id %}" class="btn btn-link p-0 text-decoration-none" title="Présences" style="font-size: 11px;">
+                              <i class="bi bi-people-fill"></i>
+                            </a>
+                            {% if sess.status == 'CANCELLED' %}
+                              <a href="{% url 'core:create_makeup_session' %}?original_session_id={{ sess.id }}" class="btn btn-link p-0 ms-1 text-danger text-decoration-none" title="Rattrapage" style="font-size: 11px;">
+                                <i class="bi bi-arrow-repeat"></i>
+                              </a>
+                            {% endif %}
+                          </div>
+                        </div>
+                      </div>
+                    {% endfor %}
+                  </div>
+                </td>
+              {% endfor %}
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<style>
+  .calendar-table td {
+    transition: background 0.2s ease;
+  }
+  .calendar-table td:hover {
+    background: var(--surface-alt);
+  }
+  .bg-light-blue {
+    background-color: rgba(59, 130, 246, 0.08) !important;
+  }
+</style>
+{% endblock %}

@@ -1,0 +1,78 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ action }} une Catégorie — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:levels_list' %}"><i class="bi bi-layers-fill"></i> Niveaux</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:level_categories_list' %}">Catégories</a>
+  {% if category %}
+    <span class="context-bar-sep">›</span>
+    <a href="{% url 'core:level_category_detail' category.id %}">{{ category.name }}</a>
+  {% endif %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ action }}</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-collection-fill me-2" style="color:var(--primary);"></i>{{ action }} une Catégorie
+    </h1>
+    <p class="page-subtitle">{% if category %}Modifier la catégorie de niveau{% else %}Créer une nouvelle catégorie{% endif %}</p>
+  </div>
+  <a href="{% if category %}{% url 'core:level_category_detail' category.id %}{% else %}{% url 'core:level_categories_list' %}{% endif %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour
+  </a>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-lg-6">
+    <div class="card">
+      <div class="card-body">
+        <form method="post" novalidate>
+          {% csrf_token %}
+
+          {% if form.non_field_errors %}
+            <div class="alert alert-danger mb-4">
+              {% for error in form.non_field_errors %}
+                <div><i class="bi bi-exclamation-circle-fill"></i> {{ error }}</div>
+              {% endfor %}
+            </div>
+          {% endif %}
+
+          <div class="mb-4">
+            <label for="{{ form.name.id_for_label }}" class="form-label">
+              {{ form.name.label }} <span style="color:var(--danger);">*</span>
+            </label>
+            {{ form.name }}
+            <div class="form-text">Le code sera généré automatiquement à partir du nom.</div>
+            {% if form.name.errors %}
+              <div class="invalid-feedback d-block">{% for e in form.name.errors %}{{ e }}{% endfor %}</div>
+            {% endif %}
+          </div>
+
+          {% if category %}
+            <div class="mb-4">
+              <label class="form-label">Code actuel</label>
+              <div>
+                <code class="px-2 py-1 rounded" style="background:var(--surface-alt);font-size:14px;">{{ category.code }}</code>
+                <div class="form-text mt-1">Le code est généré automatiquement depuis le nom et ne peut pas être modifié directement.</div>
+              </div>
+            </div>
+          {% endif %}
+
+          <hr class="my-4" style="border-color:var(--border);">
+          <div class="d-flex justify-content-end gap-2">
+            <a href="{% if category %}{% url 'core:level_category_detail' category.id %}{% else %}{% url 'core:level_categories_list' %}{% endif %}" class="btn btn-outline-secondary">Annuler</a>
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-check-lg"></i> Enregistrer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

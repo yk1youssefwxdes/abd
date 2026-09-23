@@ -1,0 +1,358 @@
+{% extends 'core/base_public.html' %}
+{% load static %}
+
+{% block title %}Mon Tableau de Bord — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .teacher-hero {
+    background: linear-gradient(135deg, #1e3a8a, #2563eb);
+    border-radius: 16px;
+    padding: 28px 24px;
+    color: #ffffff;
+    margin-bottom: 24px;
+    box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .teacher-hero::before {
+    content: '';
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    width: 120px;
+    height: 120px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 50%;
+  }
+
+  .teacher-name {
+    font-size: 24px;
+    font-weight: 800;
+    margin: 0;
+  }
+
+  .teacher-subtitle {
+    font-size: 14px;
+    opacity: 0.85;
+    margin: 4px 0 0 0;
+  }
+
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #1f2937;
+    margin: 32px 0 16px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-title i {
+    color: #2563eb;
+  }
+
+  .session-card {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    padding: 18px;
+    margin-bottom: 14px;
+    transition: all 0.2s ease;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .session-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.04), 0 4px 6px -4px rgba(0, 0, 0, 0.04);
+    border-color: #2563eb;
+  }
+
+  .session-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .session-group-name {
+    font-size: 16px;
+    font-weight: 700;
+    color: #111827;
+    margin: 0;
+  }
+
+  .session-subject {
+    font-size: 13px;
+    color: #6b7280;
+    margin-top: 2px;
+  }
+
+  .badge-status {
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-transform: uppercase;
+  }
+
+  .badge-planned {
+    background: #fef3c7;
+    color: #d97706;
+  }
+
+  .badge-done {
+    background: #d1fae5;
+    color: #059669;
+  }
+
+  .badge-cancelled {
+    background: #fee2e2;
+    color: #dc2626;
+  }
+
+  .session-details {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 8px;
+    font-size: 13px;
+    color: #4b5563;
+    background: #f9fafb;
+    padding: 10px 14px;
+    border-radius: 8px;
+  }
+
+  .detail-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .detail-item i {
+    color: #9ca3af;
+  }
+
+  .session-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 4px;
+  }
+
+  .btn-action {
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .btn-action-primary {
+    background: #2563eb;
+    color: #ffffff;
+    border: 1px solid #2563eb;
+  }
+
+  .btn-action-primary:hover {
+    background: #1d4ed8;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.2);
+  }
+
+  .btn-action-secondary {
+    background: transparent;
+    color: #4b5563;
+    border: 1px solid #d1d5db;
+  }
+
+  .btn-action-secondary:hover {
+    background: #f3f4f6;
+    color: #111827;
+    border-color: #9ca3af;
+  }
+
+  .empty-state {
+    background: #ffffff;
+    border: 1px dashed #d1d5db;
+    border-radius: 14px;
+    padding: 32px 16px;
+    text-align: center;
+    color: #9ca3af;
+  }
+
+  .empty-state i {
+    font-size: 28px;
+    display: block;
+    margin-bottom: 8px;
+    opacity: 0.6;
+  }
+
+  .empty-state span {
+    font-size: 13px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Teacher Info Banner -->
+<div class="teacher-hero">
+  <h1 class="teacher-name">Bonjour, {{ teacher.name }}</h1>
+  <p class="teacher-subtitle">
+    <i class="bi bi-calendar3 me-1"></i> Aujourd'hui : {{ today|date:"l d F Y" }}
+  </p>
+</div>
+
+<!-- Category 1: Today's Sessions -->
+<h2 class="section-title">
+  <i class="bi bi-clock-history"></i>
+  <span>Séances d'aujourd'hui</span>
+</h2>
+
+{% if today_sessions %}
+  {% for session in today_sessions %}
+    <div class="session-card">
+      <div class="session-header">
+        <div>
+          <h3 class="session-group-name">{{ session.group.name }}</h3>
+          <div class="session-subject">{{ session.group.subject }}</div>
+        </div>
+        <span class="badge-status {% if session.status == 'PLANNED' %}badge-planned{% elif session.status == 'DONE' %}badge-done{% else %}badge-cancelled{% endif %}">
+          {% if session.status == 'PLANNED' %}Planifiée{% elif session.status == 'DONE' %}Validée{% else %}Annulée{% endif %}
+        </span>
+      </div>
+
+      <div class="session-details">
+        <div class="detail-item" title="Horaire de la séance">
+          <i class="bi bi-clock"></i>
+          <span>{{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}</span>
+        </div>
+        <div class="detail-item" title="Salle de classe">
+          <i class="bi bi-door-open"></i>
+          <span>{{ session.room.name }}</span>
+        </div>
+        <div class="detail-item" title="Nombre d'élèves">
+          <i class="bi bi-people"></i>
+          <span>{{ session.group.students.count }} élève{{ session.group.students.count|pluralize }}</span>
+        </div>
+      </div>
+
+      <div class="session-actions">
+        {% if session.status == 'PLANNED' %}
+          <a href="{% url 'core:public_teacher_attendance_session' session.id %}" class="btn-action btn-action-primary">
+            <i class="bi bi-check2-square"></i> Faire l'appel
+          </a>
+        {% elif session.status == 'DONE' %}
+          <a href="{% url 'core:public_teacher_attendance_session' session.id %}" class="btn-action btn-action-secondary">
+            <i class="bi bi-pencil-square"></i> Modifier l'appel
+          </a>
+        {% else %}
+          <button class="btn-action btn-action-secondary" disabled>Séance Annulée</button>
+        {% endif %}
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <i class="bi bi-journal-x"></i>
+    <span>Aucune séance programmée pour aujourd'hui.</span>
+  </div>
+{% endif %}
+
+
+<!-- Category 2: Pending Past Sessions -->
+<h2 class="section-title">
+  <i class="bi bi-exclamation-circle"></i>
+  <span>Séances précédentes en attente</span>
+</h2>
+
+{% if pending_sessions %}
+  {% for session in pending_sessions %}
+    <div class="session-card">
+      <div class="session-header">
+        <div>
+          <h3 class="session-group-name">{{ session.group.name }}</h3>
+          <div class="session-subject">{{ session.group.subject }}</div>
+        </div>
+        <span class="badge-status badge-planned">En attente</span>
+      </div>
+
+      <div class="session-details">
+        <div class="detail-item" title="Date de la séance">
+          <i class="bi bi-calendar-event"></i>
+          <span class="fw-bold text-danger">{{ session.date|date:"d/m/Y" }}</span>
+        </div>
+        <div class="detail-item" title="Horaire">
+          <i class="bi bi-clock"></i>
+          <span>{{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}</span>
+        </div>
+        <div class="detail-item" title="Salle">
+          <i class="bi bi-door-open"></i>
+          <span>{{ session.room.name }}</span>
+        </div>
+      </div>
+
+      <div class="session-actions">
+        <a href="{% url 'core:public_teacher_attendance_session' session.id %}" class="btn-action btn-action-primary">
+          <i class="bi bi-check2-square"></i> Faire l'appel (En retard)
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <i class="bi bi-check2-all" style="color: #10b981;"></i>
+    <span style="color: #4b5563;">Toutes vos séances passées ont été validées !</span>
+  </div>
+{% endif %}
+
+
+<!-- Category 3: Completed History (Last 7 Days) -->
+<h2 class="section-title">
+  <i class="bi bi-check-circle"></i>
+  <span>Historique récent (validées)</span>
+</h2>
+
+{% if history_sessions %}
+  {% for session in history_sessions %}
+    <div class="session-card" style="opacity: 0.95;">
+      <div class="session-header">
+        <div>
+          <h3 class="session-group-name">{{ session.group.name }}</h3>
+          <div class="session-subject">{{ session.group.subject }}</div>
+        </div>
+        <span class="badge-status badge-done">Validée</span>
+      </div>
+
+      <div class="session-details">
+        <div class="detail-item" title="Date de la séance">
+          <i class="bi bi-calendar-check"></i>
+          <span>{{ session.date|date:"d/m/Y" }}</span>
+        </div>
+        <div class="detail-item" title="Horaire">
+          <i class="bi bi-clock"></i>
+          <span>{{ session.start_time|time:"H:i" }} – {{ session.end_time|time:"H:i" }}</span>
+        </div>
+        <div class="detail-item" title="Salle">
+          <i class="bi bi-door-open"></i>
+          <span>{{ session.room.name }}</span>
+        </div>
+      </div>
+
+      <div class="session-actions">
+        <a href="{% url 'core:public_teacher_attendance_session' session.id %}" class="btn-action btn-action-secondary">
+          <i class="bi bi-pencil-square"></i> Modifier l'appel
+        </a>
+      </div>
+    </div>
+  {% endfor %}
+{% else %}
+  <div class="empty-state">
+    <i class="bi bi-clock-history"></i>
+    <span>Aucun historique récent.</span>
+  </div>
+{% endif %}
+{% endblock %}

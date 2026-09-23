@@ -1,0 +1,636 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Cockpit Directeur — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="context-bar-sep">›</span>
+<span class="context-bar-current"><i class="bi bi-speedometer2"></i> Cockpit Directeur</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ─── Premium Cockpit Styling ─── */
+  .cp-hero {
+    position: relative;
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 35%, #1d4ed8 70%, #0369a1 100%);
+    color: #fff;
+    padding: 32px;
+    margin-bottom: 24px;
+    overflow: hidden;
+    box-shadow: var(--shadow-lg);
+  }
+
+  .cp-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+  }
+
+  .cp-hero-inner {
+    position: relative;
+    z-index: 2;
+  }
+
+  .cp-hero-title {
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 4px;
+  }
+
+  .cp-hero-sub {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 20px;
+  }
+
+  /* Grid layouts */
+  .cp-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    margin-bottom: 24px;
+  }
+
+  .cp-kpi-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    transition: transform .2s, box-shadow .2s;
+  }
+
+  .cp-kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .cp-kpi-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+  }
+
+  .cp-kpi-val {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--text-primary);
+    line-height: 1.1;
+  }
+
+  .cp-kpi-lbl {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Sections */
+  .cp-row {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+
+  .cp-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+    box-shadow: var(--shadow-sm);
+    height: 100%;
+  }
+
+  .cp-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 12px;
+  }
+
+  .cp-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+  }
+
+  .cp-card-title i {
+    font-size: 18px;
+  }
+
+  /* Progress bars */
+  .cp-progress-container {
+    margin-bottom: 12px;
+  }
+
+  .cp-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+  }
+
+  .cp-progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .cp-progress-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Heat badge / alert tag */
+  .cp-alert-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .cp-alert-red { background: #fee2e2; color: #ef4444; }
+  .cp-alert-orange { background: #fef3c7; color: #d97706; }
+  .cp-alert-green { background: #d1fae5; color: #10b981; }
+
+  /* Quick action buttons grid */
+  .cp-actions-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .cp-action-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    text-decoration: none;
+    transition: all 0.2s;
+    text-align: center;
+  }
+
+  .cp-action-btn:hover {
+    background: var(--primary-light);
+    border-color: var(--primary);
+    color: var(--primary-dark);
+    transform: translateY(-2px);
+    text-decoration: none;
+  }
+
+  .cp-action-btn i {
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+
+  .cp-action-btn span {
+    font-size: 12.5px;
+    font-weight: 700;
+  }
+
+  /* Lists */
+  .cp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .cp-list-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px;
+    background: var(--surface-alt);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+  }
+
+  @media (max-width: 1024px) {
+    .cp-kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .cp-row { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 576px) {
+    .cp-kpi-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-2">
+
+  <!-- ── HERO BANNER ── -->
+  <div class="cp-hero">
+    <div class="cp-hero-inner">
+      <h1 class="cp-hero-title">Cockpit Analytique Directeur</h1>
+      <p class="cp-hero-sub">Données et indicateurs consolidés de performance · Afnane center</p>
+      
+      <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'core:export_revenue_pdf' %}" class="btn btn-light btn-sm text-primary fw-bold shadow-sm">
+          <i class="bi bi-file-earmark-pdf me-1"></i> PDF Revenus
+        </a>
+        <a href="{% url 'core:export_attendance_pdf' %}" class="btn btn-light btn-sm text-danger fw-bold shadow-sm">
+          <i class="bi bi-file-earmark-pdf me-1"></i> PDF Absences
+        </a>
+        <a href="{% url 'core:export_payroll_pdf' %}" class="btn btn-light btn-sm text-success fw-bold shadow-sm">
+          <i class="bi bi-file-earmark-pdf me-1"></i> PDF Paie
+        </a>
+        <a href="{% url 'core:export_churn_pdf' %}" class="btn btn-light btn-sm text-warning fw-bold shadow-sm">
+          <i class="bi bi-file-earmark-pdf me-1"></i> PDF Rétention
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── KPI GRID ── -->
+  <div class="cp-kpi-grid">
+    <div class="cp-kpi-card">
+      <div class="cp-kpi-icon" style="background:#ede9fe; color:#6366f1;">
+        <i class="bi bi-people-fill"></i>
+      </div>
+      <div>
+        <div class="cp-kpi-val">{{ counts.students }}</div>
+        <div class="cp-kpi-lbl">Élèves Actifs</div>
+      </div>
+    </div>
+
+    <div class="cp-kpi-card">
+      <div class="cp-kpi-icon" style="background:#e0f7fa; color:#00acc1;">
+        <i class="bi bi-person-badge-fill"></i>
+      </div>
+      <div>
+        <div class="cp-kpi-val">{{ counts.teachers }}</div>
+        <div class="cp-kpi-lbl">Professeurs</div>
+      </div>
+    </div>
+
+    <div class="cp-kpi-card">
+      <div class="cp-kpi-icon" style="background:#e8f5e9; color:#4caf50;">
+        <i class="bi bi-collection-fill"></i>
+      </div>
+      <div>
+        <div class="cp-kpi-val">{{ counts.groups }}</div>
+        <div class="cp-kpi-lbl">Groupes Actifs</div>
+      </div>
+    </div>
+
+    <div class="cp-kpi-card">
+      <div class="cp-kpi-icon" style="background:#fff3e0; color:#ff9800;">
+        <i class="bi bi-house-door-fill"></i>
+      </div>
+      <div>
+        <div class="cp-kpi-val">{{ counts.rooms }}</div>
+        <div class="cp-kpi-lbl">Salles Suivies</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 1: REVENUE TRENDS & CURRENT MONTH SUMMARY ── -->
+  <div class="cp-row">
+    <!-- Revenue Evolution Chart -->
+    <div class="cp-card">
+      <div class="cp-card-header">
+        <h2 class="cp-card-title"><i class="bi bi-graph-up-arrow me-2" style="color:var(--primary);"></i>Évolution des gains (6 mois)</h2>
+        <a href="{% url 'core:analytics_revenue' %}" class="btn btn-outline-primary btn-sm fw-bold">Détail revenus</a>
+      </div>
+      <div style="position: relative; height: 300px;">
+        <canvas id="revenueTrendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Current Month Financial Box -->
+    <div class="cp-card">
+      <div class="cp-card-header">
+        <h2 class="cp-card-title"><i class="bi bi-wallet2 me-2" style="color:#10b981;"></i>Finance ce mois</h2>
+      </div>
+      
+      <div class="d-flex flex-column gap-3">
+        <div>
+          <div style="font-size: 28px; font-weight: 800; color: #10b981; line-height: 1;">
+            {{ revenue.collected|floatformat:0 }} <span style="font-size:14px; font-weight:600;">DH</span>
+          </div>
+          <div style="font-size:12px; color:var(--text-secondary); font-weight:600;">Encaissé ce mois</div>
+        </div>
+
+        <div class="cp-progress-container">
+          <div class="cp-progress-label">
+            <span>Taux de recouvrement</span>
+            <span>{{ revenue.collection_rate }}%</span>
+          </div>
+          <div class="cp-progress-bar">
+            <div class="cp-progress-fill" style="width: {{ revenue.collection_rate }}%; background: #10b981;"></div>
+          </div>
+        </div>
+
+        <div class="border-top pt-3">
+          <div class="d-flex justify-content-between mb-2">
+            <span style="font-size:13px; color:var(--text-secondary);">Montant Attendu</span>
+            <span class="fw-bold" style="font-size:13.5px;">{{ revenue.expected|floatformat:0 }} DH</span>
+          </div>
+          <div class="d-flex justify-content-between mb-2">
+            <span style="font-size:13px; color:var(--text-secondary);">Reste à Recouvrer</span>
+            <span class="fw-bold text-warning" style="font-size:13.5px;">{{ revenue.outstanding|floatformat:0 }} DH</span>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span style="font-size:13px; color:var(--text-secondary);">Élèves en impayé</span>
+            <span class="fw-bold text-danger" style="font-size:13.5px;">{{ revenue.unpaid_students }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 2: OPERATIONS & QUICK ACTIONS ── -->
+  <div class="cp-row">
+    <!-- Operational Alerts -->
+    <div class="cp-card">
+      <div class="cp-card-header">
+        <h2 class="cp-card-title"><i class="bi bi-shield-check me-2" style="color:#ef4444;"></i>Alertes de planification &amp; conflits</h2>
+        <a href="{% url 'core:analytics_operational' %}" class="btn btn-outline-danger btn-sm fw-bold">Détail opérations</a>
+      </div>
+      
+      <div class="cp-list">
+        <div class="cp-list-item">
+          <div class="d-flex align-items-center gap-3">
+            <span class="cp-alert-pill {% if health.uncompleted_past_sessions > 0 %}cp-alert-red{% else %}cp-alert-green{% endif %}">
+              {{ health.uncompleted_past_sessions }}
+            </span>
+            <div>
+              <div class="fw-bold" style="font-size:13.5px;">Séances passées non complétées</div>
+              <div style="font-size:12px; color:var(--text-secondary);">Séances restées à l'état "Planifié"</div>
+            </div>
+          </div>
+          {% if health.uncompleted_past_sessions > 0 %}
+          <a href="{% url 'core:session_exceptions_list' %}" class="btn btn-outline-secondary btn-sm p-1 px-2" style="font-size:11px;">Résoudre</a>
+          {% endif %}
+        </div>
+
+        <div class="cp-list-item">
+          <div class="d-flex align-items-center gap-3">
+            <span class="cp-alert-pill {% if health.conflict_count > 0 %}cp-alert-red{% else %}cp-alert-green{% endif %}">
+              {{ health.conflict_count }}
+            </span>
+            <div>
+              <div class="fw-bold" style="font-size:13.5px;">Conflits d'horaires détectés</div>
+              <div style="font-size:12px; color:var(--text-secondary);">Superpositions de salles, profs ou élèves</div>
+            </div>
+          </div>
+          {% if health.conflict_count > 0 %}
+          <a href="{% url 'core:schedule_conflicts' %}" class="btn btn-outline-danger btn-sm p-1 px-2" style="font-size:11px;">Voir conflits</a>
+          {% endif %}
+        </div>
+
+        <div class="cp-list-item">
+          <div class="d-flex align-items-center gap-3">
+            <span class="cp-alert-pill {% if health.groups_no_session_this_week > 0 %}cp-alert-orange{% else %}cp-alert-green{% endif %}">
+              {{ health.groups_no_session_this_week }}
+            </span>
+            <div>
+              <div class="fw-bold" style="font-size:13.5px;">Groupes inactifs cette semaine</div>
+              <div style="font-size:12px; color:var(--text-secondary);">Groupes sans aucune séance programmée</div>
+            </div>
+          </div>
+          <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-secondary btn-sm p-1 px-2" style="font-size:11px;">Planifier</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Health index & quick navigation -->
+    <div class="cp-card d-flex flex-column justify-content-between">
+      <div>
+        <div class="cp-card-header">
+          <h2 class="cp-card-title"><i class="bi bi-heart-pulse me-2" style="color:#e94560;"></i>Santé opérationnelle</h2>
+        </div>
+        <div class="text-center py-3">
+          <div style="font-size: 52px; font-weight: 900; color: {% if health.health_score >= 80 %}#10b981{% elif health.health_score >= 50 %}#ff9800{% else %}#ef4444{% endif %}; line-height: 1;">
+            {{ health.health_score }}<span style="font-size:20px; font-weight:600;">/100</span>
+          </div>
+          <div style="font-size:12px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; margin-top:6px; letter-spacing:0.04em;">
+            Index de complétude de planning
+          </div>
+        </div>
+      </div>
+
+      <div class="border-top pt-3 mt-3">
+        <div class="cp-card-title mb-3" style="font-size:12.5px; color:var(--text-secondary);">Rapports &amp; Feuilles de Calcul</div>
+        <div class="cp-actions-grid">
+          <a href="{% url 'core:export_csv_view' %}?type=revenue" class="cp-action-btn">
+            <i class="bi bi-file-earmark-spreadsheet" style="color:#217346;"></i>
+            <span>CSV Revenus</span>
+          </a>
+          <a href="{% url 'core:export_csv_view' %}?type=attendance" class="cp-action-btn">
+            <i class="bi bi-file-earmark-spreadsheet" style="color:#217346;"></i>
+            <span>CSV Absences</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── ROW 3: AT-RISK STUDENTS & CHURN WARNINGS ── -->
+  <div class="cp-row">
+    <!-- At Risk Students Preview -->
+    <div class="cp-card">
+      <div class="cp-card-header">
+        <h2 class="cp-card-title"><i class="bi bi-person-x-fill me-2" style="color:#f59e0b;"></i>Élèves à haut risque d'absences (Top 5)</h2>
+        <a href="{% url 'core:analytics_attendance' %}" class="btn btn-outline-warning btn-sm fw-bold">Suivi absences</a>
+      </div>
+      
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 13.5px;">
+          <thead class="table-light">
+            <tr>
+              <th>Élève</th>
+              <th class="text-center">Absences</th>
+              <th>Taux d'absence</th>
+              <th>Notification Parent</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for s in at_risk_students %}
+            <tr>
+              <td class="fw-bold">{{ s.student_name }}</td>
+              <td class="text-center fw-bold text-danger">{{ s.absences }}/{{ s.total_sessions }}</td>
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="cp-progress-bar flex-grow-1" style="width: 80px;">
+                    <div class="cp-progress-fill" style="width: {{ s.absence_rate }}%; background: #ef4444;"></div>
+                  </div>
+                  <span class="fw-bold">{{ s.absence_rate }}%</span>
+                </div>
+              </td>
+              <td>
+                {% if s.wa_link %}
+                <a href="{{ s.wa_link }}" target="_blank" class="btn btn-success btn-sm p-1 px-2" style="font-size: 11px;">
+                  <i class="bi bi-whatsapp"></i> Contacter
+                </a>
+                {% else %}
+                <span class="text-muted" style="font-size: 11px;">Pas de contact</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-center py-3 text-muted">Aucun élève à risque d'absence.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Student Churn Preview -->
+    <div class="cp-card">
+      <div class="cp-card-header">
+        <h2 class="cp-card-title"><i class="bi bi-person-dash-fill me-2" style="color:#c0392b;"></i>Risques de désinscription</h2>
+        <a href="{% url 'core:analytics_students' %}" class="btn btn-outline-danger btn-sm fw-bold">Rétention</a>
+      </div>
+      
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size: 13px;">
+          <thead class="table-light">
+            <tr>
+              <th>Élève</th>
+              <th>Signaux d'alerte</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in churn_signals %}
+            <tr>
+              <td class="fw-bold">{{ c.student_name }}</td>
+              <td>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for sig in c.signals %}
+                  <span class="badge bg-danger text-wrap" style="font-size:9px;">{{ sig }}</span>
+                  {% endfor %}
+                </div>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="2" class="text-center py-3 text-muted">Aucun signal d'inactivité détecté.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'chart.umd.min.js' %}"></script>
+<script>
+  (function() {
+    // Inject and parse months data for chart
+    const monthlySeries = [
+      {% for m in monthly_series %}
+      {
+        month: "{{ m.month_label }}",
+        expected: {{ m.revenue_expected }},
+        paid: {{ m.revenue_paid }}
+      }{% if not forloop.last %},{% endif %}
+      {% endfor %}
+    ];
+
+    const labels = monthlySeries.map(x => x.month);
+    const expectedData = monthlySeries.map(x => x.expected);
+    const paidData = monthlySeries.map(x => x.paid);
+
+    const ctx = document.getElementById('revenueTrendChart').getContext('2d');
+
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Revenu Encaissé (DH)',
+            data: paidData,
+            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+            hoverBackgroundColor: 'rgba(10, 150, 100, 1)',
+            borderRadius: 6,
+            order: 2
+          },
+          {
+            label: 'Attendu Théorique (DH)',
+            data: expectedData,
+            borderColor: 'rgba(99, 102, 241, 0.7)',
+            borderWidth: 2,
+            type: 'line',
+            pointBackgroundColor: '#6366f1',
+            tension: 0.3,
+            fill: false,
+            order: 1
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: {
+              boxWidth: 12,
+              font: { size: 11, weight: 'bold' }
+            }
+          },
+          tooltip: {
+            padding: 12,
+            cornerRadius: 8
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              callback: function(value) { return value.toLocaleString('fr-FR') + ' DH'; }
+            }
+          }
+        }
+      }
+    });
+
+  })();
+</script>
+{% endblock %}

@@ -1,0 +1,317 @@
+{% extends 'core/base.html' %}
+{% block title %}Rappel de session WhatsApp — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:whatsapp_dashboard' %}" class="context-bar-link"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Rappel de session</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-whatsapp me-2" style="color:#25d366;"></i>Rappel de session
+    </h1>
+    <p class="page-subtitle">
+      {{ session.group.name }} — {{ session.date|date:"l d F Y" }}
+      {% if not status_data.offline and status_data.status == 'READY' %}
+        <span class="badge bg-success ms-2"><i class="bi bi-shield-fill-check"></i> Service Actif</span>
+      {% else %}
+        <span class="badge bg-secondary ms-2"><i class="bi bi-exclamation-triangle"></i> Mode Manuel</span>
+      {% endif %}
+    </p>
+  </div>
+  <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour
+  </a>
+</div>
+
+<!-- Session info -->
+<div class="card mb-4">
+  <div class="card-body">
+    <div class="row g-3">
+      <div class="col-md-3">
+        <div class="info-label">Cours</div>
+        <div class="info-value fw-600">{{ session.group.name }}</div>
+      </div>
+      <div class="col-md-2">
+        <div class="info-label">Date</div>
+        <div class="info-value">{{ session.date|date:"d/m/Y" }}</div>
+      </div>
+      <div class="col-md-2">
+        <div class="info-label">Horaire</div>
+        <div class="info-value" style="color:var(--primary);">{{ session.start_time }} – {{ session.end_time }}</div>
+      </div>
+      <div class="col-md-2">
+        <div class="info-label">Salle</div>
+        <div class="info-value">{{ session.room.name|default:"N/A" }}</div>
+      </div>
+      <div class="col-md-3">
+        <div class="info-label">Professeur</div>
+        <div class="info-value">{{ session.group.teacher.name }}</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Students table -->
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-2">
+      <span class="fw-600"><i class="bi bi-people me-1"></i>Élèves ({{ total_students }})</span>
+    </div>
+    {% if total_students > 0 %}
+      <div>
+        {% if not status_data.offline and status_data.status == 'READY' %}
+          <button class="btn btn-sm btn-success" id="auto-send-all-btn" style="background:#25d366;border-color:#25d366;">
+            <i class="bi bi-send-fill me-1"></i> Notifier tous (Auto)
+          </button>
+        {% else %}
+          <button class="btn btn-sm btn-success" id="send-all-btn" style="background:#25d366;border-color:#25d366;">
+            <i class="bi bi-whatsapp"></i> Envoyer à tous (Manuel)
+          </button>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>#</th><th>Élève</th><th>Parent</th><th>Téléphone</th><th>Message</th><th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for contact in reminder_contacts %}
+          <tr>
+            <td class="text-muted">{{ forloop.counter }}</td>
+            <td><strong>{{ contact.student_name }}</strong></td>
+            <td>{{ contact.name }}</td>
+            <td>
+              <span class="badge badge-secondary"><i class="bi bi-phone"></i> {{ contact.phone }}</span>
+            </td>
+            <td>
+              <button class="btn btn-sm btn-outline-secondary"
+                      data-bs-toggle="modal"
+                      data-bs-target="#modal{{ forloop.counter }}">
+                <i class="bi bi-eye"></i> Voir
+              </button>
+            </td>
+            <td>
+              {% if not status_data.offline and status_data.status == 'READY' %}
+                <div class="d-flex align-items-center gap-1">
+                  <button class="btn btn-sm btn-success auto-send-btn" 
+                          data-phone="{{ contact.phone }}" 
+                          data-message="{{ contact.message }}"
+                          style="background:#25d366;border-color:#25d366;">
+                    <i class="bi bi-send-fill"></i> Envoyer
+                  </button>
+                  <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="Ouvrir dans WhatsApp Web">
+                    <i class="bi bi-whatsapp"></i>
+                  </a>
+                </div>
+              {% else %}
+                <a href="{{ contact.whatsapp_link }}" target="_blank"
+                   class="btn btn-sm btn-success whatsapp-link"
+                   style="background:#25d366;border-color:#25d366;">
+                  <i class="bi bi-whatsapp"></i> Envoyer
+                </a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Message modals -->
+{% for contact in reminder_contacts %}
+  <div class="modal fade" id="modal{{ forloop.counter }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-whatsapp text-success me-2"></i>Message — {{ contact.name }}</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="p-3 rounded" style="background:var(--surface-alt);white-space:pre-wrap;font-size:13px;border:1px solid var(--border);">{{ contact.message }}</div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Fermer</button>
+          {% if not status_data.offline and status_data.status == 'READY' %}
+            <button class="btn btn-success auto-send-btn" data-phone="{{ contact.phone }}" data-message="{{ contact.message }}" data-bs-dismiss="modal"
+                    style="background:#25d366;border-color:#25d366;">
+              <i class="bi bi-send-fill"></i> Envoyer automatiquement
+            </button>
+          {% else %}
+            <a href="{{ contact.whatsapp_link }}" target="_blank" class="btn btn-success" data-bs-dismiss="modal"
+               style="background:#25d366;border-color:#25d366;">
+              <i class="bi bi-whatsapp"></i> Envoyer via WhatsApp (manuel)
+            </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+{% endfor %}
+
+<style>
+  .fw-600 { font-weight: 600; }
+  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+  // CSRF Setup
+  $.ajaxSetup({
+    headers: { "X-CSRFToken": "{{ csrf_token }}" }
+  });
+
+  // Single Auto-Send
+  $('.auto-send-btn').on('click', function () {
+    const $btn = $(this);
+    const phone = $btn.data('phone');
+    const message = $btn.data('message');
+    
+    $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span>...');
+    
+    $.ajax({
+      url: "{% url 'core:whatsapp_send_ajax' %}",
+      method: "POST",
+      data: { phone: phone, message: message, message_type: "session_reminder" },
+      success: function (response) {
+        $btn.removeClass('btn-success').addClass('btn-secondary').html('<i class="bi bi-check"></i> Envoyé').prop('disabled', true);
+        $btn.closest('tr').addClass('table-success').css('transition', 'all 0.5s ease');
+      },
+      error: function (xhr) {
+        $btn.prop('disabled', false)
+          .removeClass('btn-success btn-secondary')
+          .addClass('btn-danger')
+          .html('<i class="bi bi-arrow-clockwise"></i> Réessayer')
+          .css({ background: '#dc3545', borderColor: '#dc3545' });
+        alert("Erreur lors de l'envoi : " + (xhr.responseJSON?.error || xhr.statusText));
+      }
+    });
+  });
+
+  // Bulk Auto-Send
+  $('#auto-send-all-btn').on('click', function () {
+    const contacts = [];
+    $('table .auto-send-btn').each(function () {
+      const $btn = $(this);
+      if (!$btn.hasClass('btn-secondary') && !$btn.closest('tr').hasClass('table-success')) {
+        contacts.push({
+          btn: $btn,
+          phone: $btn.data('phone'),
+          message: $btn.data('message')
+        });
+      }
+    });
+
+    const total = contacts.length;
+    if (total === 0) {
+      alert('Toutes les notifications ont déjà été envoyées !');
+      return;
+    }
+
+    if (!confirm(`Voulez-vous envoyer automatiquement ${total} rappels de session ?\n(Un délai de 1.5 seconde sera appliqué entre chaque envoi)`)) {
+      return;
+    }
+
+    const $btn = $(this);
+    const origHtml = $btn.html();
+    $btn.prop('disabled', true).html(`<i class="bi bi-hourglass-split"></i> Envoi en cours...`);
+
+    // Create progress banner above table
+    if ($('#bulk-progress-banner').length === 0) {
+      $('.card').last().before(`
+        <div id="bulk-progress-banner" class="alert alert-info mb-4 shadow-sm" style="border-radius:10px;">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <strong><i class="bi bi-send-fill me-2"></i> Envoi groupé automatique en cours...</strong>
+            <span id="bulk-progress-text" class="fw-bold">0 / ${total}</span>
+          </div>
+          <div class="progress" style="height: 10px; border-radius:5px;">
+            <div id="bulk-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success" role="progressbar" style="width: 0%"></div>
+          </div>
+        </div>
+      `);
+    } else {
+      $('#bulk-progress-banner').removeClass('d-none');
+      $('#bulk-progress-text').text(`0 / ${total}`);
+      $('#bulk-progress-bar').css('width', '0%');
+    }
+
+    let index = 0;
+    function sendNext() {
+      if (index >= total) {
+        $btn.html('<i class="bi bi-check-circle"></i> Terminé !');
+        $('#bulk-progress-bar').removeClass('progress-bar-striped progress-bar-animated');
+        setTimeout(function () {
+          $btn.html(origHtml).prop('disabled', false);
+          $('#bulk-progress-banner').fadeOut(1000, function() { $(this).addClass('d-none').show(); });
+        }, 3000);
+        return;
+      }
+
+      const item = contacts[index];
+      const $itemBtn = item.btn;
+      
+      $itemBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status"></span>');
+      
+      $.ajax({
+        url: "{% url 'core:whatsapp_send_ajax' %}",
+        method: "POST",
+        data: { phone: item.phone, message: item.message, message_type: "session_reminder" },
+        success: function (response) {
+          $itemBtn.removeClass('btn-success').addClass('btn-secondary').html('<i class="bi bi-check"></i> Envoyé').prop('disabled', true);
+          $itemBtn.closest('tr').addClass('table-success').css('transition', 'all 0.5s ease');
+          
+          index++;
+          const percentage = Math.round((index / total) * 100);
+          $('#bulk-progress-text').text(`${index} / ${total}`);
+          $('#bulk-progress-bar').css('width', `${percentage}%`);
+          
+          setTimeout(sendNext, 1500);
+        },
+        error: function (xhr) {
+          $itemBtn.prop('disabled', false)
+            .removeClass('btn-success btn-secondary')
+            .addClass('btn-danger')
+            .html('<i class="bi bi-arrow-clockwise"></i> Réessayer')
+            .css({ background: '#dc3545', borderColor: '#dc3545' });
+          console.error("Error sending to " + item.phone, xhr);
+          
+          index++;
+          const percentage = Math.round((index / total) * 100);
+          $('#bulk-progress-text').text(`${index} / ${total}`);
+          $('#bulk-progress-bar').css('width', `${percentage}%`);
+          
+          setTimeout(sendNext, 1500);
+        }
+      });
+    }
+
+    sendNext();
+  });
+
+  // Manual Mode: Open All
+  $('#send-all-btn').on('click', function () {
+    if (!confirm('Envoyer le rappel à tous les {{ total_students }} élèves?')) return;
+    const links = document.querySelectorAll('.whatsapp-link');
+    links.forEach((link, i) => {
+      setTimeout(() => window.open(link.href, '_blank'), i * 500);
+    });
+  });
+
+  $('.whatsapp-link').on('click', function () {
+    $(this).css({ background: '#128C7E', borderColor: '#128C7E' }).html('<i class="bi bi-check"></i> Envoyé');
+  });
+});
+</script>
+{% endblock %}

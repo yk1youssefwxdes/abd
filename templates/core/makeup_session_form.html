@@ -1,0 +1,141 @@
+{% extends 'core/base.html' %}
+{% block title %}Planifier un Rattrapage — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:sessions_monthly' %}"><i class="bi bi-calendar3"></i> Planification Mensuelle</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Planifier un Rattrapage</span>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      
+      <!-- Card back button -->
+      <div class="mb-3 text-start">
+        <a href="{% url 'core:sessions_monthly' %}" class="btn btn-sm btn-outline-secondary">
+          <i class="bi bi-arrow-left"></i> Retour au calendrier
+        </a>
+      </div>
+
+      <!-- Main card -->
+      <div class="card shadow-sm border-0">
+        <div class="card-header bg-primary text-white p-3">
+          <h4 class="mb-0 fw-bold"><i class="bi bi-arrow-repeat me-2"></i>Planifier une Séance de Rattrapage</h4>
+        </div>
+        <div class="card-body p-4">
+          
+          <!-- Original Session Info Alert -->
+          <div class="alert alert-warning border-0 shadow-sm mb-4">
+            <h5 class="alert-heading fw-bold mb-2"><i class="bi bi-info-circle-fill me-2"></i>Séance d'origine annulée :</h5>
+            <ul class="mb-0" style="font-size: 14px;">
+              <li><strong>Groupe :</strong> {{ original_session.group.name }} ({{ original_session.group.subject }})</li>
+              <li><strong>Date originale :</strong> {{ original_session.date|date:"d F Y" }}</li>
+              <li><strong>Horaire original :</strong> {{ original_session.start_time|time:"H:i" }} - {{ original_session.end_time|time:"H:i" }}</li>
+              <li><strong>Salle originale :</strong> {{ original_session.room.name }}</li>
+              <li><strong>Enseignant :</strong> {{ original_session.group.teacher.name }}</li>
+            </ul>
+          </div>
+
+          <!-- Form -->
+          <form method="post">
+            {% csrf_data %}
+            {% csrf_token %}
+            <input type="hidden" name="original_session_id" value="{{ original_session.id }}">
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-6 text-start">
+                <label for="date" class="form-label fw-semibold">Nouvelle Date <span class="text-danger">*</span></label>
+                <input type="date" name="date" id="date" class="form-control" required value="{{ original_session.date|date:'Y-m-d' }}">
+              </div>
+              <div class="col-md-6 text-start">
+                <label for="room" class="form-label fw-semibold">Nouvelle Salle <span class="text-danger">*</span></label>
+                <select name="room" id="room" class="form-select" required>
+                  {% for r in rooms %}
+                    <option value="{{ r.id }}" {% if r.id == original_session.room.id %}selected{% endif %}>{{ r.name }} ({{ r.capacity }} places)</option>
+                  {% endfor %}
+                </select>
+              </div>
+            </div>
+
+            <div class="row g-3 mb-3">
+              <div class="col-md-6 text-start">
+                <label for="start_time" class="form-label fw-semibold">Heure de Début <span class="text-danger">*</span></label>
+                <input type="time" name="start_time" id="start_time" class="form-control" required value="{{ original_session.start_time|time:'H:i' }}">
+              </div>
+              <div class="col-md-6 text-start">
+                <label for="end_time" class="form-label fw-semibold">Heure de Fin <span class="text-danger">*</span></label>
+                <input type="time" name="end_time" id="end_time" class="form-control" required value="{{ original_session.end_time|time:'H:i' }}">
+              </div>
+            </div>
+
+            <div class="mb-3 text-start">
+              <label for="substitute_teacher" class="form-label fw-semibold">Enseignant Remplaçant (Optionnel)</label>
+              <select name="substitute_teacher" id="substitute_teacher" class="form-select">
+                <option value="">-- Utiliser l'enseignant par défaut ({{ original_session.group.teacher.name }}) --</option>
+                {% for t in teachers %}
+                  <option value="{{ t.id }}" {% if t.id == original_session.substitute_teacher_id %}selected{% endif %}>{{ t.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+
+            <div class="mb-4 text-start">
+              <label for="notes" class="form-label fw-semibold">Notes</label>
+              <textarea name="notes" id="notes" class="form-control" rows="2" placeholder="Motif du rattrapage, consignes particulières..."></textarea>
+            </div>
+
+            <!-- Student Checklist -->
+            <div class="mb-4 text-start">
+              <label class="form-label fw-semibold d-block mb-2">Élèves concernés par ce rattrapage (Sélectionnez tous ceux qui participent) :</label>
+              <div class="card bg-light border-0 p-3" style="max-height: 200px; overflow-y: auto;">
+                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                  <span class="text-muted" style="font-size: 13px;">{{ students|length }} élève(s) inscrit(s)</span>
+                  <button type="button" id="select-all-btn" class="btn btn-xs btn-outline-secondary py-0 px-2" style="font-size: 11px;">Tout cocher</button>
+                </div>
+                {% for s in students %}
+                  <div class="form-check mb-1">
+                    <input class="form-check-input student-checkbox" type="checkbox" name="students" value="{{ s.id }}" id="student_{{ s.id }}" checked>
+                    <label class="form-check-input-label" for="student_{{ s.id }}">
+                      {{ s.name }}
+                    </label>
+                  </div>
+                {% empty %}
+                  <p class="text-muted mb-0" style="font-size: 13px;">Aucun élève actif inscrit dans ce groupe.</p>
+                {% endfor %}
+              </div>
+            </div>
+
+            <!-- Action buttons -->
+            <div class="d-flex justify-content-end gap-2">
+              <a href="{% url 'core:sessions_monthly' %}" class="btn btn-light">Annuler</a>
+              <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg"></i> Planifier le rattrapage</button>
+            </div>
+
+          </form>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const selectAllBtn = document.getElementById('select-all-btn');
+    const checkboxes = document.querySelectorAll('.student-checkbox');
+    
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', function() {
+        const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+        checkboxes.forEach(cb => {
+          cb.checked = !allChecked;
+        });
+        selectAllBtn.textContent = allChecked ? 'Tout cocher' : 'Tout décocher';
+      });
+    }
+  });
+</script>
+{% endblock %}

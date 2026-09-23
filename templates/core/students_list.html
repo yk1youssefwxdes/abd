@@ -1,0 +1,610 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Gestion des élèves — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-people-fill"></i> Élèves</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ─── Row status colors ───────────────────────────────────── */
+  .row-partial,
+  .row-unpaid {
+      background: #fff5f5 !important;
+  }
+
+  .row-partial:hover,
+  .row-unpaid:hover {
+      background: #fee2e2 !important;
+  }
+
+  .row-partial td:first-child,
+  .row-unpaid td:first-child {
+      border-left: 4px solid #ef4444;
+  }
+
+  /* Make each row clickable */
+  .table-hover tbody tr { cursor: pointer; }
+
+  /* ─── Left accent bar on unpaid/partial ──────────────────── */
+  .row-partial td:first-child { border-left: 4px solid #f59e0b; }
+  .row-unpaid  td:first-child { border-left: 4px solid #ef4444; }
+  .row-ok      td:first-child { border-left: 4px solid transparent; }
+
+  /* ─── Avatar ──────────────────────────────────────────────── */
+  .student-avatar {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: var(--primary-light); color: var(--primary);
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ─── Search bar ──────────────────────────────────────────── */
+  .search-bar-wrap {
+    position: relative;
+  }
+  .search-bar-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text-muted); font-size: 16px; pointer-events: none;
+  }
+  .search-bar-input {
+    padding-left: 40px !important;
+    font-size: 15.5px !important;
+    height: 44px; /* ↑ from 42px — WCAG 2.5.5 */
+  }
+  .search-bar-clear {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; color: var(--text-secondary); cursor: pointer; /* ↑ text-muted→text-secondary — WCAG AA */
+    font-size: 16px; display: none; min-width: 32px; min-height: 32px;
+  }
+  .search-bar-clear:hover { color: var(--text-primary); }
+
+  /* ─── Filter bar ──────────────────────────────────────────── */
+  .filter-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-xs);
+  }
+
+  /* ─── Action buttons in row ───────────────────────────────── */
+  .row-actions { white-space: nowrap; }
+
+  /* ─── Live-search highlight ───────────────────────────────── */
+  mark { background: #fef08a; padding: 0 2px; border-radius: 2px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- ── Page header ─────────────────────────────────────────────────── -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+  <div>
+    <h1 class="page-title"><i class="bi bi-people-fill me-2" style="color:var(--primary);"></i>Élèves</h1>
+    <p class="page-subtitle" id="student-count-label">
+      {% if filters_active %}
+        <strong>{{ filtered_count }}</strong> sur <strong>{{ total_students }}</strong> élèves correspondent aux filtres
+      {% else %}
+        <strong>{{ students.paginator.count }}</strong> élèves actifs
+      {% endif %}
+    </p>
+  </div>
+  <div class="d-flex gap-2 flex-shrink-0">
+    <a href="{% url 'core:print_students_list' %}" class="btn btn-outline-secondary" title="Imprimer" aria-label="Imprimer la liste des élèves">
+      <i class="bi bi-printer" aria-hidden="true"></i>
+    </a>
+    <button type="button" class="btn btn-warning text-dark fw-bold d-flex align-items-center gap-1 shadow-sm" data-bs-toggle="modal" data-bs-target="#autoUpgradeAcademicModal" title="Faire progresser automatiquement tous les élèves académiques vers leur niveau suivant">
+      <i class="bi bi-mortarboard-fill" aria-hidden="true"></i>
+      <span class="d-none d-md-inline">Passage Annuel Académique</span>
+    </button>
+    <button type="button" class="btn btn-outline-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#bulkPromoteModal" title="Promotion groupée de niveau">
+      <i class="bi bi-arrow-up-circle" aria-hidden="true"></i>
+      <span class="d-none d-sm-inline">Promotion groupée</span>
+    </button>
+    <a href="{% url 'core:student_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg" aria-hidden="true"></i> Ajouter un élève
+    </a>
+  </div>
+</div>
+
+<!-- ── Filter bar ─────────────────────────────────────────────────── -->
+<div class="filter-bar mb-4">
+  <form method="get" id="filterForm" class="row g-2 align-items-end">
+
+    <!-- Search box -->
+    <div class="col-12 col-md-4">
+      <div class="search-bar-wrap">
+        <i class="bi bi-search search-bar-icon" aria-hidden="true"></i>
+        <input type="text" class="form-control search-bar-input" id="search" name="q"
+               placeholder="Nom, téléphone, parent…" value="{{ request.GET.q }}"
+               autocomplete="off" aria-label="Rechercher un élève">
+        <button type="button" class="search-bar-clear" id="searchClear" title="Effacer la recherche" aria-label="Effacer la recherche">
+          <i class="bi bi-x" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Payment status -->
+    <div class="col-6 col-md-2">
+      <select class="form-select" id="payment_status" name="payment_status">
+      <option value="">— Statut —</option>
+      <option value="paid" {% if request.GET.payment_status == 'paid' %}selected{% endif %}>✓ Payé</option>
+      <option value="unpaid" {% if request.GET.payment_status == 'unpaid' %}selected{% endif %}>✗ Impayé / Incomplet</option>
+      </select>
+    </div>
+
+    <!-- Group -->
+    <div class="col-6 col-md-3">
+      <select class="form-select" id="course_group" name="course_group">
+        <option value="">— Groupe —</option>
+        {% for group in filter.filters.course_group.field.queryset %}
+          <option value="{{ group.id }}" {% if request.GET.course_group == group.id|stringformat:"s" %}selected{% endif %}>
+            {{ group.subject }} - {{ group.level.name|default:"—" }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Level -->
+    <div class="col-4 col-md-2">
+      <select class="form-select" id="level" name="level">
+        <option value="">— Niveau —</option>
+        {% for lvl in filter.filters.level.field.queryset %}
+          <option value="{{ lvl.id }}" {% if request.GET.level == lvl.id|stringformat:"s" %}selected{% endif %}>{{ lvl.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Per page + submit -->
+    <div class="col-4 col-md-1">
+      <select id="per_page" name="per_page" class="form-select" title="Lignes par page">
+        <option value="25"  {% if per_page == 25  %}selected{% endif %}>25</option>
+        <option value="50"  {% if per_page == 50  %}selected{% endif %}>50</option>
+        <option value="100" {% if per_page == 100 %}selected{% endif %}>100</option>
+        <option value="10"  {% if per_page == 10  %}selected{% endif %}>10</option>
+      </select>
+    </div>
+    <div class="col-4 col-md-auto d-flex gap-2">
+      <button type="submit" class="btn btn-primary" aria-label="Appliquer les filtres">
+        <i class="bi bi-search" aria-hidden="true"></i>
+        <span class="visually-hidden">Filtrer</span>
+      </button>
+      {% if filters_active %}
+        <a href="{% url 'core:students_list' %}" class="btn btn-outline-secondary" title="Effacer les filtres" aria-label="Effacer tous les filtres">
+          <i class="bi bi-x-circle" aria-hidden="true"></i>
+        </a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Active filter pills -->
+  {% if filters_active %}
+    <div class="d-flex gap-2 flex-wrap mt-3 pt-3" style="border-top:1px solid var(--border);">
+      <span style="font-size:13px;color:var(--text-secondary);" class="align-self-center">Actifs :</span><!-- ↑ small→span explicit — WCAG AA -->
+      {% if request.GET.q %}
+        <span class="filter-pill">
+          "{{ request.GET.q }}"
+          <a href="?{% for key, value in request.GET.items %}{% if key != 'q' %}{{ key }}={{ value }}&{% endif %}{% endfor %}">×</a>
+        </span>
+      {% endif %}
+      {% if request.GET.payment_status %}
+        <span class="filter-pill">
+          {% if request.GET.payment_status == 'paid' %}
+            Payé
+          {% else %}
+            Impayé / Incomplet
+          {% endif %}
+          <a href="?{% for key, value in request.GET.items %}{% if key != 'payment_status' %}{{ key }}={{ value }}&{% endif %}{% endfor %}">×</a>
+        </span>
+      {% endif %}
+      {% if request.GET.course_group %}
+        <span class="filter-pill">
+          Groupe filtré
+          <a href="?{% for key, value in request.GET.items %}{% if key != 'course_group' %}{{ key }}={{ value }}&{% endif %}{% endfor %}">×</a>
+        </span>
+      {% endif %}
+    </div>
+  {% endif %}
+</div>
+
+<!-- ── Student table ───────────────────────────────────────────────── -->
+<div class="card">
+  <div class="table-responsive">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Matricule</th>
+          <th>Élève</th>
+          <th>Contact</th>
+          <th>Niveau</th>
+          <th>Cours</th>
+          <th class="text-end">Frais/mois</th>
+          <th>Statut</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="student-tbody">
+        {% for student in students %}
+          {% with status=student.computed_payment_status %}
+          <tr class="student-row {% if status == 'OK' %}row-ok{% else %}row-unpaid{% endif %}"
+              data-student-id="{{ student.id }}"
+              data-level-id="{{ student.level.id|default:'' }}"
+              data-href="{% url 'core:student_page' student.id %}"
+              data-name="{{ student.name|lower }}"
+              data-contact="{{ student.parent_contact|lower }}"
+              data-contact2="{{ student.parent_contact_2|lower }}"
+              data-parent="{{ student.parent_name|lower }}">
+            <td>
+              {% if student.matricule %}
+                <span style="font-size:13px;font-weight:700;color:#1d4ed8;background:var(--primary-light);padding:2px 8px;border-radius:5px;letter-spacing:0.04em;">{{ student.matricule }}</span><!-- ↑ 12px/#primary(3.2:1)→13px/#1d4ed8(4.8:1) — WCAG AA -->
+              {% else %}
+                <span style="color:var(--text-secondary);">—</span><!-- ↑ text-muted→text-secondary — WCAG AA -->
+              {% endif %}
+            </td>
+            <td>
+              <div class="d-flex align-items-center gap-2">
+                <div class="student-avatar">{{ student.name|slice:":1"|upper }}</div>
+                <div>
+                  <div class="fw-bold" style="font-size:14.5px;">{{ student.name }}</div>
+                  <span style="font-size:13px;color:var(--text-secondary);">{{ student.parent_name|default:student.parent_contact }}</span><!-- ↑ small+text-muted — WCAG AA -->
+                </div>
+              </div>
+            </td>
+            <td>
+              <i class="bi bi-telephone" aria-hidden="true" style="color:var(--text-secondary);"></i><!-- ↑ aria-hidden + text-secondary — WCAG AA -->
+              <span class="ms-1">{{ student.parent_contact }}</span>
+              {% if student.parent_contact_2 %}
+                <br><i class="bi bi-telephone" aria-hidden="true" style="color:var(--text-secondary);opacity:.6;"></i>
+                <span class="ms-1" style="font-size:12px;color:var(--text-secondary);">{{ student.parent_contact_2 }}</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if student.level %}
+                <a href="{% url 'core:level_detail' student.level.id %}" class="text-decoration-none">
+                  <span class="badge badge-secondary">{{ student.level.name }}</span>
+                </a>
+              {% else %}
+                <span style="color:var(--text-secondary);">—</span><!-- ↑ text-muted→text-secondary — WCAG AA -->
+              {% endif %}
+            </td>
+            <td>
+              <span class="badge badge-info">
+                <i class="bi bi-book"></i> {{ student.computed_active_enrollments|length }}
+              </span>
+            </td>
+            <td class="text-end fw-bold">{{ student.computed_total_monthly_fees|floatformat:0 }} DH</td>
+            <td>
+              {% if status == 'OK' %}
+                <span class="badge badge-success"><i class="bi bi-check-circle-fill"></i> Payé</span>
+              {% elif status == 'PARTIAL' %}
+                <span class="badge badge-warning"><i class="bi bi-exclamation-circle-fill"></i> Partiel</span>
+              {% else %}
+                <span class="badge badge-danger"><i class="bi bi-x-circle-fill"></i> Impayé</span>
+              {% endif %}
+            </td>
+            <td class="row-actions" onclick="event.stopPropagation()">
+              <div class="d-flex gap-1">
+                <a href="{% url 'core:student_page' student.id %}" class="btn btn-sm btn-outline-primary"
+                   title="Voir le profil" aria-label="Voir le profil de {{ student.name }}">
+                  <i class="bi bi-eye" aria-hidden="true"></i>
+                  <span class="d-none d-xl-inline"> Profil</span>
+                </a>
+                <a href="{% url 'core:payment_create' %}?student_id={{ student.id }}" class="btn btn-sm btn-success"
+                   title="Encaisser" aria-label="Encaisser un paiement pour {{ student.name }}">
+                  <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                  <span class="d-none d-xl-inline"> Payer</span>
+                </a>
+                {% if student.parent_contact %}
+                <a href="https://wa.me/212{{ student.parent_contact|cut:' '|cut:'-'|cut:'.'|slice:'-9:' }}" target="_blank" class="btn btn-sm btn-outline-success"
+                   title="Contacter sur WhatsApp" aria-label="WhatsApp pour {{ student.name }}">
+                  <i class="bi bi-whatsapp" aria-hidden="true"></i>
+                </a>
+                {% endif %}
+                <a href="{% url 'core:student_edit' student.id %}" class="btn btn-sm btn-outline-secondary"
+                   title="Éditer" aria-label="Éditer le profil de {{ student.name }}">
+                  <i class="bi bi-pencil" aria-hidden="true"></i>
+                </a>
+              </div>
+            </td>
+          </tr>
+          {% endwith %}
+        {% empty %}
+          <tr id="no-results-row" style="display:none;">
+            <td colspan="8" class="text-center py-5" style="color:var(--text-secondary);">
+              <i class="bi bi-search" style="font-size:2rem;opacity:0.5;display:block;margin-bottom:8px;" aria-hidden="true"></i>
+              Aucun élève trouvé avec ces termes
+            </td>
+          </tr>
+          <tr>
+            <td colspan="8" class="text-center py-5" style="color:var(--text-secondary);">
+              {% if filters_active %}
+                Aucun élève ne correspond aux filtres.
+                <a href="{% url 'core:students_list' %}">Effacer tout</a>
+              {% else %}
+                Aucun élève enregistré. <a href="{% url 'core:student_create' %}">Ajouter un élève</a>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        <!-- Live-filter no-results row (hidden by default) -->
+        {% if students %}
+        <tr id="no-results-row" style="display:none;">
+          <td colspan="8" class="text-center py-5" style="color:var(--text-secondary);">
+            <i class="bi bi-search" style="font-size:2rem;opacity:0.5;display:block;margin-bottom:8px;" aria-hidden="true"></i>
+            Aucun élève trouvé pour &ldquo;<strong id="no-results-query"></strong>&rdquo;
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Pagination ─────────────────────────────────────────────────── -->
+{% if students.has_other_pages %}
+  <nav class="mt-3" aria-label="Pagination des élèves"><!-- WCAG 1.3.1 + 2.4.6 -->
+    <ul class="pagination justify-content-center">
+      {% if students.has_previous %}
+        <li class="page-item">
+          <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ students.previous_page_number }}"
+             aria-label="Page précédente">
+            <i class="bi bi-chevron-left" aria-hidden="true"></i>
+          </a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link" aria-disabled="true"><i class="bi bi-chevron-left" aria-hidden="true"></i></span></li>
+      {% endif %}
+
+      {% for p in students.paginator.page_range %}
+        {% if p >= students.number|add:'-3' and p <= students.number|add:'3' %}
+          <li class="page-item {% if p == students.number %}active{% endif %}">
+            <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ p }}"
+               {% if p == students.number %}aria-current="page"{% endif %}>{{ p }}</a>
+          </li>
+        {% endif %}
+      {% endfor %}
+
+      {% if students.has_next %}
+        <li class="page-item">
+          <a class="page-link" href="?{% if querystring %}{{ querystring }}&{% endif %}page={{ students.next_page_number }}"
+             aria-label="Page suivante">
+            <i class="bi bi-chevron-right" aria-hidden="true"></i>
+          </a>
+        </li>
+      {% else %}
+        <li class="page-item disabled"><span class="page-link" aria-disabled="true"><i class="bi bi-chevron-right" aria-hidden="true"></i></span></li>
+      {% endif %}
+    </ul>
+  </nav>
+{% endif %}
+<!-- Bulk Promote Modal -->
+<div class="modal fade" id="bulkPromoteModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-arrow-up-circle text-primary me-2"></i>Promotion groupée de niveau</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'core:students_bulk_promote' %}">
+        {% csrf_token %}
+        <div class="modal-body">
+          <div class="alert alert-info py-2 small mb-3">
+            <i class="bi bi-info-circle me-1"></i> Cette action permet de faire progresser plusieurs élèves vers leur niveau supérieur configuré ou vers un niveau spécifique, en archivant leur historique.
+          </div>
+          
+          <div class="mb-3">
+            <label class="form-label fw-bold">Élèves à promouvoir</label>
+            <div class="form-check mb-2">
+              <input class="form-check-input" type="radio" name="promote_scope" id="scopePage" value="page" checked onchange="togglePromoteScope()">
+              <label class="form-check-label" for="scopePage">
+                Tous les élèves affichés sur la page courante ({{ students|length }} élèves)
+              </label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="promote_scope" id="scopeLevel" value="level" onchange="togglePromoteScope()">
+              <label class="form-check-label" for="scopeLevel">
+                Élèves d'un niveau spécifique...
+              </label>
+            </div>
+          </div>
+
+          <div class="mb-3" id="sourceLevelDiv" style="display:none;">
+            <label for="sourceLevelSelect" class="form-label fw-bold">Niveau d'origine des élèves</label>
+            <select id="sourceLevelSelect" class="form-select" onchange="updateFilteredStudentIds()">
+              <option value="">-- Sélectionner le niveau actuel --</option>
+              {% for lvl in all_levels %}
+                <option value="{{ lvl.id }}">{{ lvl.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <input type="hidden" name="student_ids_csv" id="studentIdsCsv" value="{% for s in students %}{{ s.id }}{% if not forloop.last %},{% endif %}{% endfor %}">
+
+          <div class="mb-3">
+            <label for="bulkTargetLevel" class="form-label fw-bold">Niveau de destination</label>
+            <select name="target_level_id" id="bulkTargetLevel" class="form-select">
+              <option value="" selected>★ Progression automatique (vers le niveau supérieur de chaque élève)</option>
+              {% for lvl in all_levels %}
+                <option value="{{ lvl.id }}">Forcer vers : {{ lvl.name }} ({{ lvl.category.name|default:"Général" }})</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Si laissé sur « Progression automatique », le système utilisera le « Niveau suivant » configuré pour chaque niveau.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="bulkReason" class="form-label fw-bold">Motif de la promotion</label>
+            <input type="text" name="reason" id="bulkReason" class="form-control" value="Progression collective annuelle">
+          </div>
+
+          <div class="mb-3">
+            <label for="bulkNotes" class="form-label">Notes optionnelles</label>
+            <textarea name="notes" id="bulkNotes" class="form-control" rows="2" placeholder="Commentaires archivés dans l'historique de chaque élève..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-primary fw-bold">
+            <i class="bi bi-check-circle me-1"></i> Lancer la promotion
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Auto Upgrade Academic Modal (1-Click) -->
+<div class="modal fade" id="autoUpgradeAcademicModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title fw-bold">
+          <i class="bi bi-mortarboard-fill me-2"></i>Passage Annuel Académique (1-Clic)
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="post" action="{% url 'core:academic_auto_upgrade' %}">
+        {% csrf_token %}
+        <div class="modal-body p-4">
+          <div class="alert alert-warning py-2 small mb-3">
+            <i class="bi bi-exclamation-triangle-fill me-1"></i>
+            <strong>Action globale pour la rentrée scolaire :</strong>
+            Tous les élèves inscrits dans un <strong>niveau académique</strong> (Garderie, Primaire, Collège, Lycée) progresseront automatiquement vers leur <strong>niveau supérieur configuré</strong> (ex: <em>1AP → 2AP, 3ASC → TC, 1Bac → 2Bac</em>).
+          </div>
+
+          <div class="card bg-light border-0 p-3 mb-3">
+            <h6 class="fw-bold small mb-2 text-dark"><i class="bi bi-shield-check text-success me-1"></i> Règles appliquées :</h6>
+            <ul class="small text-muted mb-0 ps-3">
+              <li><strong>Niveaux académiques uniquement</strong> : les élèves en cours libres ou parascolaires (non académiques) restent inchangés.</li>
+              <li><strong>Classes terminales (ex: 2Bac)</strong> : les élèves sans niveau supérieur configuré ne seront pas modifiés.</li>
+              <li><strong>Historique & traçabilité</strong> : une entrée sera automatiquement créée dans l'historique de chaque élève avec date et motif.</li>
+            </ul>
+          </div>
+
+          <div class="mb-3">
+            <label for="autoUpgradeReason" class="form-label fw-bold small">Motif enregistré dans l'historique</label>
+            <input type="text" name="reason" id="autoUpgradeReason" class="form-control" value="Passage de niveau académique annuel automatique">
+          </div>
+
+          <div class="mb-3">
+            <label for="autoUpgradeNotes" class="form-label small text-muted">Notes optionnelles (rentrée, promotion générale...)</label>
+            <textarea name="notes" id="autoUpgradeNotes" class="form-control" rows="2" placeholder="Ex: Rentrée scolaire, passage de classe automatique..."></textarea>
+          </div>
+        </div>
+        <div class="modal-footer bg-light">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+          <button type="submit" class="btn btn-warning text-dark fw-bold px-4">
+            <i class="bi bi-check2-circle me-1"></i> Confirmer et Lancer le Passage
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+function togglePromoteScope() {
+  const isLevel = document.getElementById('scopeLevel').checked;
+  const div = document.getElementById('sourceLevelDiv');
+  div.style.display = isLevel ? 'block' : 'none';
+  if (!isLevel) {
+    document.getElementById('studentIdsCsv').value = "{% for s in students %}{{ s.id }}{% if not forloop.last %},{% endif %}{% endfor %}";
+  }
+}
+
+function updateFilteredStudentIds() {
+  const selectedLvlId = document.getElementById('sourceLevelSelect').value;
+  const ids = [];
+  document.querySelectorAll('.student-row').forEach(row => {
+    if (!selectedLvlId || row.dataset.levelId === selectedLvlId) {
+      ids.push(row.dataset.studentId);
+    }
+  });
+  document.getElementById('studentIdsCsv').value = ids.join(',');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  // ── Row click → navigate to student profile ──────────────────
+  document.querySelectorAll('.student-row').forEach(function(row) {
+    row.addEventListener('click', function() {
+      window.location.href = this.dataset.href;
+    });
+  });
+
+  // ── Live search (client-side filter on current page) ──────────
+  const searchInput = document.getElementById('search');
+  const noResultsRow = document.getElementById('no-results-row');
+
+  // function liveFilter(q) {
+  //   q = q.toLowerCase().trim();
+  //   var rows = document.querySelectorAll('.student-row');
+  //   var visible = 0;
+  //   rows.forEach(function(row) {
+  //     var name     = row.dataset.name     || '';
+  //     var contact  = row.dataset.contact  || '';
+  //     var contact2 = row.dataset.contact2 || '';
+  //     var parent   = row.dataset.parent   || '';
+  //     var matches = !q || name.includes(q) || contact.includes(q) || contact2.includes(q) || parent.includes(q);
+  //     row.style.display = matches ? '' : 'none';
+  //     if (matches) visible++;
+  //   });
+  //   if (noResultsRow) {
+  //     noResultsRow.style.display = (visible === 0 && q) ? '' : 'none';
+  //     var qEl = document.getElementById('no-results-query');
+  //     if (qEl) qEl.textContent = q;
+  //   }
+  //   // Update clear button visibility
+  //   document.getElementById('searchClear').style.display = q ? 'block' : 'none';
+  // }
+
+  // var liveTimeout;
+  // searchInput.addEventListener('input', function() {
+  //   clearTimeout(liveTimeout);
+  //   var q = this.value;
+  //   liveTimeout = setTimeout(function() { liveFilter(q); }, 120);
+  // });
+
+  // Initial run (if page loaded with a value)
+  // if (searchInput.value) liveFilter(searchInput.value);
+
+  // ── Clear button ────────────────────────────────────────────
+  // document.getElementById('searchClear').addEventListener('click', function() {
+  //   searchInput.value = '';
+  //   liveFilter('');
+  //   searchInput.focus();
+  // });
+
+  // ── Auto-submit on select change ────────────────────────────
+  ['per_page', 'payment_status', 'course_group', 'level'].forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('change', function() {
+      document.getElementById('filterForm').submit();
+    });
+  });
+
+  // ── Auto-focus search on desktop ────────────────────────────
+  if (window.innerWidth > 768 && searchInput && !searchInput.value) {
+    searchInput.focus();
+  }
+
+  // ── Keyboard Shortcut: 'N' to Add Student ───────────────────
+  document.addEventListener('keydown', function (e) {
+    const activeEl = document.activeElement;
+    if (activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT' || activeEl.isContentEditable)) {
+      return;
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) {
+      return;
+    }
+    if (e.key.toLowerCase() === 'n') {
+      e.preventDefault();
+      window.location.href = "{% url 'core:student_create' %}";
+    }
+  });
+});
+</script>
+{% endblock %}

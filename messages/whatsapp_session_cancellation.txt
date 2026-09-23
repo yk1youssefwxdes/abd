@@ -1,0 +1,7 @@
+Séance annulée
+
+Groupe : {group_name}
+Date : {date}
+Heure : {start_time} - {end_time}
+
+La séance du {date} a été annulée. Nous nous excusons pour la gêne occasionnée.

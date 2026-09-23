@@ -1,0 +1,158 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static admin_modify unfold %}
+
+{% block content %}
+
+{% with model_name=opts.model_name %}
+<div class="school-form-header" aria-label="Formulaire {{ opts.verbose_name }}">
+    <div class="school-form-header-icon">
+        {% if model_name == 'student' %}
+            <span class="material-symbols-outlined">school</span>
+        {% elif model_name == 'teacher' %}
+            <span class="material-symbols-outlined">person_book</span>
+        {% elif model_name == 'coursegroup' %}
+            <span class="material-symbols-outlined">groups</span>
+        {% elif model_name == 'payment' %}
+            <span class="material-symbols-outlined">payments</span>
+        {% elif model_name == 'session' %}
+            <span class="material-symbols-outlined">calendar_month</span>
+        {% elif model_name == 'sessionexception' %}
+            <span class="material-symbols-outlined">event_busy</span>
+        {% elif model_name == 'room' %}
+            <span class="material-symbols-outlined">meeting_room</span>
+        {% elif model_name == 'attendance' %}
+            <span class="material-symbols-outlined">fact_check</span>
+        {% else %}
+            <span class="material-symbols-outlined">edit_document</span>
+        {% endif %}
+    </div>
+    <div class="school-form-header-body">
+        <div class="school-form-header-title">
+            {% if add %}Ajouter{% else %}Modifier{% endif %} {{ opts.verbose_name }}
+        </div>
+        {% if not add and original %}
+        <div class="school-form-header-subtitle">{{ original }}</div>
+        {% endif %}
+    </div>
+    <div class="school-form-header-actions">
+        {% if not add %}
+            <a href="{% url opts|admin_urlname:'changelist' %}" class="school-form-back-btn">
+                <span class="material-symbols-outlined">arrow_back</span>
+                Retour à la liste
+            </a>
+        {% endif %}
+        {% if not add and has_delete_permission and original %}
+            <a href="{% url opts|admin_urlname:'delete' original.pk %}"
+               class="school-form-delete-btn"
+               onclick="return confirm('Confirmer la suppression de cet objet ?')">
+                <span class="material-symbols-outlined">delete</span>
+                Supprimer
+            </a>
+        {% endif %}
+    </div>
+</div>
+{% endwith %}
+
+<div class="school-required-note">
+    <span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;">info</span>
+    Les champs marqués <strong>*</strong> sont obligatoires.
+</div>
+
+{{ block.super }}
+
+<style>
+.school-form-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06);
+    flex-wrap: wrap;
+}
+.dark .school-form-header {
+    background: #1e293b;
+    border-color: rgba(255,255,255,.06);
+}
+.school-form-header-icon {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%);
+    display: flex; align-items: center; justify-content: center;
+    color: #fff;
+    flex-shrink: 0;
+}
+.school-form-header-icon .material-symbols-outlined { font-size: 26px; }
+.school-form-header-body { flex: 1; min-width: 0; }
+.school-form-header-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    text-transform: capitalize;
+}
+.dark .school-form-header-title { color: #f1f5f9; }
+.school-form-header-subtitle {
+    font-size: .82rem;
+    color: #64748b;
+    margin-top: .15rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.dark .school-form-header-subtitle { color: #94a3b8; }
+.school-form-header-actions {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    flex-wrap: wrap;
+}
+.school-form-back-btn,
+.school-form-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    padding: .45rem .9rem;
+    border-radius: 7px;
+    font-size: .8rem;
+    font-weight: 600;
+    text-decoration: none !important;
+    transition: all .18s ease;
+    white-space: nowrap;
+}
+.school-form-back-btn {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    color: #334155 !important;
+}
+.school-form-back-btn:hover { background: #e2e8f0; border-color: #cbd5e1; }
+.dark .school-form-back-btn {
+    background: #0f172a; border-color: rgba(255,255,255,.08); color: #cbd5e1 !important;
+}
+.dark .school-form-back-btn:hover { background: rgba(255,255,255,.05); }
+.school-form-delete-btn {
+    background: #fff1f2;
+    border: 1.5px solid #fecdd3;
+    color: #be123c !important;
+}
+.school-form-delete-btn:hover { background: #ffe4e6; border-color: #fca5a5; }
+.dark .school-form-delete-btn {
+    background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.25); color: #f87171 !important;
+}
+.dark .school-form-delete-btn:hover { background: rgba(239,68,68,.18); }
+.school-form-back-btn .material-symbols-outlined,
+.school-form-delete-btn .material-symbols-outlined { font-size: 16px; }
+.school-required-note {
+    font-size: .78rem;
+    color: #94a3b8;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+}
+.dark .school-required-note { color: #64748b; }
+</style>
+
+{% endblock %}

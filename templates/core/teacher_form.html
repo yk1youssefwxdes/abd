@@ -1,0 +1,166 @@
+{% extends 'core/base.html' %}
+{% block title %}{{ action }} un Professeur — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teachers_list' %}"><i class="bi bi-person-badge-fill"></i> Professeurs</a>
+  {% if teacher %}
+    <span class="context-bar-sep">›</span>
+    <a href="{% url 'core:teacher_detail' teacher.id %}">{{ teacher.name }}</a>
+  {% endif %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ action }}</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .payment-field { transition: all 0.25s ease; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-person-badge-fill me-2" style="color:var(--primary);"></i>{{ action }} un Professeur
+    </h1>
+    <p class="page-subtitle">{% if teacher %}Modifier les informations du professeur{% else %}Ajouter un nouveau professeur{% endif %}</p>
+  </div>
+  <a href="{% if teacher %}{% url 'core:teacher_detail' teacher.id %}{% else %}{% url 'core:teachers_list' %}{% endif %}" class="btn btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Retour
+  </a>
+</div>
+
+<form method="post" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-4">
+      {% for error in form.non_field_errors %}
+        <div><i class="bi bi-exclamation-circle-fill"></i> {{ error }}</div>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+
+      <!-- Personal info -->
+      <div class="card mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="bi bi-person" style="color:var(--primary);font-size:16px;"></i>
+          <span class="fw-600">Informations personnelles</span>
+        </div>
+        <div class="card-body">
+
+          <div class="mb-4">
+            <label for="{{ form.name.id_for_label }}" class="form-label">
+              {{ form.name.label }} <span style="color:var(--danger);">*</span>
+            </label>
+            {{ form.name }}
+            {% if form.name.errors %}<div class="invalid-feedback d-block">{% for e in form.name.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="{{ form.phone.id_for_label }}" class="form-label">
+                {{ form.phone.label }} <span style="color:var(--danger);">*</span>
+              </label>
+              {{ form.phone }}
+              {% if form.phone.errors %}<div class="invalid-feedback d-block">{% for e in form.phone.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+            <div class="col-md-6">
+              <label for="{{ form.email.id_for_label }}" class="form-label">{{ form.email.label }}</label>
+              {{ form.email }}
+              {% if form.email.errors %}<div class="invalid-feedback d-block">{% for e in form.email.errors %}{{ e }}{% endfor %}</div>{% endif %}
+            </div>
+          </div>
+
+          <div class="form-check form-switch mt-4">
+            {{ form.is_active }}
+            <label class="form-check-label" for="{{ form.is_active.id_for_label }}">Professeur actif</label>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Payment settings -->
+      <div class="card mb-4">
+        <div class="card-header d-flex align-items-center gap-2">
+          <i class="bi bi-cash-coin" style="color:#16a34a;font-size:16px;"></i>
+          <span class="fw-600">Mode de rémunération</span>
+        </div>
+        <div class="card-body">
+
+          <div class="mb-4">
+            <label for="{{ form.payment_method.id_for_label }}" class="form-label">
+              {{ form.payment_method.label }} <span style="color:var(--danger);">*</span>
+            </label>
+            {{ form.payment_method }}
+            {% if form.payment_method.errors %}<div class="invalid-feedback d-block">{% for e in form.payment_method.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+
+          <!-- Conditional fields -->
+          <div id="field-hourly" class="payment-field mb-4" style="display:none;">
+            <label for="{{ form.hourly_rate.id_for_label }}" class="form-label">{{ form.hourly_rate.label }}</label>
+            <div class="input-group">
+              {{ form.hourly_rate }}
+              <span class="input-group-text">DH/h</span>
+            </div>
+            {% if form.hourly_rate.errors %}<div class="invalid-feedback d-block">{% for e in form.hourly_rate.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+
+          <div id="field-percentage" class="payment-field mb-4" style="display:none;">
+            <label for="{{ form.payment_percentage.id_for_label }}" class="form-label">{{ form.payment_percentage.label }}</label>
+            <div class="input-group">
+              {{ form.payment_percentage }}
+              <span class="input-group-text">%</span>
+            </div>
+            {% if form.payment_percentage.errors %}<div class="invalid-feedback d-block">{% for e in form.payment_percentage.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+
+          <div id="field-session" class="payment-field mb-4" style="display:none;">
+            <label for="{{ form.session_rate.id_for_label }}" class="form-label">{{ form.session_rate.label }}</label>
+            <div class="input-group">
+              {{ form.session_rate }}
+              <span class="input-group-text">DH/session</span>
+            </div>
+            {% if form.session_rate.errors %}<div class="invalid-feedback d-block">{% for e in form.session_rate.errors %}{{ e }}{% endfor %}</div>{% endif %}
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Submit -->
+      <div class="d-flex justify-content-end gap-2 mb-5">
+        <a href="{% if teacher %}{% url 'core:teacher_detail' teacher.id %}{% else %}{% url 'core:teachers_list' %}{% endif %}" class="btn btn-outline-secondary">Annuler</a>
+        <button type="submit" class="btn btn-primary">
+          <i class="bi bi-check-lg"></i> Enregistrer
+        </button>
+      </div>
+
+    </div>
+  </div>
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+  const sel = document.getElementById('id_payment_method');
+  const fHourly = document.getElementById('field-hourly');
+  const fPct = document.getElementById('field-percentage');
+  const fSession = document.getElementById('field-session');
+
+  function toggle() {
+    const v = sel.value;
+    fHourly.style.display  = v === 'HOURLY'      ? '' : 'none';
+    fPct.style.display     = v === 'PERCENTAGE'  ? '' : 'none';
+    fSession.style.display = v === 'SESSION'     ? '' : 'none';
+  }
+
+  sel.addEventListener('change', toggle);
+  toggle(); // run on page load
+})();
+</script>
+{% endblock %}

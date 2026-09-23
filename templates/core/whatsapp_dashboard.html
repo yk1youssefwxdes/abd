@@ -1,0 +1,933 @@
+{% extends 'core/base.html' %}
+{% block title %}Tableau de bord WhatsApp — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-whatsapp"></i> WhatsApp</span>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  
+  <!-- Hero / Header Section -->
+  <div class="row mb-4 justify-content-center text-center">
+    <div class="col-lg-8">
+      <div class="whatsapp-hero-badge">
+        <i class="bi bi-whatsapp"></i> WhatsApp Hub
+      </div>
+      <h1 class="display-5 fw-bold text-dark mb-3">Tableau de bord WhatsApp</h1>
+      <p class="lead text-secondary">
+        Envoyez rapidement des alertes de paiement, des notifications d'absence et des annonces groupées personnalisées directement sur WhatsApp.
+      </p>
+    </div>
+  </div>
+
+  <!-- WhatsApp Connection Status Panel -->
+  <div class="row justify-content-center mb-5">
+    <div class="col-lg-9">
+      <div class="card shadow-sm border-0 whatsapp-status-card" id="whatsapp-status-card-container">
+        
+        <!-- Header Bar with Live Indicator & Refresh -->
+        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center px-4 py-3">
+          <div class="d-flex align-items-center gap-2">
+            <span class="status-indicator-dot {% if status_data.offline %}dot-offline{% elif status_data.status == 'READY' %}dot-ready{% else %}dot-pending{% endif %}" id="status-indicator-dot"></span>
+            <span class="fw-bold text-dark small" style="letter-spacing: 0.03em; text-transform: uppercase;">État du service d'automatisation</span>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-light text-secondary border small" id="service-version-badge">
+              v{{ status_data.version|default:"1.4.0" }}
+            </span>
+            <button class="btn btn-sm btn-light border text-secondary" id="manual-refresh-status-btn" title="Actualiser le statut" type="button">
+              <i class="bi bi-arrow-clockwise" id="refresh-icon"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="card-body p-4" id="whatsapp-status-body">
+          <input type="hidden" id="whatsapp-status-val" value="{% if status_data.offline %}OFFLINE{% else %}{{ status_data.status }}{% endif %}">
+          <input type="hidden" id="whatsapp-is-offline" value="{% if status_data.offline %}1{% else %}0{% endif %}">
+
+          {% if status_data.offline %}
+            <!-- OFFLINE STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper offline shadow-sm">
+                <i class="bi bi-broadcast-pin"></i>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <div class="d-flex align-items-center gap-2 mb-2 justify-content-center justify-content-sm-start">
+                  <span class="badge bg-danger px-3 py-2" style="font-size:0.75rem;"><i class="bi bi-broadcast"></i> Service Hors ligne</span>
+                  <span class="badge bg-light text-muted border">Port 3000 injoignable</span>
+                </div>
+                <h4 class="fw-bold text-dark mb-1">Service d'automatisation WhatsApp arrêté</h4>
+                <p class="text-secondary mb-3">Le service d'automatisation en arrière-plan n'est pas démarré sur cette machine. Démarrez le service Node.js pour permettre l'envoi de messages.</p>
+                <div class="p-3 bg-light rounded border text-start small font-monospace text-secondary mb-0">
+                  <i class="bi bi-terminal me-2 text-dark"></i>cd whatsapp_service &amp;&amp; npm start
+                </div>
+              </div>
+            </div>
+
+          {% elif status_data.status == "STARTING" or status_data.status == "INITIALIZING" or status_data.status == "STOPPED" %}
+            <!-- STARTING / INITIALIZING STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper warning shadow-sm">
+                <div class="spinner-border text-warning" role="status" style="width: 2.2rem; height: 2.2rem; border-width: 0.22em;"></div>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <div class="d-flex align-items-center gap-2 mb-2 justify-content-center justify-content-sm-start">
+                  <span class="badge bg-warning text-dark px-3 py-2" style="font-size:0.75rem;"><i class="bi bi-hourglass-split"></i> Démarrage en cours</span>
+                  {% if status_data.restartCount and status_data.restartCount > 0 %}
+                    <span class="badge bg-light text-muted border">Tentative #{{ status_data.restartCount }}</span>
+                  {% endif %}
+                </div>
+                <h4 class="fw-bold text-dark mb-1">Lancement du navigateur Chromium...</h4>
+                <p class="text-secondary mb-0">Le client WhatsApp Web s'initialise en arrière-plan. Cela peut prendre quelques instants lors du démarrage du système.</p>
+              </div>
+            </div>
+
+          {% elif status_data.status == "QR_REQUIRED" or status_data.status == "QR_RECEIVED" or status_data.qr %}
+            <!-- QR CODE STATE -->
+            <div class="row g-4 align-items-center">
+              <div class="col-md-5 text-center">
+                {% if status_data.qr %}
+                  <div class="qr-container p-3 bg-white rounded shadow-sm border d-inline-block">
+                    <img id="whatsapp-qr-image" src="{{ status_data.qr }}" alt="Scan QR Code" class="img-fluid" style="max-width: 190px; image-rendering: pixelated;">
+                    <div class="mt-2 small text-muted"><i class="bi bi-arrow-repeat spin"></i> Actualisation automatique</div>
+                  </div>
+                {% else %}
+                  <div class="p-4 border rounded bg-light text-muted d-inline-block" style="min-width: 190px; min-height: 190px; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <div class="spinner-border text-success mb-2" role="status"></div>
+                    <div class="small">Génération du code QR...</div>
+                  </div>
+                {% endif %}
+              </div>
+              <div class="col-md-7 text-center text-md-start">
+                <span class="badge bg-success mb-2 px-3 py-2 text-white" style="font-size:0.75rem;"><i class="bi bi-qr-code-scan"></i> Connexion requise</span>
+                <h4 class="fw-bold text-dark mb-2">Associer votre compte WhatsApp</h4>
+                <p class="text-secondary mb-3" style="font-size:0.95rem;">
+                  Scannez ce code QR avec votre application WhatsApp mobile pour connecter le numéro officiel de l'école.
+                </p>
+                <ol class="text-secondary text-start ps-3 mb-3" style="font-size: 0.85rem; line-height: 1.7;">
+                  <li>Ouvrez <strong>WhatsApp</strong> sur votre téléphone.</li>
+                  <li>Allez dans <strong>Réglages / Menu</strong> &rsaquo; <strong>Appareils connectés</strong>.</li>
+                  <li>Appuyez sur <strong>Connecter un appareil</strong> et scannez le code ci-contre.</li>
+                </ol>
+                <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" id="restart-whatsapp-btn" type="button">
+                  <i class="bi bi-arrow-clockwise me-1"></i> Réinitialiser le code QR
+                </button>
+              </div>
+            </div>
+
+          {% elif status_data.status == "AUTHENTICATED" %}
+            <!-- AUTHENTICATED STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper info shadow-sm">
+                <div class="spinner-border text-info" role="status" style="width: 2.2rem; height: 2.2rem; border-width: 0.22em;"></div>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <span class="badge bg-info text-dark mb-2 px-3 py-2" style="font-size:0.75rem;"><i class="bi bi-shield-check"></i> Authentifié</span>
+                <h4 class="fw-bold text-dark mb-1">Authentification réussie</h4>
+                <p class="text-secondary mb-0">Chargement de la session et synchronisation des discussions en cours... L'état passera à <strong>Prêt</strong> dans un instant.</p>
+              </div>
+            </div>
+
+          {% elif status_data.status == "READY" %}
+            <!-- READY / CONNECTED STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper ready shadow-sm">
+                <i class="bi bi-check-circle-fill"></i>
+                <div class="pulse-ring"></div>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <div class="d-flex align-items-center gap-2 mb-2 justify-content-center justify-content-sm-start">
+                  <span class="badge bg-success px-3 py-2 text-white" style="font-size:0.75rem;"><i class="bi bi-shield-fill-check"></i> Service Connecté &amp; Opérationnel</span>
+                  {% if status_data.uptime %}
+                    <span class="badge bg-light text-muted border">Uptime: {{ status_data.uptime|floatformat:0 }}s</span>
+                  {% endif %}
+                </div>
+                <h4 class="fw-bold text-dark mb-1">WhatsApp est prêt pour l'envoi</h4>
+                <p class="text-secondary mb-3" style="font-size: 0.95rem;">
+                  Connecté en tant que : <strong>{{ status_data.info.pushname|default:"Compte École" }}</strong>
+                  {% if status_data.info.wid.user %}
+                    <span class="badge bg-light text-dark border ms-1 font-monospace">+{{ status_data.info.wid.user }}</span>
+                  {% endif %}
+                  {% if status_data.queue and status_data.queue.length > 0 %}
+                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle ms-2 rounded-pill">
+                      <i class="bi bi-stack me-1"></i> File d'attente : {{ status_data.queue.length }} message{{ status_data.queue.length|pluralize }}
+                    </span>
+                  {% endif %}
+                </p>
+                <div class="d-flex flex-wrap gap-2 justify-content-center justify-content-sm-start">
+                  <button class="btn btn-sm btn-success rounded-pill px-3 shadow-sm" id="test-whatsapp-modal-btn" type="button">
+                    <i class="bi bi-send-check me-1"></i> Tester l'envoi
+                  </button>
+                  <button class="btn btn-sm btn-outline-warning rounded-pill px-3" id="restart-whatsapp-btn" type="button">
+                    <i class="bi bi-arrow-clockwise me-1"></i> Redémarrer la session
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger rounded-pill px-3" id="logout-whatsapp-btn" type="button">
+                    <i class="bi bi-box-arrow-left me-1"></i> Déconnecter
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          {% elif status_data.status == "RESTART_WAIT" %}
+            <!-- RESTART_WAIT STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper warning shadow-sm">
+                <i class="bi bi-arrow-repeat spin text-warning"></i>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <div class="d-flex align-items-center gap-2 mb-2 justify-content-center justify-content-sm-start">
+                  <span class="badge bg-warning text-dark px-3 py-2" style="font-size:0.75rem;"><i class="bi bi-clock-history"></i> En attente de reconnexion</span>
+                  {% if status_data.restartCount %}
+                    <span class="badge bg-light text-dark border">Tentative #{{ status_data.restartCount }}</span>
+                  {% endif %}
+                </div>
+                <h4 class="fw-bold text-dark mb-1">Reconnexion automatique programmée</h4>
+                <p class="text-secondary mb-3">Le service temporise pour permettre au réseau ou aux ressources Windows de se stabiliser avant la prochaine tentative.</p>
+                {% if status_data.lastError %}
+                  <div class="p-2 bg-light rounded text-danger small font-monospace mb-3">
+                    <i class="bi bi-info-circle me-1"></i> {{ status_data.lastError }}
+                  </div>
+                {% endif %}
+                <button class="btn btn-sm btn-warning rounded-pill px-3 text-dark fw-bold" id="restart-whatsapp-btn" type="button">
+                  <i class="bi bi-play-fill me-1"></i> Forcer la reconnexion immédiate
+                </button>
+              </div>
+            </div>
+
+          {% elif status_data.status == "DISCONNECTED" %}
+            <!-- DISCONNECTED STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper error shadow-sm">
+                <i class="bi bi-cloud-slash-fill"></i>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <span class="badge bg-danger text-white mb-2 px-3 py-2" style="font-size:0.75rem;"><i class="bi bi-x-circle"></i> Déconnecté</span>
+                <h4 class="fw-bold text-dark mb-1">Session WhatsApp déconnectée</h4>
+                <p class="text-secondary mb-3">La connexion avec WhatsApp Web a été interrompue. Une reconnexion automatique est en cours.</p>
+                <button class="btn btn-sm btn-outline-warning rounded-pill px-3" id="restart-whatsapp-btn" type="button">
+                  <i class="bi bi-arrow-clockwise me-1"></i> Relancer la session
+                </button>
+              </div>
+            </div>
+
+          {% else %}
+            <!-- ERROR / UNKNOWN STATE -->
+            <div class="d-flex align-items-center gap-4 flex-column flex-sm-row">
+              <div class="status-icon-wrapper error shadow-sm">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+              </div>
+              <div class="flex-grow-1 text-center text-sm-start">
+                <span class="badge bg-danger text-white mb-2 px-3 py-2" style="font-size:0.75rem;"><i class="bi bi-exclamation-circle"></i> Erreur: {{ status_data.status }}</span>
+                <h4 class="fw-bold text-dark mb-1">Statut du client : {{ status_data.status }}</h4>
+                <p class="text-secondary mb-3">{{ status_data.lastError|default:status_data.error|default:"Un état inattendu est survenu. Cliquez ci-dessous pour relancer la session proprement." }}</p>
+                <button class="btn btn-sm btn-outline-warning rounded-pill px-3" id="restart-whatsapp-btn" type="button">
+                  <i class="bi bi-arrow-clockwise me-1"></i> Redémarrer la session
+                </button>
+              </div>
+            </div>
+          {% endif %}
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Action Cards -->
+  <div class="row g-4 justify-content-center">
+    
+    <!-- 1. Payment Remaining Card -->
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'core:whatsapp_payment_reminders' %}" class="whatsapp-card card-link">
+        <div class="whatsapp-card-content">
+          <div class="whatsapp-card-icon-wrapper payment-theme">
+            <i class="bi bi-cash-coin"></i>
+          </div>
+          <h3 class="whatsapp-card-title">Rappel Paiement</h3>
+          <p class="whatsapp-card-text">
+            Notifiez les parents des élèves n'ayant pas encore réglé leurs frais pour le mois en cours.
+          </p>
+          <div class="whatsapp-card-footer">
+            <span>Accéder aux rappels</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- 2. Absence Card -->
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'core:whatsapp_absence_notifications' %}" class="whatsapp-card card-link">
+        <div class="whatsapp-card-content">
+          <div class="whatsapp-card-icon-wrapper absence-theme">
+            <i class="bi bi-person-x-fill"></i>
+          </div>
+          <h3 class="whatsapp-card-title">Absences</h3>
+          <p class="whatsapp-card-text">
+            Informez immédiatement les parents d'élèves de l'absence de leur enfant au cours du jour.
+          </p>
+          <div class="whatsapp-card-footer">
+            <span>Accéder aux absences</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- 3. Schedule Changes Notifications Card -->
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'core:whatsapp_schedule_notifications' %}" class="whatsapp-card card-link position-relative">
+        <div class="whatsapp-card-content">
+          <div class="d-flex justify-content-between align-items-start w-100 mb-3">
+            <div class="whatsapp-card-icon-wrapper schedule-theme mb-0">
+              <i class="bi bi-bell-fill"></i>
+            </div>
+            {% if unhandled_changes_count > 0 %}
+              <span class="badge bg-danger rounded-pill px-2 py-1 shadow-sm" style="font-size: 0.75rem;">
+                {{ unhandled_changes_count }} en attente
+              </span>
+            {% else %}
+              <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-2 py-1" style="font-size: 0.75rem;">
+                <i class="bi bi-check-circle me-1"></i> À jour
+              </span>
+            {% endif %}
+          </div>
+          <h3 class="whatsapp-card-title">Planning & Séances</h3>
+          <p class="whatsapp-card-text">
+            Traitez et envoyez les alertes de modifications de séances aux professeurs et parents.
+          </p>
+          <div class="whatsapp-card-footer">
+            <span>Traiter notifications</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+    <!-- 4. Bulk Announcements Card -->
+    <div class="col-lg-3 col-md-6">
+      <a href="{% url 'core:whatsapp_bulk_announcements' %}" class="whatsapp-card card-link">
+        <div class="whatsapp-card-content">
+          <div class="whatsapp-card-icon-wrapper bulk-theme">
+            <i class="bi bi-chat-left-dots-fill"></i>
+          </div>
+          <h3 class="whatsapp-card-title">Messages Groupés</h3>
+          <p class="whatsapp-card-text">
+            Envoyez des annonces, rappels de congés ou événements à tous les contacts en une seule fois.
+          </p>
+          <div class="whatsapp-card-footer">
+            <span>Envoyer une annonce</span>
+            <i class="bi bi-arrow-right"></i>
+          </div>
+        </div>
+      </a>
+    </div>
+
+  </div>
+
+  <!-- Send Logs Section -->
+  <div class="row mt-5 justify-content-center">
+    <div class="col-lg-12">
+      <div class="card shadow-sm border-0 whatsapp-status-card">
+        <div class="card-header d-flex align-items-center justify-content-between bg-transparent border-0 pt-4 px-4">
+          <h3 class="fw-bold text-dark mb-0" style="font-size: 1.25rem;">
+            <i class="bi bi-journal-text text-success me-2"></i> Journal des envois récents (20 derniers)
+          </h3>
+          <a href="/admin/core/whatsappsendlog/" class="btn btn-sm btn-outline-success">
+            <i class="bi bi-arrow-up-right-square me-1"></i> Voir tout dans l'administration
+          </a>
+        </div>
+        <div class="card-body px-4 pb-4">
+          {% if recent_logs %}
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0" style="font-size: 0.9rem;">
+                <thead>
+                  <tr class="text-secondary" style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">
+                    <th>Date &amp; Heure</th>
+                    <th>Élève / Numéro</th>
+                    <th>Type de Message</th>
+                    <th>Aperçu</th>
+                    <th>Statut</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-logs-tbody">
+                  {% for log in recent_logs %}
+                    <tr>
+                      <td class="text-dark fw-500">{{ log.sent_at|date:"d/m/Y H:i" }}</td>
+                      <td>
+                        {% if log.student %}
+                          <a href="{% url 'core:student_page' log.student.id %}" class="fw-bold text-success" style="text-decoration:none;">
+                            {{ log.student.name }}
+                          </a>
+                          <div class="text-muted small">{{ log.phone }}</div>
+                        {% else %}
+                          <span class="text-dark fw-500">{{ log.phone }}</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <span class="badge rounded-pill 
+                          {% if log.message_type == 'payment_reminder' %}bg-danger text-white
+                          {% elif log.message_type == 'payment_confirmation' %}bg-success text-white
+                          {% elif log.message_type == 'absence_notification' %}bg-warning text-dark
+                          {% elif log.message_type == 'session_reminder' %}bg-info text-dark
+                          {% elif log.message_type == 'bulk_announcement' %}bg-secondary text-white
+                          {% else %}bg-light text-dark{% endif %}">
+                          {{ log.get_message_type_display }}
+                        </span>
+                      </td>
+                      <td class="text-secondary text-truncate" style="max-width: 300px;" title="{{ log.message_preview }}">
+                        {{ log.message_preview }}
+                      </td>
+                      <td>
+                        {% if log.status == 'SENT' %}
+                          <span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> {{ log.get_status_display }}</span>
+                        {% else %}
+                          <span class="text-danger fw-bold" title="{{ log.error_message }}"><i class="bi bi-exclamation-triangle-fill me-1"></i> {{ log.get_status_display }}</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <div class="text-center py-4 text-muted">
+              <i class="bi bi-inbox mb-2" style="font-size: 2rem; display: block;"></i>
+              Aucun message envoyé pour le moment.
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Test Message Dispatch -->
+<div class="modal fade" id="modal-test-whatsapp" tabindex="-1" aria-labelledby="modalTestWhatsAppLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-bottom">
+        <h5 class="modal-title fw-bold text-dark" id="modalTestWhatsAppLabel">
+          <i class="bi bi-whatsapp text-success me-2"></i> Tester l'envoi WhatsApp
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body p-4">
+        <div id="test-alert-container"></div>
+        <form id="form-test-whatsapp">
+          <div class="mb-3">
+            <label for="test-phone" class="form-label fw-bold text-dark small">Numéro du destinataire</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="test-phone" placeholder="06XXXXXXXX ou 2126XXXXXXXX" required>
+              <button class="btn btn-outline-secondary" type="button" id="btn-check-phone" title="Vérifier si le numéro est inscrit sur WhatsApp">
+                <i class="bi bi-search me-1"></i> Vérifier
+              </button>
+            </div>
+            <div id="check-phone-feedback" class="small mt-1"></div>
+            <div class="form-text">Prend en charge les formats marocains (06, 07, 05, +212...) ou internationaux.</div>
+          </div>
+          <div class="mb-3">
+            <label for="test-message" class="form-label fw-bold text-dark small">Message de test</label>
+            <textarea class="form-control" id="test-message" rows="3" required>Ceci est un message de test envoyé depuis le système ERP de l'école.</textarea>
+          </div>
+          <button type="submit" class="btn btn-success w-100 py-2 fw-bold" id="btn-submit-test">
+            <i class="bi bi-send me-1"></i> Envoyer immédiatement
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+/* WhatsApp Dashboard Custom Styling */
+
+.whatsapp-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: rgba(37, 211, 102, 0.08);
+  color: #128C7E;
+  padding: 6px 14px;
+  border-radius: 50px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(37, 211, 102, 0.2);
+}
+
+.whatsapp-status-card {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  overflow: hidden;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+}
+
+/* Status Indicator Dot */
+.status-indicator-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.dot-ready {
+  background-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+}
+.dot-pending {
+  background-color: #f59e0b;
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.2);
+}
+.dot-offline {
+  background-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+}
+
+/* Status Icon Wrapper */
+.status-icon-wrapper {
+  width: 76px;
+  height: 76px;
+  min-width: 76px;
+  border-radius: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  position: relative;
+}
+
+.status-icon-wrapper.offline {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.status-icon-wrapper.warning {
+  background-color: #fef3c7;
+  color: #d97706;
+}
+
+.status-icon-wrapper.info {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.status-icon-wrapper.ready {
+  background-color: #d1fae5;
+  color: #10b981;
+}
+
+.status-icon-wrapper.error {
+  background-color: #fee2e2;
+  color: #dc2626;
+}
+
+/* Spin animation */
+.spin {
+  animation: rotation 2s infinite linear;
+  display: inline-block;
+}
+@keyframes rotation {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(359deg); }
+}
+
+/* Ready State Pulse Ring */
+.pulse-ring {
+  border: 3px solid #10b981;
+  border-radius: 22px;
+  height: 100%;
+  width: 100%;
+  position: absolute;
+  left: 0;
+  top: 0;
+  animation: pulsate 1.8s ease-out infinite;
+  opacity: 0;
+}
+@keyframes pulsate {
+  0% { transform: scale(0.9, 0.9); opacity: 0; }
+  50% { opacity: 0.5; }
+  100% { transform: scale(1.15, 1.15); opacity: 0; }
+}
+
+.qr-container {
+  border: 1px solid var(--border, #e2e8f0);
+}
+.qr-container img {
+  border-radius: 8px;
+}
+
+.card-link {
+  text-decoration: none !important;
+  color: inherit !important;
+  display: block;
+}
+
+.whatsapp-card {
+  background: var(--surface, #ffffff);
+  border: 1px solid var(--border, #e2e8f0);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0,0,0,0.05));
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+.whatsapp-card-content {
+  padding: 2.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  align-items: flex-start;
+}
+
+.whatsapp-card-icon-wrapper {
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.75rem;
+  margin-bottom: 1.75rem;
+  transition: all 0.3s ease;
+}
+
+.payment-theme {
+  background-color: rgba(37, 99, 216, 0.08);
+  color: #2563eb;
+}
+
+.absence-theme {
+  background-color: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+}
+
+.bulk-theme {
+  background-color: rgba(16, 185, 129, 0.08);
+  color: #10b981;
+}
+
+.schedule-theme {
+  background-color: rgba(99, 102, 241, 0.08);
+  color: #6366f1;
+}
+
+.whatsapp-card-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-primary, #1e293b);
+  margin-bottom: 0.75rem;
+}
+
+.whatsapp-card-text {
+  font-size: 0.95rem;
+  color: var(--text-secondary, #64748b);
+  line-height: 1.6;
+  margin-bottom: 2rem;
+  flex-grow: 1;
+}
+
+.whatsapp-card-footer {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--primary, #128C7E);
+  padding-top: 1rem;
+  border-top: 1px solid var(--border, #e2e8f0);
+  transition: all 0.3s ease;
+}
+
+.whatsapp-card-footer i {
+  font-size: 1.1rem;
+  transition: transform 0.3s ease;
+}
+
+.whatsapp-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgba(0,0,0,0.1));
+  border-color: rgba(37, 211, 102, 0.3);
+}
+
+.whatsapp-card:hover .whatsapp-card-icon-wrapper.payment-theme {
+  background-color: #2563eb;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.whatsapp-card:hover .whatsapp-card-icon-wrapper.absence-theme {
+  background-color: #d97706;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.whatsapp-card:hover .whatsapp-card-icon-wrapper.bulk-theme {
+  background-color: #10b981;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.whatsapp-card:hover .whatsapp-card-icon-wrapper.schedule-theme {
+  background-color: #6366f1;
+  color: #ffffff;
+  transform: scale(1.05);
+}
+
+.whatsapp-card:hover .whatsapp-card-footer {
+  color: #128C7E;
+}
+
+.whatsapp-card:hover .whatsapp-card-footer i {
+  transform: translateX(4px);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+  let currentStatus = $("#whatsapp-status-val").val() || 'OFFLINE';
+  let isOffline = $("#whatsapp-is-offline").val() === '1';
+  let isPolling = false;
+  let pollInterval = null;
+
+  // Adaptive polling intervals:
+  // - Pending/Starting/QR/Reconnecting: 3 seconds
+  // - Ready (connected): 8 seconds
+  // - Offline: 4 seconds (to detect when Windows starts the Node service)
+  function getPollDelay() {
+    if (currentStatus === 'READY') return 8000;
+    if (isOffline) return 4000;
+    return 3000;
+  }
+
+  function fetchStatus(isManual = false) {
+    if (isPolling && !isManual) return;
+    isPolling = true;
+
+    if (isManual) {
+      $("#refresh-icon").addClass("spin");
+    }
+
+    $.ajax({
+      url: "{% url 'core:whatsapp_dashboard' %}?ajax=1",
+      method: "GET",
+      dataType: "json",
+      timeout: 5000,
+      success: function(data) {
+        const newOffline = Boolean(data.offline);
+        const newStatus = newOffline ? "OFFLINE" : (data.status || "UNKNOWN");
+        
+        // Update version badge if provided
+        if (data.version) {
+          $("#service-version-badge").text("v" + data.version);
+        }
+
+        // Check if QR code changed dynamically while staying in QR state
+        if (data.qr && $("#whatsapp-qr-image").length) {
+          const currentSrc = $("#whatsapp-qr-image").attr("src");
+          if (currentSrc !== data.qr) {
+            $("#whatsapp-qr-image").attr("src", data.qr);
+          }
+        }
+
+        // If status transitioned, reload to render the new state cleanly
+        if (newStatus !== currentStatus || newOffline !== isOffline) {
+          clearInterval(pollInterval);
+          window.location.reload();
+          return;
+        }
+      },
+      error: function() {
+        if (!isOffline) {
+          // If connection dropped, reload to show offline state
+          clearInterval(pollInterval);
+          window.location.reload();
+        }
+      },
+      complete: function() {
+        isPolling = false;
+        if (isManual) {
+          setTimeout(function() {
+            $("#refresh-icon").removeClass("spin");
+          }, 400);
+        }
+      }
+    });
+  }
+
+  function startAdaptivePolling() {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = setInterval(function() {
+      fetchStatus(false);
+    }, getPollDelay());
+  }
+
+  // Start initial polling
+  startAdaptivePolling();
+
+  // Manual Refresh Click
+  $("#manual-refresh-status-btn").on('click', function() {
+    fetchStatus(true);
+  });
+
+  // Handle Logout button click
+  $(document).on('click', '#logout-whatsapp-btn', function() {
+    if (!confirm("Voulez-vous vraiment déconnecter votre compte WhatsApp du système ? Vous devrez scanner à nouveau un code QR.")) {
+      return;
+    }
+    const $btn = $(this);
+    const origHtml = $btn.html();
+    $btn.prop('disabled', true).html('<div class="spinner-border spinner-border-sm me-1" role="status"></div> Déconnexion...');
+
+    $.ajax({
+      url: "{% url 'core:whatsapp_logout_ajax' %}",
+      method: "POST",
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}"
+      },
+      success: function(response) {
+        window.location.reload();
+      },
+      error: function(xhr) {
+        alert("Erreur lors de la déconnexion : " + (xhr.responseJSON?.error || xhr.statusText));
+        $btn.prop('disabled', false).html(origHtml);
+      }
+    });
+  });
+
+  // Handle Restart button click
+  $(document).on('click', '#restart-whatsapp-btn', function() {
+    if (!confirm("Voulez-vous redémarrer la session WhatsApp en arrière-plan ? (La session enregistrée sera conservée).")) {
+      return;
+    }
+    const $btn = $(this);
+    const origHtml = $btn.html();
+    $btn.prop('disabled', true).html('<div class="spinner-border spinner-border-sm me-1" role="status"></div> Redémarrage...');
+
+    $.ajax({
+      url: "{% url 'core:whatsapp_restart_ajax' %}",
+      method: "POST",
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}"
+      },
+      success: function(response) {
+        // Reload after a brief pause so server can transition into STARTING
+        setTimeout(function() {
+          window.location.reload();
+        }, 1200);
+      },
+      error: function(xhr) {
+        alert("Erreur lors du redémarrage : " + (xhr.responseJSON?.error || xhr.statusText));
+        $btn.prop('disabled', false).html(origHtml);
+      }
+    });
+  });
+
+  // Open Test Message Modal
+  $(document).on('click', '#test-whatsapp-modal-btn', function() {
+    $("#test-alert-container").empty();
+    $("#check-phone-feedback").empty();
+    const modal = new bootstrap.Modal(document.getElementById('modal-test-whatsapp'));
+    modal.show();
+  });
+
+  // Verify Phone Number AJAX
+  $("#btn-check-phone").on('click', function() {
+    const phone = $("#test-phone").val().trim();
+    const $btn = $(this);
+    const $feedback = $("#check-phone-feedback");
+    if (!phone) {
+      $feedback.html('<span class="text-danger">Veuillez d\'abord saisir un numéro.</span>');
+      return;
+    }
+    $btn.prop('disabled', true).html('<div class="spinner-border spinner-border-sm" role="status"></div>');
+    $feedback.empty();
+
+    $.ajax({
+      url: "{% url 'core:whatsapp_check_number_ajax' %}",
+      method: "POST",
+      data: { phone: phone },
+      headers: { "X-CSRFToken": "{{ csrf_token }}" },
+      success: function(data) {
+        if (data.registered) {
+          $feedback.html('<span class="text-success fw-bold"><i class="bi bi-check-circle-fill me-1"></i> Numéro actif sur WhatsApp (' + (data.chatId || phone) + ')</span>');
+        } else {
+          $feedback.html('<span class="text-danger fw-bold"><i class="bi bi-x-circle-fill me-1"></i> Numéro non inscrit sur WhatsApp</span>');
+        }
+      },
+      error: function(xhr) {
+        $feedback.html('<span class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i> ' + (xhr.responseJSON?.error || 'Vérification impossible') + '</span>');
+      },
+      complete: function() {
+        $btn.prop('disabled', false).html('<i class="bi bi-search me-1"></i> Vérifier');
+      }
+    });
+  });
+
+  // Submit Test Message
+  $("#form-test-whatsapp").on('submit', function(e) {
+    e.preventDefault();
+    const phone = $("#test-phone").val().trim();
+    const message = $("#test-message").val().trim();
+    const $submitBtn = $("#btn-submit-test");
+    const origHtml = $submitBtn.html();
+
+    if (!phone || !message) return;
+
+    $submitBtn.prop('disabled', true).html('<div class="spinner-border spinner-border-sm me-1" role="status"></div> Envoi en cours...');
+    $("#test-alert-container").empty();
+
+    $.ajax({
+      url: "{% url 'core:whatsapp_send_ajax' %}",
+      method: "POST",
+      data: {
+        phone: phone,
+        message: message,
+        message_type: 'other'
+      },
+      headers: {
+        "X-CSRFToken": "{{ csrf_token }}"
+      },
+      success: function(data) {
+        if (data.success) {
+          $("#test-alert-container").html(
+            '<div class="alert alert-success d-flex align-items-center mb-3">' +
+            '<i class="bi bi-check-circle-fill me-2 fs-5"></i>' +
+            '<div><strong>Message envoyé avec succès !</strong><div class="small text-muted">ID: ' + (data.messageId || 'N/A') + '</div></div>' +
+            '</div>'
+          );
+          setTimeout(function() {
+            window.location.reload();
+          }, 1800);
+        } else {
+          $("#test-alert-container").html(
+            '<div class="alert alert-danger d-flex align-items-center mb-3">' +
+            '<i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>' +
+            '<div><strong>Échec d\'envoi :</strong> ' + (data.error || 'Erreur inconnue') + '</div>' +
+            '</div>'
+          );
+        }
+      },
+      error: function(xhr) {
+        const err = xhr.responseJSON?.error || xhr.statusText || 'Erreur de communication avec le serveur';
+        $("#test-alert-container").html(
+          '<div class="alert alert-danger d-flex align-items-center mb-3">' +
+          '<i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>' +
+          '<div><strong>Erreur :</strong> ' + err + '</div>' +
+          '</div>'
+        );
+      },
+      complete: function() {
+        $submitBtn.prop('disabled', false).html(origHtml);
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

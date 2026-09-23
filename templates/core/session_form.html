@@ -1,0 +1,1182 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}{{ action }} une séance — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:sessions_schedule' %}"><i class="bi bi-calendar3"></i> Planification</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">{{ action }} une séance</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Page layout ─────────────────────────────────────────── */
+.sf-page {
+  max-width: 820px;
+  margin: 0 auto 3rem auto;
+}
+
+/* ── Summary bar (Edit mode) ─────────────────────────────── */
+.sf-edit-meta {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(59, 130, 246, 0.05));
+  border: 1px solid rgba(99, 102, 241, 0.2);
+  border-radius: 12px;
+  padding: 12px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 1.5rem;
+  font-size: 13.5px;
+}
+
+/* ── Section card ─────────────────────────────────────────── */
+.sf-section {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.04);
+  margin-bottom: 1.35rem;
+  overflow: hidden;
+  transition: border-color .2s, box-shadow .2s;
+}
+.sf-section:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,.06);
+}
+.sf-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border, #e5e7eb);
+  background: var(--surface-alt, #f8fafc);
+}
+.sf-section-icon {
+  width: 34px; height: 34px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; color: #fff; flex-shrink: 0;
+  box-shadow: 0 2px 6px rgba(0,0,0,.1);
+}
+.sf-section-title {
+  font-weight: 700;
+  font-size: 0.925rem;
+  color: var(--text-primary, #0f172a);
+  letter-spacing: 0.01em;
+}
+.sf-section-body { padding: 22px 20px; }
+
+/* ── Duration pill ────────────────────────────────────────── */
+.duration-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700;
+  padding: 4px 12px; border-radius: 999px;
+  background: var(--surface-alt, #f1f5f9);
+  color: var(--text-secondary, #64748b);
+  border: 1px solid var(--border, #e2e8f0);
+  transition: all .2s;
+}
+.duration-badge.active {
+  background: #eff6ff; color: #1d4ed8;
+  border-color: #93c5fd;
+}
+.duration-badge.error {
+  background: #fef2f2; color: #dc2626;
+  border-color: #fca5a5;
+}
+
+/* ── Quick helper buttons ─────────────────────────────────── */
+.quick-btn-group {
+  display: inline-flex;
+  gap: 4px;
+}
+.quick-btn {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #cbd5e1);
+  background: var(--surface, #fff);
+  color: var(--text-secondary, #475569);
+  cursor: pointer;
+  transition: all .15s;
+  line-height: 1.4;
+}
+.quick-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+  color: var(--primary, #3b82f6);
+}
+
+/* ── Status pills selector ────────────────────────────────── */
+.status-pill-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 2px solid var(--border, #e2e8f0);
+  background: var(--surface-alt, #f8fafc);
+  cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  transition: all .18s;
+  color: var(--text-secondary, #64748b);
+  user-select: none;
+}
+.status-pill:hover {
+  border-color: var(--primary, #3b82f6);
+  color: var(--primary, #3b82f6);
+  background: #eff6ff;
+}
+.status-pill.selected.planned {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(59,130,246,.35);
+}
+.status-pill.selected.done {
+  background: #10b981;
+  border-color: #10b981;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(16,185,129,.35);
+}
+.status-pill.selected.cancelled {
+  background: #ef4444;
+  border-color: #ef4444;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(239,68,68,.35);
+}
+
+/* ── Conflict & Warning alert boxes ───────────────────────── */
+.sf-conflict-box {
+  border-radius: 12px;
+  border: 1px solid transparent;
+  border-left-width: 5px;
+  padding: 14px 18px;
+  font-size: 13.5px;
+  transition: all .2s;
+}
+.sf-conflict-box.warning {
+  border-left-color: #f59e0b;
+  border-color: #fde68a #fde68a #fde68a #f59e0b;
+  background: #fffbeb;
+  color: #92400e;
+}
+.sf-conflict-box.critical {
+  border-left-color: #ef4444;
+  border-color: #fca5a5 #fca5a5 #fca5a5 #ef4444;
+  background: #fef2f2;
+  color: #991b1b;
+}
+.sf-conflict-box.success {
+  border-left-color: #10b981;
+  border-color: #a7f3d0 #a7f3d0 #a7f3d0 #10b981;
+  background: #f0fdf4;
+  color: #065f46;
+}
+.sf-conflict-checking {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary, #64748b);
+  padding: 8px 12px;
+}
+
+/* ── Action footer ────────────────────────────────────────── */
+.sf-footer {
+  background: var(--bg-card, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 14px;
+  padding: 16px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 12px rgba(0,0,0,.04);
+}
+
+/* ── Form Controls & Validation ───────────────────────────── */
+.form-label {
+  font-size: 0.835rem;
+  font-weight: 600;
+  color: var(--text-secondary, #475569);
+  margin-bottom: 6px;
+}
+.form-control, .form-select {
+  font-size: 0.915rem;
+  border-radius: 8px;
+  border-color: var(--border, #cbd5e1);
+  padding: 0.55rem 0.8rem;
+  transition: border-color .15s, box-shadow .15s;
+}
+.form-control:focus, .form-select:focus {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 3px rgba(59,130,246,.18);
+}
+.form-control.is-invalid, .form-select.is-invalid {
+  border-color: #ef4444;
+  background-image: none;
+}
+.form-control.is-invalid:focus, .form-select.is-invalid:focus {
+  box-shadow: 0 0 0 3px rgba(239,68,68,.18);
+}
+.required-star {
+  color: var(--danger, #ef4444);
+  font-weight: bold;
+}
+.field-error-msg {
+  font-size: 0.8rem;
+  color: #dc2626;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Room Quick-Add Modal ─────────────────────────────────── */
+@keyframes qarSlideIn {
+  from { opacity:0; transform:translateY(-14px) scale(.98); }
+  to   { opacity:1; transform:translateY(0) scale(1); }
+}
+#quick-add-room-overlay.qar-open { display:flex !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sf-page">
+
+  <!-- ── Page header ─────────────────────────────────────── -->
+  <div class="page-header d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h1 class="page-title mb-1">
+        {% if action == 'Créer' %}
+          <i class="bi bi-plus-circle-fill me-2 text-primary"></i>Ajouter une séance
+        {% else %}
+          <i class="bi bi-pencil-square me-2 text-primary"></i>Modifier la séance
+        {% endif %}
+      </h1>
+      <p class="page-subtitle mb-0">
+        {% if action == 'Créer' %}
+          Planifiez manuellement une nouvelle séance de cours avec détection automatique des conflits.
+        {% else %}
+          Modifiez les horaires, la salle ou le statut de cette séance.
+        {% endif %}
+      </p>
+    </div>
+    <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-secondary flex-shrink-0">
+      <i class="bi bi-arrow-left"></i> Retour au planning
+    </a>
+  </div>
+
+  {% if action == 'Modifier' and session %}
+  <!-- ── Session metadata strip (Edit mode) ──────────────── -->
+  <div class="sf-edit-meta">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
+      <span class="badge bg-primary-subtle text-primary border border-primary-subtle fw-semibold px-2 py-1">
+        <i class="bi bi-hash"></i>Séance #{{ session.id }}
+      </span>
+      <div>
+        <strong>{{ session.group.name }}</strong>
+        {% if session.group.teacher %}
+          <span class="text-secondary ms-1">· Prof. {{ session.group.teacher.name }}</span>
+        {% endif %}
+      </div>
+      <div>
+        <i class="bi bi-calendar3 text-secondary me-1"></i>{{ session.date|date:"l d F Y" }}
+      </div>
+    </div>
+    <span class="badge rounded-pill {% if session.status == 'DONE' %}bg-success{% elif session.status == 'CANCELLED' %}bg-danger{% else %}bg-primary{% endif %} px-2 py-1">
+      {{ session.get_status_display }}
+    </span>
+  </div>
+  {% endif %}
+
+  <!-- ── Top Global Alert for Form-level Errors ──────────── -->
+  <div id="formValidationSummary" class="alert alert-danger d-none mb-4 d-flex align-items-center gap-2">
+    <i class="bi bi-exclamation-triangle-fill fs-5 flex-shrink-0"></i>
+    <div id="formValidationSummaryText">Veuillez corriger les champs obligatoires surlignés en rouge avant d'enregistrer.</div>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-4 d-flex align-items-center gap-2">
+      <i class="bi bi-exclamation-circle-fill fs-5 flex-shrink-0"></i>
+      <div>
+        {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+      </div>
+    </div>
+  {% endif %}
+
+  <form method="post" id="sessionForm" novalidate autocomplete="off">
+    {% csrf_token %}
+
+    <!-- ── 1. Groupe de cours ───────────────────────────── -->
+    <div class="sf-section" id="section-group">
+      <div class="sf-section-header">
+        <div class="sf-section-icon" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);">
+          <i class="bi bi-book-fill"></i>
+        </div>
+        <span class="sf-section-title">Groupe de cours</span>
+        <span class="badge bg-danger ms-1" style="font-size:10px;">Requis</span>
+      </div>
+      <div class="sf-section-body">
+        <label for="{{ form.group.id_for_label }}" class="form-label">
+          Groupe / Classe <span class="required-star">*</span>
+        </label>
+        {{ form.group }}
+        <div id="group-feedback" class="field-error-msg {% if not form.group.errors %}d-none{% endif %}">
+          <i class="bi bi-exclamation-circle"></i>
+          <span class="error-text">{% for e in form.group.errors %}{{ e }}{% empty %}Veuillez sélectionner un groupe.{% endfor %}</span>
+        </div>
+        <div class="form-text mt-1">Le professeur et le niveau sont automatiquement déduits du groupe sélectionné.</div>
+      </div>
+    </div>
+
+    <!-- ── 2. Date & Horaire ────────────────────────────── -->
+    <div class="sf-section" id="section-schedule">
+      <div class="sf-section-header">
+        <div class="sf-section-icon" style="background:linear-gradient(135deg,#f59e0b,#ef4444);">
+          <i class="bi bi-calendar-event-fill"></i>
+        </div>
+        <span class="sf-section-title">Date & Horaires</span>
+        <span id="duration-badge" class="duration-badge ms-auto" title="Durée calculée de la séance">
+          <i class="bi bi-clock-history"></i>
+          <span id="duration-text">--</span>
+        </span>
+      </div>
+      <div class="sf-section-body">
+        <div class="row g-3">
+          <!-- Date -->
+          <div class="col-md-6">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <label for="{{ form.date.id_for_label }}" class="form-label mb-0">
+                Date de la séance <span class="required-star">*</span>
+              </label>
+              <div class="quick-btn-group">
+                <button type="button" class="quick-btn" id="btn-quick-today">Aujourd'hui</button>
+                <button type="button" class="quick-btn" id="btn-quick-tomorrow">Demain</button>
+              </div>
+            </div>
+            {{ form.date }}
+            <div id="date-feedback" class="field-error-msg {% if not form.date.errors %}d-none{% endif %}">
+              <i class="bi bi-exclamation-circle"></i>
+              <span class="error-text">{% for e in form.date.errors %}{{ e }}{% empty %}Veuillez renseigner une date valide.{% endfor %}</span>
+            </div>
+          </div>
+
+          <!-- Start Time -->
+          <div class="col-md-3">
+            <label for="{{ form.start_time.id_for_label }}" class="form-label">
+              Heure de début <span class="required-star">*</span>
+            </label>
+            {{ form.start_time }}
+            <div id="start-time-feedback" class="field-error-msg {% if not form.start_time.errors %}d-none{% endif %}">
+              <i class="bi bi-exclamation-circle"></i>
+              <span class="error-text">{% for e in form.start_time.errors %}{{ e }}{% empty %}Requis.{% endfor %}</span>
+            </div>
+          </div>
+
+          <!-- End Time -->
+          <div class="col-md-3">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <label for="{{ form.end_time.id_for_label }}" class="form-label mb-0">
+                Heure de fin <span class="required-star">*</span>
+              </label>
+              <div class="quick-btn-group">
+                <button type="button" class="quick-btn" data-add-mins="60" title="Ajouter 1 heure">+1h</button>
+                <button type="button" class="quick-btn" data-add-mins="90" title="Ajouter 1h30">+1h30</button>
+                <button type="button" class="quick-btn" data-add-mins="120" title="Ajouter 2 heures">+2h</button>
+              </div>
+            </div>
+            {{ form.end_time }}
+            <div id="end-time-feedback" class="field-error-msg {% if not form.end_time.errors %}d-none{% endif %}">
+              <i class="bi bi-exclamation-circle"></i>
+              <span class="error-text">{% for e in form.end_time.errors %}{{ e }}{% empty %}Requis.{% endfor %}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 3. Salle & Statut ────────────────────────────── -->
+    <div class="sf-section" id="section-room-status">
+      <div class="sf-section-header">
+        <div class="sf-section-icon" style="background:linear-gradient(135deg,#10b981,#059669);">
+          <i class="bi bi-door-open-fill"></i>
+        </div>
+        <span class="sf-section-title">Salle & Statut</span>
+      </div>
+      <div class="sf-section-body">
+        <div class="row g-4">
+          <!-- Room select + Quick Add button -->
+          <div class="col-md-7">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <label for="{{ form.room.id_for_label }}" class="form-label mb-0">
+                Salle de cours <span class="required-star">*</span>
+              </label>
+            </div>
+            <div class="d-flex gap-2">
+              <div class="flex-grow-1">
+                {{ form.room }}
+              </div>
+              <button type="button" id="open-quick-add-room-btn" class="btn btn-outline-success btn-sm flex-shrink-0 d-inline-flex align-items-center gap-1"
+                      title="Ajouter une nouvelle salle rapidement">
+                <i class="bi bi-plus-circle"></i>
+                <span class="d-none d-sm-inline">Nouvelle salle</span>
+              </button>
+            </div>
+            <div id="room-feedback" class="field-error-msg {% if not form.room.errors %}d-none{% endif %}">
+              <i class="bi bi-exclamation-circle"></i>
+              <span class="error-text">{% for e in form.room.errors %}{{ e }}{% empty %}Veuillez sélectionner une salle.{% endfor %}</span>
+            </div>
+          </div>
+
+          <!-- Status pills selector -->
+          <div class="col-md-5">
+            <label class="form-label d-block">
+              Statut de la séance <span class="required-star">*</span>
+            </label>
+            <!-- Native hidden select bound to Django form -->
+            <div class="d-none">{{ form.status }}</div>
+            <!-- Interactive visual pills -->
+            <div class="status-pill-group" id="status-pill-group" role="radiogroup" aria-label="Statut de la séance">
+              <button type="button" class="status-pill planned" data-value="PLANNED" role="radio" aria-checked="false" tabindex="0">
+                <i class="bi bi-calendar-check"></i> Prévu
+              </button>
+              <button type="button" class="status-pill done" data-value="DONE" role="radio" aria-checked="false" tabindex="0">
+                <i class="bi bi-check-circle-fill"></i> Terminé
+              </button>
+              <button type="button" class="status-pill cancelled" data-value="CANCELLED" role="radio" aria-checked="false" tabindex="0">
+                <i class="bi bi-x-circle-fill"></i> Annulé
+              </button>
+            </div>
+            <div id="status-feedback" class="field-error-msg {% if not form.status.errors %}d-none{% endif %}">
+              <i class="bi bi-exclamation-circle"></i>
+              <span class="error-text">{% for e in form.status.errors %}{{ e }}{% endfor %}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 4. Notes & Motif ─────────────────────────────── -->
+    <div class="sf-section" id="section-notes">
+      <div class="sf-section-header">
+        <div class="sf-section-icon" style="background:linear-gradient(135deg,#64748b,#475569);">
+          <i class="bi bi-chat-left-text-fill"></i>
+        </div>
+        <span class="sf-section-title">Notes & Historique</span>
+        <span class="badge bg-light text-secondary border ms-1" style="font-size:10px;">Optionnel</span>
+      </div>
+      <div class="sf-section-body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label for="{{ form.notes.id_for_label }}" class="form-label">Notes internes de la séance</label>
+            {{ form.notes }}
+            <div class="form-text">Visible uniquement par l'équipe administrative et les enseignants.</div>
+          </div>
+          <div class="col-12">
+            <label for="id_change_reason" class="form-label">
+              <i class="bi bi-journal-text me-1 text-primary"></i>Motif / Note pour le journal d'audit
+            </label>
+            <input type="text" name="change_reason" id="id_change_reason" class="form-control"
+                   placeholder="Ex: Remplacement ponctuel, changement de salle, rattrapage...">
+            <div class="form-text">Cette mention apparaîtra dans le journal d'audit de la planification.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── 5. Étendue modification (Edit mode only) ─────── -->
+    {% if action == 'Modifier' %}
+    <div class="sf-section" id="section-update-mode">
+      <div class="sf-section-header">
+        <div class="sf-section-icon" style="background:linear-gradient(135deg,#ec4899,#db2777);">
+          <i class="bi bi-arrow-repeat"></i>
+        </div>
+        <span class="sf-section-title">Étendue de la modification récurrente</span>
+      </div>
+      <div class="sf-section-body">
+        <label for="id_update_mode" class="form-label fw-semibold">Appliquer les modifications à :</label>
+        <select name="update_mode" class="form-select" id="id_update_mode">
+          <option value="only_this" selected>🎯 Uniquement cette séance</option>
+          <option value="this_week">📅 Toutes les séances de cette semaine (sauf exceptions manuelles)</option>
+          <option value="future">⏩ Cette séance et toutes les séances futures (sauf exceptions manuelles)</option>
+          <option value="academic_year">🔄 Toutes les séances de l'année académique (sauf exceptions manuelles)</option>
+        </select>
+        <div class="form-text mt-2">
+          <i class="bi bi-info-circle text-primary me-1"></i>
+          Les séances antérieures ou déjà personnalisées manuellement sont protégées et ne seront pas écrasées.
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Availability server warning ─────────────────── -->
+    {% if form_warnings %}
+    <div class="sf-conflict-box warning mb-4" role="alert">
+      <div class="d-flex align-items-start gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-warning fs-5 flex-shrink-0"></i>
+        <div>
+          <strong class="d-block mb-1">Avertissements de disponibilité</strong>
+          <ul class="mb-0 ps-3" style="font-size:13px;">
+            {% for warning in form_warnings %}
+            <li>{{ warning }}</li>
+            {% endfor %}
+          </ul>
+          <p class="mb-0 mt-2" style="font-size:12px;opacity:.9;">
+            <em>Note : Vous pouvez tout de même enregistrer la séance si nécessaire.</em>
+          </p>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- ── Live Conflict Checker Feedback Box ─────────── -->
+    <div id="conflictAlertContainer" class="d-none mb-4">
+      <div class="sf-conflict-box" id="conflictAlertInner" role="alert">
+        <div class="d-flex align-items-start gap-2">
+          <span id="conflictAlertIcon" class="fs-5 flex-shrink-0">⚠️</span>
+          <div class="flex-grow-1" id="conflictAlertMessage"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Live Conflict Checker Loading State ────────── -->
+    <div id="conflictCheckingContainer" class="d-none mb-4 text-center">
+      <div class="sf-conflict-checking">
+        <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+        <span>Vérification des conflits et disponibilités...</span>
+      </div>
+    </div>
+
+    <!-- ── Action Footer ──────────────────────────────── -->
+    <div class="sf-footer">
+      <div style="font-size:13px;color:var(--text-secondary,#64748b);">
+        <i class="bi bi-info-circle me-1"></i>Les champs marqués <span class="required-star">*</span> sont obligatoires.
+      </div>
+      <div class="d-flex gap-2 align-items-center">
+        <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-secondary">
+          <i class="bi bi-x-lg"></i> Annuler
+        </a>
+        <button class="btn btn-primary px-4 fw-semibold" id="btnSubmitSession" type="submit" style="min-height:44px;">
+          <span class="submit-spinner spinner-border spinner-border-sm d-none me-1" role="status" aria-hidden="true"></span>
+          <span class="submit-label">
+            <i class="bi bi-check-lg me-1"></i>
+            {% if action == 'Créer' %}Enregistrer la séance{% else %}Enregistrer les modifications{% endif %}
+          </span>
+        </button>
+      </div>
+    </div>
+
+  </form>
+</div>
+
+<!-- ============================================================
+     Room Quick-Add Modal
+     ============================================================ -->
+<div id="quick-add-room-overlay" role="dialog" aria-modal="true" aria-labelledby="qar-modal-title"
+     style="display:none;position:fixed;inset:0;z-index:9999;
+            background:rgba(0,0,0,.45);backdrop-filter:blur(3px);
+            align-items:center;justify-content:center;padding:1rem;">
+
+  <div id="quick-add-room-modal"
+       style="background:var(--bg-card,#fff);border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.25);
+              width:100%;max-width:480px;max-height:90vh;overflow-y:auto;
+              animation:qarSlideIn .22s ease;">
+
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;
+                padding:1.1rem 1.4rem;border-bottom:1px solid var(--border,#e5e7eb);">
+      <div style="display:flex;align-items:center;gap:.6rem;">
+        <div style="width:36px;height:36px;border-radius:8px;
+                    background:linear-gradient(135deg,#10b981,#059669);
+                    display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-door-open-fill" style="color:#fff;font-size:16px;"></i>
+        </div>
+        <span id="qar-modal-title" style="font-weight:700;font-size:1rem;color:var(--text-primary,#0f172a);">Nouvelle salle</span>
+      </div>
+      <button type="button" id="close-quick-add-room" aria-label="Fermer"
+              style="background:none;border:none;cursor:pointer;font-size:1.2rem;
+                     color:var(--text-secondary,#64748b);line-height:1;padding:.25rem;min-width:36px;min-height:36px;">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Body -->
+    <div style="padding:1.25rem 1.4rem;">
+      <div id="qar-alert" class="alert alert-danger mb-3" style="display:none;font-size:.85rem;"></div>
+
+      <!-- Name -->
+      <div class="mb-3">
+        <label for="qar-name" class="form-label">Nom de la salle <span style="color:var(--danger,#ef4444);">*</span></label>
+        <input id="qar-name" name="qar_name" type="text" class="form-control" placeholder="ex: Salle A1" autocomplete="off">
+        <div id="qar-name-err" class="invalid-feedback"></div>
+      </div>
+
+      <!-- Capacity -->
+      <div class="mb-3">
+        <label for="qar-capacity" class="form-label">Capacité <span style="color:var(--danger,#ef4444);">*</span></label>
+        <div class="input-group">
+          <input id="qar-capacity" name="qar_capacity" type="number" class="form-control" min="1" placeholder="ex: 30">
+          <span class="input-group-text">places</span>
+        </div>
+        <div id="qar-capacity-err" class="invalid-feedback"></div>
+      </div>
+
+      <!-- Building + Floor -->
+      <div class="row g-3">
+        <div class="col-md-7">
+          <label for="qar-building" class="form-label">Bâtiment <span class="text-secondary" style="font-size:11px;">(optionnel)</span></label>
+          <input id="qar-building" name="qar_building" type="text" class="form-control" placeholder="ex: Bâtiment B">
+        </div>
+        <div class="col-md-5">
+          <label for="qar-floor" class="form-label">Étage <span class="text-secondary" style="font-size:11px;">(optionnel)</span></label>
+          <input id="qar-floor" name="qar_floor" type="number" class="form-control" placeholder="ex: 1">
+          <div id="qar-floor-err" class="invalid-feedback"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:1rem 1.4rem;border-top:1px solid var(--border,#e5e7eb);
+                display:flex;justify-content:flex-end;gap:.6rem;background:var(--surface-alt,#f8fafc);border-radius:0 0 14px 14px;">
+      <button type="button" id="qar-cancel-btn" class="btn btn-secondary btn-sm" style="min-height:38px;">Annuler</button>
+      <button type="button" id="qar-save-btn" class="btn btn-success btn-sm" style="min-height:38px;">
+        <span id="qar-spinner" class="spinner-border spinner-border-sm me-1" style="display:none;" role="status"></span>
+        <i class="bi bi-check-lg me-1"></i> Créer la salle
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const form = document.getElementById('sessionForm');
+  const groupField   = document.getElementById('id_group');
+  const dateField    = document.getElementById('id_date');
+  const startInput   = document.getElementById('id_start_time');
+  const endInput     = document.getElementById('id_end_time');
+  const roomField    = document.getElementById('id_room');
+  const statusSelect = document.getElementById('id_status');
+  const submitBtn    = document.getElementById('btnSubmitSession');
+  const summaryBox   = document.getElementById('formValidationSummary');
+  const summaryText  = document.getElementById('formValidationSummaryText');
+
+  const durBadge     = document.getElementById('duration-badge');
+  const durText      = document.getElementById('duration-text');
+
+  const alertContainer    = document.getElementById('conflictAlertContainer');
+  const alertInner        = document.getElementById('conflictAlertInner');
+  const alertIcon         = document.getElementById('conflictAlertIcon');
+  const alertMessage      = document.getElementById('conflictAlertMessage');
+  const checkingContainer = document.getElementById('conflictCheckingContainer');
+
+  const excludeId = "{% if session %}{{ session.id }}{% endif %}";
+
+  let hasActiveCriticalConflict = false;
+  let conflictCheckTimer = null;
+
+  // ── Helper: Format duration ─────────────────────────────
+  function formatDurationMinutes(mins) {
+    if (mins <= 0) return null;
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m} min`;
+  }
+
+  // ── Helper: Time validation & Duration calculation ───────
+  function validateTimes() {
+    const s = startInput.value;
+    const e = endInput.value;
+    const endFeedback = document.getElementById('end-time-feedback');
+
+    if (!s && !e) {
+      durText.textContent = '--';
+      durBadge.className = 'duration-badge ms-auto';
+      return true;
+    }
+
+    if (s && e) {
+      if (s >= e) {
+        durText.textContent = 'Invalide (fin ≤ début)';
+        durBadge.className = 'duration-badge ms-auto error';
+        endInput.classList.add('is-invalid');
+        if (endFeedback) {
+          endFeedback.querySelector('.error-text').textContent = "L'heure de fin doit être postérieure à l'heure de début.";
+          endFeedback.classList.remove('d-none');
+        }
+        return false;
+      } else {
+        const [sh, sm] = s.split(':').map(Number);
+        const [eh, em] = e.split(':').map(Number);
+        const mins = (eh * 60 + em) - (sh * 60 + sm);
+        durText.textContent = formatDurationMinutes(mins) || '--';
+        durBadge.className = 'duration-badge ms-auto active';
+        endInput.classList.remove('is-invalid');
+        if (endFeedback) endFeedback.classList.add('d-none');
+        return true;
+      }
+    }
+
+    durText.textContent = '--';
+    durBadge.className = 'duration-badge ms-auto';
+    return true;
+  }
+
+  // ── Quick Date Buttons ──────────────────────────────────
+  function formatDate(d) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  const btnToday = document.getElementById('btn-quick-today');
+  if (btnToday) {
+    btnToday.addEventListener('click', function () {
+      dateField.value = formatDate(new Date());
+      dateField.dispatchEvent(new Event('change'));
+      dateField.classList.remove('is-invalid');
+      document.getElementById('date-feedback')?.classList.add('d-none');
+    });
+  }
+
+  const btnTomorrow = document.getElementById('btn-quick-tomorrow');
+  if (btnTomorrow) {
+    btnTomorrow.addEventListener('click', function () {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      dateField.value = formatDate(tomorrow);
+      dateField.dispatchEvent(new Event('change'));
+      dateField.classList.remove('is-invalid');
+      document.getElementById('date-feedback')?.classList.add('d-none');
+    });
+  }
+
+  // ── Quick Duration Buttons (+1h, +1h30, +2h) ─────────────
+  document.querySelectorAll('[data-add-mins]').forEach(btn => {
+    btn.addEventListener('click', function () {
+      let startTime = startInput.value;
+      if (!startTime) {
+        // Default start time to next round hour if empty
+        const now = new Date();
+        const nextHour = (now.getHours() + 1) % 24;
+        startTime = `${String(nextHour).padStart(2, '0')}:00`;
+        startInput.value = startTime;
+        startInput.classList.remove('is-invalid');
+        document.getElementById('start-time-feedback')?.classList.add('d-none');
+      }
+
+      const addMins = parseInt(this.dataset.addMins, 10);
+      const [h, m] = startTime.split(':').map(Number);
+      const totalMins = h * 60 + m + addMins;
+      const newH = Math.floor(totalMins / 60) % 24;
+      const newM = totalMins % 60;
+      endInput.value = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+      endInput.dispatchEvent(new Event('change'));
+      endInput.classList.remove('is-invalid');
+      document.getElementById('end-time-feedback')?.classList.add('d-none');
+    });
+  });
+
+  // ── Auto suggest end time on start time change ──────────
+  startInput.addEventListener('change', function () {
+    if (startInput.value && !endInput.value) {
+      const [h, m] = startInput.value.split(':').map(Number);
+      const totalMins = h * 60 + m + 90; // default 1h30 session
+      const newH = Math.floor(totalMins / 60) % 24;
+      const newM = totalMins % 60;
+      endInput.value = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
+    }
+    validateTimes();
+    scheduleConflictCheck();
+  });
+
+  endInput.addEventListener('change', function () {
+    validateTimes();
+    scheduleConflictCheck();
+  });
+
+  // ── Status Pill Selector ─────────────────────────────────
+  const pills = document.querySelectorAll('#status-pill-group .status-pill');
+  function syncPills(val) {
+    pills.forEach(p => {
+      const isMatch = p.dataset.value === val;
+      p.classList.toggle('selected', isMatch);
+      p.setAttribute('aria-checked', isMatch ? 'true' : 'false');
+    });
+  }
+
+  pills.forEach(p => {
+    function selectPill() {
+      const val = p.dataset.value;
+      if (statusSelect) {
+        statusSelect.value = val;
+        statusSelect.dispatchEvent(new Event('change'));
+      }
+      syncPills(val);
+    }
+    p.addEventListener('click', selectPill);
+    p.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        selectPill();
+      }
+    });
+  });
+
+  if (statusSelect) {
+    syncPills(statusSelect.value || 'PLANNED');
+    if (!statusSelect.value) statusSelect.value = 'PLANNED';
+  }
+
+  // ── Field-level error reset on user interaction ─────────
+  function bindClearError(fieldEl, feedbackId) {
+    if (!fieldEl) return;
+    ['input', 'change'].forEach(evt => {
+      fieldEl.addEventListener(evt, function () {
+        if (fieldEl.value && fieldEl.value.trim() !== '') {
+          fieldEl.classList.remove('is-invalid');
+          const fb = document.getElementById(feedbackId);
+          if (fb) fb.classList.add('d-none');
+        }
+      });
+    });
+  }
+  bindClearError(groupField, 'group-feedback');
+  bindClearError(dateField, 'date-feedback');
+  bindClearError(startInput, 'start-time-feedback');
+  bindClearError(endInput, 'end-time-feedback');
+  bindClearError(roomField, 'room-feedback');
+
+  // ── Real-time Conflict Checker ──────────────────────────
+  const TYPE_ICONS = {
+    ROOM: '🏫 Salle occupée',
+    TEACHER: '👤 Professeur déjà en séance',
+    TEACHER_LEAVE: '🏖️ Professeur en congé',
+    TEACHER_UNAVAILABLE: '⛔ Professeur indisponible',
+    TEACHER_OUT_OF_BOUNDS: '⏰ Horaires hors disponibilité',
+    CAPACITY: '👥 Capacité dépassée',
+    GROUP: '📚 Groupe déjà en séance'
+  };
+
+  function scheduleConflictCheck() {
+    if (conflictCheckTimer) clearTimeout(conflictCheckTimer);
+    conflictCheckTimer = setTimeout(performConflictCheck, 280);
+  }
+
+  function performConflictCheck() {
+    const roomId    = roomField ? roomField.value : '';
+    const dateVal   = dateField ? dateField.value : '';
+    const startTime = startInput ? startInput.value : '';
+    const endTime   = endInput ? endInput.value : '';
+    const groupId   = groupField ? groupField.value : '';
+
+    if (!roomId || !dateVal || !startTime || !endTime) {
+      alertContainer.classList.add('d-none');
+      checkingContainer.classList.add('d-none');
+      hasActiveCriticalConflict = false;
+      return;
+    }
+
+    if (startTime >= endTime) {
+      alertInner.className = 'sf-conflict-box critical';
+      alertIcon.textContent = '🚫';
+      alertMessage.innerHTML = "<strong style='color:#dc2626;'>Horaire incohérent :</strong> L'heure de fin doit être postérieure à l'heure de début.";
+      alertContainer.classList.remove('d-none');
+      checkingContainer.classList.add('d-none');
+      hasActiveCriticalConflict = true;
+      return;
+    }
+
+    // Show checking indicator
+    checkingContainer.classList.remove('d-none');
+
+    let url = `/schedule/check-conflict/?type=session&room_id=${encodeURIComponent(roomId)}&date=${encodeURIComponent(dateVal)}&start_time=${encodeURIComponent(startTime)}&end_time=${encodeURIComponent(endTime)}`;
+    if (groupId) url += `&group_id=${encodeURIComponent(groupId)}`;
+    if (excludeId) url += `&exclude_id=${encodeURIComponent(excludeId)}`;
+
+    fetch(url)
+      .then(r => r.json())
+      .then(data => {
+        checkingContainer.classList.add('d-none');
+        if (data.has_conflict && data.conflicts && data.conflicts.length > 0) {
+          const hasCritical = data.conflicts.some(c => c.severity === 'critical');
+          hasActiveCriticalConflict = hasCritical;
+
+          alertInner.className = `sf-conflict-box ${hasCritical ? 'critical' : 'warning'}`;
+          alertIcon.textContent = hasCritical ? '🔴' : '🟡';
+
+          let html = `<div><strong>${hasCritical ? 'Conflits bloquants détectés :' : 'Avertissements de disponibilité :'}</strong></div>`;
+          html += '<ul class="mb-0 ps-3 mt-1" style="font-size:13px;">';
+          data.conflicts.forEach(c => {
+            const label = TYPE_ICONS[c.type] || c.type;
+            const isCrit = c.severity === 'critical';
+            html += `<li style="margin-bottom:3px;${isCrit ? 'font-weight:600;' : ''}">
+              <span class="badge ${isCrit ? 'bg-danger' : 'bg-warning text-dark'} me-1" style="font-size:10px;">${label}</span>
+              ${c.message}
+            </li>`;
+          });
+          html += '</ul>';
+
+          alertMessage.innerHTML = html;
+          alertContainer.classList.remove('d-none');
+        } else {
+          hasActiveCriticalConflict = false;
+          alertInner.className = 'sf-conflict-box success';
+          alertIcon.textContent = '✅';
+          alertMessage.innerHTML = '<span class="fw-semibold">Créneau disponible :</span> Aucun conflit détecté pour cette salle et ce professeur.';
+          alertContainer.classList.remove('d-none');
+          // Auto-hide success badge after 3.5s
+          setTimeout(() => {
+            if (alertInner.classList.contains('success')) {
+              alertContainer.classList.add('d-none');
+            }
+          }, 3500);
+        }
+      })
+      .catch(err => {
+        checkingContainer.classList.add('d-none');
+        console.warn('Conflict check failed:', err);
+      });
+  }
+
+  [roomField, dateField, startInput, endInput, groupField].forEach(el => {
+    if (el) el.addEventListener('change', scheduleConflictCheck);
+  });
+
+  // Initial calculation and conflict verification if editing
+  validateTimes();
+  if (roomField && roomField.value && dateField && dateField.value && startInput.value && endInput.value) {
+    performConflictCheck();
+  }
+
+  // ── Form Submit Validation Guard ─────────────────────────
+  form.addEventListener('submit', function (e) {
+    let isValid = true;
+    let firstInvalidEl = null;
+
+    function markInvalid(el, feedbackId, customMsg) {
+      isValid = false;
+      if (el) el.classList.add('is-invalid');
+      const fb = document.getElementById(feedbackId);
+      if (fb) {
+        if (customMsg) fb.querySelector('.error-text').textContent = customMsg;
+        fb.classList.remove('d-none');
+      }
+      if (!firstInvalidEl) firstInvalidEl = el;
+    }
+
+    // 1. Group check
+    if (!groupField || !groupField.value || groupField.value.trim() === '') {
+      markInvalid(groupField, 'group-feedback', 'Veuillez sélectionner un groupe ou classe.');
+    }
+
+    // 2. Date check
+    if (!dateField || !dateField.value || dateField.value.trim() === '') {
+      markInvalid(dateField, 'date-feedback', 'Veuillez renseigner une date.');
+    }
+
+    // 3. Start time check
+    if (!startInput || !startInput.value || startInput.value.trim() === '') {
+      markInvalid(startInput, 'start-time-feedback', "L'heure de début est obligatoire.");
+    }
+
+    // 4. End time check
+    if (!endInput || !endInput.value || endInput.value.trim() === '') {
+      markInvalid(endInput, 'end-time-feedback', "L'heure de fin est obligatoire.");
+    } else if (startInput.value && endInput.value <= startInput.value) {
+      markInvalid(endInput, 'end-time-feedback', "L'heure de fin doit être postérieure à l'heure de début.");
+    }
+
+    // 5. Room check
+    if (!roomField || !roomField.value || roomField.value.trim() === '') {
+      markInvalid(roomField, 'room-feedback', 'Veuillez choisir une salle pour ce cours.');
+    }
+
+    if (!isValid) {
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Show summary banner
+      if (summaryBox) {
+        summaryBox.classList.remove('d-none');
+        if (summaryText) summaryText.textContent = "Veuillez remplir correctement tous les champs obligatoires surlignés en rouge.";
+      }
+
+      if (firstInvalidEl) {
+        firstInvalidEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        firstInvalidEl.focus();
+      }
+      return;
+    }
+
+    // Hide summary if valid
+    if (summaryBox) summaryBox.classList.add('d-none');
+
+    // If critical conflict active, warn admin before proceeding
+    if (hasActiveCriticalConflict) {
+      const confirmSave = confirm(
+        "Attention : Un conflit bloquant (salle ou professeur déjà occupé) a été détecté pour cette séance.\n\nSouhaitez-vous quand même tenter l'enregistrement ?"
+      );
+      if (!confirmSave) {
+        e.preventDefault();
+        return;
+      }
+    }
+
+    // Prevent double submission & show spinner
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      const sp = submitBtn.querySelector('.submit-spinner');
+      if (sp) sp.classList.remove('d-none');
+      const lbl = submitBtn.querySelector('.submit-label');
+      if (lbl) lbl.textContent = " Enregistrement en cours...";
+    }
+  });
+
+  // ============================================================
+  // Room Quick-Add Modal Logic
+  // ============================================================
+  const overlay     = document.getElementById('quick-add-room-overlay');
+  const openBtn     = document.getElementById('open-quick-add-room-btn');
+  const closeBtn    = document.getElementById('close-quick-add-room');
+  const cancelBtn   = document.getElementById('qar-cancel-btn');
+  const saveBtn     = document.getElementById('qar-save-btn');
+  const spinner     = document.getElementById('qar-spinner');
+  const modalAlert  = document.getElementById('qar-alert');
+
+  function openRoomModal() {
+    clearRoomErrors();
+    overlay.classList.add('qar-open');
+    setTimeout(() => {
+      const nameInput = document.getElementById('qar-name');
+      if (nameInput) nameInput.focus();
+    }, 50);
+  }
+
+  function closeRoomModal() {
+    overlay.classList.remove('qar-open');
+    clearRoomErrors();
+  }
+
+  function clearRoomErrors() {
+    if (modalAlert) { modalAlert.style.display = 'none'; modalAlert.textContent = ''; }
+    ['qar-name', 'qar-capacity', 'qar-floor'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('is-invalid');
+      const err = document.getElementById(id + '-err');
+      if (err) err.textContent = '';
+    });
+  }
+
+  function showRoomFieldError(fieldKey, msg) {
+    const map = { name: 'qar-name', capacity: 'qar-capacity', floor: 'qar-floor' };
+    const inputId = map[fieldKey];
+    if (!inputId) return;
+    const input = document.getElementById(inputId);
+    const errEl = document.getElementById(inputId + '-err');
+    if (input) input.classList.add('is-invalid');
+    if (errEl) errEl.textContent = msg;
+  }
+
+  if (openBtn) openBtn.addEventListener('click', openRoomModal);
+  if (closeBtn) closeBtn.addEventListener('click', closeRoomModal);
+  if (cancelBtn) cancelBtn.addEventListener('click', closeRoomModal);
+
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closeRoomModal();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && overlay.classList.contains('qar-open')) closeRoomModal();
+  });
+
+  if (saveBtn) {
+    saveBtn.addEventListener('click', function () {
+      clearRoomErrors();
+
+      const nameVal     = document.getElementById('qar-name').value.trim();
+      const capacityVal = document.getElementById('qar-capacity').value.trim();
+      const buildingVal = document.getElementById('qar-building').value.trim();
+      const floorVal    = document.getElementById('qar-floor').value.trim();
+
+      let hasErr = false;
+      if (!nameVal) { showRoomFieldError('name', 'Le nom de la salle est requis.'); hasErr = true; }
+      if (!capacityVal) { showRoomFieldError('capacity', 'La capacité est requise.'); hasErr = true; }
+      else if (parseInt(capacityVal, 10) < 1) { showRoomFieldError('capacity', "La capacité doit être d'au moins 1 place."); hasErr = true; }
+      if (hasErr) return;
+
+      saveBtn.disabled = true;
+      if (spinner) spinner.style.display = 'inline-block';
+
+      const formData = new FormData();
+      formData.append('name', nameVal);
+      formData.append('capacity', capacityVal);
+      formData.append('building', buildingVal);
+      formData.append('floor', floorVal);
+
+      // CSRF token from sessionForm
+      const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+      fetch('{% url "core:room_quick_add" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': csrfToken },
+        body: formData,
+      })
+      .then(r => r.json().then(data => ({ status: r.status, ok: r.ok, data })))
+      .then(({ ok, data }) => {
+        saveBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+
+        if (ok && data.success) {
+          // Append new option to room select and select it
+          if (roomField) {
+            const opt = document.createElement('option');
+            opt.value = data.id;
+            opt.textContent = data.label;
+            opt.selected = true;
+            roomField.appendChild(opt);
+            roomField.value = data.id;
+            roomField.dispatchEvent(new Event('change'));
+            roomField.classList.remove('is-invalid');
+            document.getElementById('room-feedback')?.classList.add('d-none');
+          }
+          closeRoomModal();
+          // Clear inputs
+          ['qar-name', 'qar-capacity', 'qar-building', 'qar-floor'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.value = '';
+          });
+        } else if (data.errors) {
+          Object.entries(data.errors).forEach(([k, v]) => showRoomFieldError(k, v));
+        } else {
+          modalAlert.textContent = "Une erreur est survenue lors de la création de la salle.";
+          modalAlert.style.display = 'block';
+        }
+      })
+      .catch(err => {
+        saveBtn.disabled = false;
+        if (spinner) spinner.style.display = 'none';
+        modalAlert.textContent = "Erreur de connexion. Veuillez réessayer.";
+        modalAlert.style.display = 'block';
+      });
+    });
+  }
+
+});
+</script>
+{% endblock %}

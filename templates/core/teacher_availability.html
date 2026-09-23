@@ -1,0 +1,285 @@
+{% extends 'core/base.html' %}
+{% block title %}Disponibilités — {{ teacher.name }} — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teachers_list' %}"><i class="bi bi-person-badge-fill"></i> Professeurs</a>
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:teacher_detail' teacher.id %}">{{ teacher.name }}</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-clock"></i> Disponibilités</span>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ── Layout ─────────────────────────────────────────────────── */
+  .avail-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 12px;
+  }
+  @media (max-width: 900px) {
+    .avail-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+  @media (max-width: 560px) {
+    .avail-grid { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Day column ─────────────────────────────────────────────── */
+  .day-col {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    transition: box-shadow .2s;
+  }
+  .day-col:hover { box-shadow: 0 4px 18px rgba(0,0,0,.08); }
+
+  .day-header {
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    background: var(--primary);
+    color: #fff;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+  }
+  .day-header.weekend { background: var(--text-muted); }
+
+  .day-slots { padding: 8px; min-height: 80px; }
+
+  /* ── Slot pill ──────────────────────────────────────────────── */
+  .slot-pill {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-radius: 8px;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    gap: 4px;
+    transition: opacity .15s;
+  }
+  .slot-pill.available   { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+  .slot-pill.unavailable { background: #fee2e2; color: #b91c1c; border: 1px solid #fecaca; }
+  .slot-pill .slot-time  { font-size: 11px; font-weight: 500; opacity: .85; }
+
+  .slot-delete-btn {
+    background: none; border: none; padding: 0 2px;
+    line-height: 1; cursor: pointer; opacity: .55;
+    font-size: 14px; transition: opacity .15s;
+  }
+  .slot-delete-btn:hover { opacity: 1; }
+
+  .day-empty {
+    text-align: center; font-size: 11px;
+    color: var(--text-muted); padding: 16px 4px;
+  }
+
+  /* ── Quick-add form ─────────────────────────────────────────── */
+  .add-card {
+    background: var(--surface);
+    border-radius: 16px;
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+  }
+  .add-card .form-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+
+  /* ── Legend ────────────────────────────────────────────────── */
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  /* Toast */
+  .toast-flash {
+    position: fixed; bottom: 24px; right: 24px;
+    z-index: 9999; min-width: 280px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Page header -->
+<div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3">
+  <div>
+    <h1 class="page-title">
+      <i class="bi bi-clock-fill me-2" style="color:var(--primary);"></i>Disponibilités
+    </h1>
+    <p class="page-subtitle">
+      Gérez les créneaux hebdomadaires de <strong>{{ teacher.name }}</strong>
+      &nbsp;—&nbsp;{{ total_slots }} créneau{{ total_slots|pluralize }} défini{{ total_slots|pluralize }}
+    </p>
+  </div>
+  <div class="d-flex gap-2">
+    <a href="{% url 'core:teacher_leaves' teacher.id %}" class="btn btn-outline-secondary">
+      <i class="bi bi-calendar-x"></i> Congés
+    </a>
+    <a href="{% url 'core:teacher_detail' teacher.id %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left"></i> Profil
+    </a>
+  </div>
+</div>
+
+<!-- ── Info banner ─────────────────────────────────────────────────── -->
+<div class="alert mb-4" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;border-radius:12px;">
+  <div class="d-flex align-items-start gap-2">
+    <i class="bi bi-info-circle-fill mt-1" style="flex-shrink:0;"></i>
+    <div style="font-size:13px;">
+      <strong>Comment ça marche ?</strong>
+      Ajoutez des créneaux <span class="badge" style="background:#dcfce7;color:#15803d;">Disponible</span>
+      pour indiquer quand le professeur peut enseigner, ou
+      <span class="badge" style="background:#fee2e2;color:#b91c1c;">Indisponible</span>
+      pour bloquer des plages qui ne doivent pas être planifiées.
+      Ces créneaux sont vérifiés automatiquement lors de la création de sessions.
+    </div>
+  </div>
+</div>
+
+<!-- ── Weekly grid ─────────────────────────────────────────────────── -->
+<div class="avail-grid mb-5" id="avail-grid">
+  {% for day in days %}
+    <div class="day-col">
+      <div class="day-header {% if day.code == 'SAT' or day.code == 'SUN' %}weekend{% endif %}">
+        {{ day.label }}
+      </div>
+      <div class="day-slots" id="slots-{{ day.code }}">
+        {% for slot in day.slots %}
+          <div class="slot-pill {% if slot.is_available %}available{% else %}unavailable{% endif %}" id="pill-{{ slot.id }}">
+            <div>
+              <div>
+                {% if slot.is_available %}
+                  <i class="bi bi-check-circle-fill"></i>
+                {% else %}
+                  <i class="bi bi-x-circle-fill"></i>
+                {% endif %}
+                {{ slot.start_time|time:"H:i" }}–{{ slot.end_time|time:"H:i" }}
+              </div>
+            </div>
+            <!-- Delete button -->
+            <form method="post"
+                  action="{% url 'core:teacher_availability_delete' teacher.id slot.id %}"
+                  class="slot-delete-form" style="display:inline;">
+              {% csrf_token %}
+              <button type="submit" class="slot-delete-btn" title="Supprimer ce créneau"
+                      data-pill="pill-{{ slot.id }}">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </form>
+          </div>
+        {% empty %}
+          <div class="day-empty">
+            <i class="bi bi-dash-circle" style="font-size:18px;display:block;margin-bottom:4px;"></i>
+            Aucun créneau
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  {% endfor %}
+</div>
+
+<!-- ── Add slot form ───────────────────────────────────────────────── -->
+<div class="add-card mb-5" id="add-form-section">
+  <div class="d-flex align-items-center gap-2 mb-4">
+    <div style="width:34px;height:34px;border-radius:10px;background:var(--primary-light);display:flex;align-items:center;justify-content:center;">
+      <i class="bi bi-plus-lg" style="color:var(--primary);font-size:16px;"></i>
+    </div>
+    <h5 class="mb-0 fw-700">Ajouter un créneau</h5>
+  </div>
+
+  {% if form.non_field_errors %}
+    <div class="alert alert-danger mb-3">
+      {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+    </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    <div class="row g-3 align-items-end">
+
+      <div class="col-sm-6 col-lg-2">
+        <label class="form-label">Jour</label>
+        {{ form.day }}
+        {% if form.day.errors %}<div class="invalid-feedback d-block">{% for e in form.day.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-sm-6 col-lg-2">
+        <label class="form-label">Heure début</label>
+        {{ form.start_time }}
+        {% if form.start_time.errors %}<div class="invalid-feedback d-block">{% for e in form.start_time.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-sm-6 col-lg-2">
+        <label class="form-label">Heure fin</label>
+        {{ form.end_time }}
+        {% if form.end_time.errors %}<div class="invalid-feedback d-block">{% for e in form.end_time.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-sm-6 col-lg-3">
+        <label class="form-label">Type de créneau</label>
+        <div class="d-flex gap-2 mt-1 align-items-center">
+          {{ form.is_available }}
+          <label for="{{ form.is_available.id_for_label }}" class="form-check-label" style="font-size:13px;">
+            Disponible <span class="text-muted">(décoché = Indisponible)</span>
+          </label>
+        </div>
+        {% if form.is_available.errors %}<div class="invalid-feedback d-block">{% for e in form.is_available.errors %}{{ e }}{% endfor %}</div>{% endif %}
+      </div>
+
+      <div class="col-lg-3">
+        <button type="submit" class="btn btn-primary w-100">
+          <i class="bi bi-plus-lg"></i> Ajouter le créneau
+        </button>
+      </div>
+
+    </div>
+  </form>
+</div>
+
+<!-- ── Legend ──────────────────────────────────────────────────────── -->
+<div class="d-flex gap-4 align-items-center mb-3" style="font-size:13px;">
+  <span><span class="legend-dot" style="background:#dcfce7;border:1px solid #bbf7d0;"></span> Disponible</span>
+  <span><span class="legend-dot" style="background:#fee2e2;border:1px solid #fecaca;"></span> Indisponible</span>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// AJAX delete for instant pill removal without page reload
+document.querySelectorAll('.slot-delete-form').forEach(form => {
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    const btn  = form.querySelector('.slot-delete-btn');
+    const pill = document.getElementById(btn.dataset.pill);
+
+    fetch(form.action, {
+      method: 'POST',
+      headers: { 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value,
+                 'X-Requested-With': 'XMLHttpRequest' },
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data.success) {
+        pill.style.transition = 'opacity .25s, transform .25s';
+        pill.style.opacity = '0';
+        pill.style.transform = 'scale(.85)';
+        setTimeout(() => {
+          pill.remove();
+          // Update counter in subtitle
+          const subtitle = document.querySelector('.page-subtitle');
+          if (subtitle) {
+            const match = subtitle.textContent.match(/(\d+)/);
+            if (match) {
+              const n = Math.max(0, parseInt(match[1]) - 1);
+              subtitle.textContent = subtitle.textContent.replace(match[1], n);
+            }
+          }
+        }, 280);
+      }
+    })
+    .catch(() => form.submit()); // fallback
+  });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,193 @@
+{% extends 'core/kiosk_base.html' %}
+{% load static %}
+
+{% block title %}Sélectionner un élève — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .select-container {
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .select-title {
+    font-size: 26px;
+    font-weight: 800;
+    color: #0f172a;
+    margin-bottom: 8px;
+  }
+
+  .select-subtitle {
+    font-size: 16px;
+    color: #64748b;
+    margin-bottom: 40px;
+  }
+
+  .students-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 20px;
+    margin-bottom: 40px;
+  }
+
+  .student-select-card {
+    background: #ffffff;
+    border: 2px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 28px;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+    cursor: pointer;
+  }
+
+  .student-select-card:hover, .student-select-card:active {
+    border-color: var(--primary);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 20px -8px rgba(37, 99, 235, 0.2);
+  }
+
+  .student-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background-color: var(--primary-light);
+    color: var(--primary);
+    font-size: 24px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .student-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: #1e293b;
+    margin: 0;
+  }
+
+  .student-meta {
+    font-size: 13.5px;
+    color: #64748b;
+    margin: 0;
+  }
+
+  .btn-kiosk-cancel {
+    background: #fee2e2;
+    border: none;
+    color: #dc2626;
+  }
+
+  .btn-kiosk-cancel:hover, .btn-kiosk-cancel:active {
+    background: #fecaca;
+  }
+
+  .timeout-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #f1f5f9;
+    color: #475569;
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-top: 24px;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Session Timeout Progress -->
+<div class="kiosk-timeout-bar">
+  <div class="kiosk-timeout-progress" id="timeoutProgress"></div>
+</div>
+
+<div class="select-container">
+  <h2 class="select-title">Plusieurs enfants trouvés</h2>
+  <p class="select-subtitle">Veuillez sélectionner le profil de l'élève à consulter.</p>
+  
+  <div class="students-grid">
+    {% for s in students %}
+      <a href="{% url 'core:kiosk_select_student' s.id %}" class="student-select-card">
+        <div class="student-avatar">
+          {{ s.name|slice:":1"|upper }}
+        </div>
+        <div>
+          <h3 class="student-name">{{ s.name }}</h3>
+          <p class="student-meta mt-1">
+            <span class="badge bg-secondary me-1" style="font-size: 11px;">{{ s.matricule }}</span>
+            {% if s.level %}
+              <strong>Niveau:</strong> {{ s.level.name }}
+            {% endif %}
+          </p>
+        </div>
+      </a>
+    {% endfor %}
+  </div>
+
+  <div class="d-flex justify-content-center gap-3 align-items-center flex-column">
+    <a href="{% url 'core:kiosk_clear' %}" class="btn btn-kiosk btn-kiosk-cancel px-4">
+      <i class="bi bi-x-circle"></i> Annuler la recherche
+    </a>
+    
+    <div class="timeout-badge">
+      <i class="bi bi-clock-history text-primary"></i>
+      <span>Retour à l'accueil dans <strong id="timeoutSeconds">{{ timeout }}</strong>s</span>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  // Inactivity Timeout Manager
+  const timeoutDuration = parseInt("{{ timeout }}");
+  let timeLeft = timeoutDuration;
+  const progressEl = document.getElementById('timeoutProgress');
+  const textEl = document.getElementById('timeoutSeconds');
+  let countdownInterval;
+
+  function resetTimer() {
+    timeLeft = timeoutDuration;
+    updateVisuals();
+  }
+
+  function updateVisuals() {
+    textEl.textContent = timeLeft;
+    const percentage = (timeLeft / timeoutDuration) * 100;
+    progressEl.style.width = percentage + '%';
+  }
+
+  function startCountdown() {
+    updateVisuals();
+    countdownInterval = setInterval(() => {
+      timeLeft--;
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        // Redirect to clear session and return home
+        window.location.href = "{% url 'core:kiosk_clear' %}";
+      } else {
+        updateVisuals();
+      }
+    }, 1000);
+  }
+
+  // Event Listeners to Reset on Interaction
+  const events = ['click', 'touchstart', 'scroll', 'keydown'];
+  events.forEach(evt => {
+    document.addEventListener(evt, resetTimer, { passive: true });
+  });
+
+  // Start countdown on page load
+  startCountdown();
+</script>
+{% endblock %}

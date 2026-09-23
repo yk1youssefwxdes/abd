@@ -1,0 +1,130 @@
+{% extends 'core/base.html' %}
+{% block title %}Professeurs — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-person-badge-fill"></i> Professeurs</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title"><i class="bi bi-person-badge-fill me-2" style="color:var(--primary);"></i>Professeurs</h1>
+    <p class="page-subtitle">{{ teachers|length }} professeur{{ teachers|length|pluralize }}</p>
+  </div>
+  <div class="d-flex gap-2 flex-shrink-0">
+    <a href="{% url 'core:print_teachers_list' %}" class="btn btn-outline-secondary" title="Imprimer la liste">
+      <i class="bi bi-printer"></i> Imprimer
+    </a>
+    <a href="{% url 'core:teacher_create' %}" class="btn btn-primary">
+      <i class="bi bi-plus-lg"></i> Ajouter un professeur
+    </a>
+  </div>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-5">{{ filter.form.name }}</div>
+      <div class="col-md-3">{{ filter.form.min_rate }}</div>
+      <div class="col-md-3">{{ filter.form.max_rate }}</div>
+      <div class="col-md-1">
+        <button class="btn btn-primary w-100"><i class="bi bi-search"></i></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if teachers %}
+  <div class="row g-4">
+    {% for teacher in teachers %}
+      <div class="col-lg-4 col-md-6">
+        <div class="card h-100">
+          <div class="card-body">
+
+            <!-- Header -->
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="teacher-avatar">{{ teacher.name|slice:":1"|upper }}</div>
+              <div>
+                <h5 class="mb-0 fw-700" style="font-size:15px;">
+                  <a href="{% url 'core:teacher_detail' teacher.id %}" class="text-decoration-none" style="color:inherit;">{{ teacher.name }}</a>
+                </h5>
+                {% if teacher.phone %}
+                  <small class="text-muted"><i class="bi bi-telephone"></i> {{ teacher.phone }}</small>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Remuneration -->
+            <div class="p-2 rounded mb-2" style="background:#d1fae5;border:1px solid #a7f3d0;">
+              <div class="d-flex justify-content-between align-items-center">
+                <span style="font-size:12px;color:#065f46;font-weight:600;">Rémunération</span>
+                <strong style="color:#059669;">
+                  {% if teacher.payment_method == 'PERCENTAGE' %}
+                    {{ teacher.payment_percentage|floatformat:0 }}% des gains
+                  {% else %}
+                    {{ teacher.hourly_rate|floatformat:0 }} DH/h
+                  {% endif %}
+                </strong>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="d-flex gap-2 mb-3">
+              <div class="flex-grow-1 p-2 rounded text-center" style="background:var(--surface-alt);">
+                <div class="text-muted" style="font-size:11px;">Groupes</div>
+                <div class="fw-700" style="font-size:18px;">{% if teacher.course_count %}{{ teacher.course_count }}{% else %}0{% endif %}</div>
+              </div>
+              <div class="flex-grow-1 p-2 rounded text-center" style="background:var(--surface-alt);">
+                <div class="text-muted" style="font-size:11px;">Sessions</div>
+                <div class="fw-700" style="font-size:18px;">{% if teacher.session_count %}{{ teacher.session_count }}{% else %}0{% endif %}</div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 pt-2" style="border-top:1px solid var(--border);">
+              <a href="{% url 'core:teacher_detail' teacher.id %}"
+                 class="btn btn-sm btn-outline-info">
+                <i class="bi bi-eye"></i>
+              </a>
+              <a href="{% url 'core:teacher_edit' teacher.id %}"
+                 class="btn btn-sm btn-outline-primary flex-grow-1">
+                <i class="bi bi-pencil"></i> Éditer
+              </a>
+              <a href="{% url 'core:teacher_delete_confirm' teacher.id %}"
+                 class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+              </a>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-body empty-state">
+      <div class="empty-state-icon"><i class="bi bi-person-badge"></i></div>
+      <div class="empty-state-title">Aucun professeur</div>
+      <div class="empty-state-text">Ajoutez le premier professeur depuis l'administration.</div>
+      <div class="mt-3">
+        <a href="{% url 'core:teacher_create' %}" class="btn btn-primary">
+          <i class="bi bi-plus-lg"></i> Ajouter un professeur
+        </a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<style>
+  .fw-700 { font-weight: 700; }
+  .teacher-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--primary-light); color: var(--primary);
+    font-weight: 700; font-size: 18px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+</style>
+{% endblock %}

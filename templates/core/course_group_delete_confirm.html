@@ -1,0 +1,133 @@
+{% extends 'core/base.html' %}
+{% load static %}
+{% block title %}Confirmer la suppression — {{ course.name }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="margin-top:40px;">
+  <div class="col-lg-7">
+
+    <!-- Danger header -->
+    <div class="d-flex align-items-center gap-3 mb-4">
+      <div class="stat-card-icon" style="width:44px;height:44px;font-size:20px;background:#fee2e2;">
+        <i class="bi bi-exclamation-triangle-fill" style="color:#ef4444;"></i>
+      </div>
+      <div>
+        <h1 class="page-title mb-0">Confirmer la suppression</h1>
+        <p class="page-subtitle mb-0">Cette action est irréversible. Vérifiez avant de confirmer.</p>
+      </div>
+      <a href="{% url 'core:course_group_edit' course.id %}" class="btn btn-outline-secondary ms-auto">
+        <i class="bi bi-arrow-left"></i> Annuler
+      </a>
+    </div>
+
+    <!-- Course summary -->
+    <div class="card mb-4" style="border-color:#fca5a5;">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3 mb-3">
+          <div class="course-avatar">{{ course.name|slice:":1"|upper }}</div>
+          <div>
+            <strong style="font-size:16px;">{{ course.name }}</strong><br>
+            <small class="text-muted">{{ course.subject }} — {{ course.level }}</small>
+          </div>
+          {% if course.is_active %}
+            <span class="badge badge-success ms-auto">Actif</span>
+          {% else %}
+            <span class="badge badge-secondary ms-auto">Inactif</span>
+          {% endif %}
+        </div>
+        <div class="row g-2">
+          <div class="col-6"><div class="info-label">Professeur</div><div class="info-value">{{ course.teacher.name }}</div></div>
+          <div class="col-6"><div class="info-label">Prix/mois</div><div class="info-value">{{ course.monthly_price }} DH</div></div>
+        </div>
+        {% if course.schedules.all %}
+          <div class="mt-3 pt-3" style="border-top:1px solid var(--border);">
+            <div class="info-label mb-2">Horaires</div>
+            <div class="d-flex flex-wrap gap-2">
+              {% for sched in course.schedules.all %}
+                <span class="badge badge-secondary">
+                  {{ sched.get_day_display }} {{ sched.start_time|time:"H:i" }}–{{ sched.end_time|time:"H:i" }}
+                  {% if sched.room %}<i class="bi bi-dot"></i> {{ sched.room.name }}{% endif %}
+                </span>
+              {% endfor %}
+            </div>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Impact analysis -->
+    <div class="alert alert-warning mb-4">
+      <h6 class="fw-700 mb-3"><i class="bi bi-exclamation-circle me-1"></i>Données liées qui seront définitivement supprimées :</h6>
+      <ul class="mb-0" style="font-size:13.5px;">
+        <li><strong>{{ enrollment_count }} inscription{{ enrollment_count|pluralize }}</strong> d'élèves à ce cours</li>
+        <li><strong>{{ session_count }} session{{ session_count|pluralize }}</strong> de cours (passées, présentes et futures)</li>
+        <li><strong>{{ attendance_count }} enregistrement{{ attendance_count|pluralize }}</strong> de présence</li>
+      </ul>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="card mb-4" style="border-color:#fca5a5;">
+      <div class="card-body">
+        <p class="text-danger mb-4" style="font-size:13.5px;">
+          <i class="bi bi-shield-exclamation me-1"></i>
+          <strong>Attention :</strong> Cette action supprimera définitivement <strong>{{ course.name }}</strong> et toutes ses données associées.
+        </p>
+        <div class="d-flex gap-3">
+          <form method="post" action="{% url 'core:course_group_delete_confirm' course.id %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-danger">
+              <i class="bi bi-trash-fill"></i> Oui, supprimer définitivement
+            </button>
+          </form>
+          <a href="{% url 'core:course_group_edit' course.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-x-lg"></i> Non, annuler
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Alternatives -->
+    <div class="row g-3">
+      <div class="col-md-6">
+        <div class="card" style="background:var(--surface-alt);">
+          <div class="card-body">
+            <h6 class="fw-700 mb-2"><i class="bi bi-info-circle me-1" style="color:var(--info);"></i>Alternative recommandée</h6>
+            <p class="text-muted mb-3" style="font-size:12.5px;">
+              Marquez le groupe comme <strong>inactif</strong> pour conserver l'historique sans supprimer.
+            </p>
+            <a href="{% url 'core:course_group_edit' course.id %}" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-pencil"></i> Désactiver le groupe
+            </a>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card" style="background:var(--surface-alt);">
+          <div class="card-body">
+            <h6 class="fw-700 mb-2"><i class="bi bi-question-circle me-1" style="color:var(--primary);"></i>Besoin d'aide ?</h6>
+            <p class="text-muted mb-3" style="font-size:12.5px;">
+              Consultez le tableau de bord ou contactez l'administrateur.
+            </p>
+            <a href="{% url 'core:cockpit' %}" class="btn btn-sm btn-outline-secondary">
+              <i class="bi bi-house"></i> Tableau de bord
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<style>
+  .fw-700 { font-weight: 700; }
+  .course-avatar {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--primary-light); color: var(--primary);
+    font-weight: 700; font-size: 18px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .info-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 2px; }
+  .info-value { font-size: 14px; font-weight: 500; }
+</style>
+{% endblock %}

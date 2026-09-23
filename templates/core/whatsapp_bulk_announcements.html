@@ -1,0 +1,1595 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Messages Groupés WhatsApp — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <a href="{% url 'core:whatsapp_dashboard' %}" class="context-bar-link"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current">Messages Groupés</span>
+{% endblock %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+  <div>
+    <h1 class="page-title d-flex align-items-center gap-2">
+      <span class="header-icon-pill">
+        <i class="bi bi-whatsapp"></i>
+      </span>
+      Messages Groupés
+    </h1>
+    <p class="page-subtitle mb-0">
+      Diffusez des annonces ciblées aux parents, élèves et professeurs, ou gérez vos groupes WhatsApp de cours
+      {% if not status_data.offline and status_data.status == 'READY' %}
+        <span class="badge bg-success-subtle text-success border border-success-subtle ms-2 px-2 py-1 rounded-pill">
+          <i class="bi bi-shield-fill-check me-1"></i> Service Automatique Prêt
+        </span>
+      {% else %}
+        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-2 px-2 py-1 rounded-pill">
+          <i class="bi bi-shield-exclamation me-1"></i> Mode Manuel Click-to-Chat
+        </span>
+      {% endif %}
+    </p>
+  </div>
+  <div class="d-flex align-items-center gap-2">
+    <a href="{% url 'core:whatsapp_dashboard' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i> Tableau de bord
+    </a>
+  </div>
+</div>
+
+<!-- Main Tabs Navigation -->
+<ul class="nav nav-pills custom-main-tabs mb-4" id="bulkTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-composer-btn" data-bs-toggle="pill" data-bs-target="#tab-composer" type="button" role="tab">
+      <i class="bi bi-send-fill me-2"></i> Composer & Diffuser une Annonce
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-groups-btn" data-bs-toggle="pill" data-bs-target="#tab-groups" type="button" role="tab">
+      <i class="bi bi-people-fill me-2"></i> Hub Groupes WhatsApp des Cours
+      <span class="badge bg-success rounded-pill ms-2">{{ groups_with_link|length }}</span>
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content" id="bulkTabsContent">
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 1: COMPOSER & BROADCAST                                               -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane fade show active" id="tab-composer" role="tabpanel">
+
+    <form method="post" enctype="multipart/form-data" id="bulkAnnouncementForm">
+      {% csrf_token %}
+
+      <!-- ─── 1. AUDIENCE TARGETING SECTION ───────────────────────────────── -->
+      <div class="card mb-4 border-0 shadow-sm rounded-3">
+        <div class="card-header bg-transparent border-bottom py-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+          <div class="d-flex align-items-center gap-2">
+            <span class="step-badge">1</span>
+            <h5 class="fw-bold text-dark mb-0">Ciblage de l'Audience & Destinataires</h5>
+          </div>
+          <div class="live-counter-badge" id="liveCounterBadge">
+            <i class="bi bi-person-check-fill text-success me-1"></i>
+            Destinataires estimés : <strong id="recipientCountDisplay">{{ initial_contacts_count }}</strong>
+          </div>
+        </div>
+
+        <div class="card-body p-4">
+          <!-- Audience Radio Cards Grid -->
+          <label class="form-label fw-semibold text-secondary mb-2">Sélectionnez la cible principale :</label>
+          <div class="audience-grid mb-4">
+            
+            <!-- All Parents & Students -->
+            <label class="audience-card active" for="aud_all_parents_students">
+              <input type="radio" name="audience_type" id="aud_all_parents_students" value="all_parents_students" checked>
+              <div class="audience-card-icon bg-success-light text-success">
+                <i class="bi bi-people-fill"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Tous les Parents & Élèves</div>
+                <div class="audience-card-desc">Diffusion globale à l'ensemble des familles actives</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- Parents Only -->
+            <label class="audience-card" for="aud_all_parents">
+              <input type="radio" name="audience_type" id="aud_all_parents" value="all_parents">
+              <div class="audience-card-icon bg-primary-light text-primary">
+                <i class="bi bi-person-heart"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Tous les Parents uniquement</div>
+                <div class="audience-card-desc">Contacts des tuteurs légaux (Contact 1 & 2)</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- Students Only -->
+            <label class="audience-card" for="aud_all_students">
+              <input type="radio" name="audience_type" id="aud_all_students" value="all_students">
+              <div class="audience-card-icon bg-indigo-light text-indigo">
+                <i class="bi bi-mortarboard-fill"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Tous les Élèves uniquement</div>
+                <div class="audience-card-desc">Numéros personnels directs des apprenants</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- By Levels -->
+            <label class="audience-card" for="aud_by_level">
+              <input type="radio" name="audience_type" id="aud_by_level" value="by_level">
+              <div class="audience-card-icon bg-amber-light text-amber">
+                <i class="bi bi-diagram-3-fill"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Par Niveau(x) Scolaire(s)</div>
+                <div class="audience-card-desc">Filtrer par classe ou niveau d'étude</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- By Course Groups -->
+            <label class="audience-card" for="aud_by_group">
+              <input type="radio" name="audience_type" id="aud_by_group" value="by_group">
+              <div class="audience-card-icon bg-teal-light text-teal">
+                <i class="bi bi-collection-fill"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Par Groupe(s) de Cours</div>
+                <div class="audience-card-desc">Cibler les élèves inscrits à des cours spécifiques</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- Custom Student Selection -->
+            <label class="audience-card" for="aud_by_student">
+              <input type="radio" name="audience_type" id="aud_by_student" value="by_student">
+              <div class="audience-card-icon bg-rose-light text-rose">
+                <i class="bi bi-check2-square"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Sélection d'Élèves sur mesure</div>
+                <div class="audience-card-desc">Choisir manuellement des élèves dans la liste</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- Teachers Audience -->
+            <label class="audience-card" for="aud_teachers">
+              <input type="radio" name="audience_type" id="aud_teachers" value="teachers">
+              <div class="audience-card-icon bg-purple-light text-purple">
+                <i class="bi bi-person-badge-fill"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Corps Enseignant (Professeurs)</div>
+                <div class="audience-card-desc">Diffuser des notes de service ou convocations</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- By Payment Status -->
+            <label class="audience-card" for="aud_by_payment">
+              <input type="radio" name="audience_type" id="aud_by_payment" value="by_payment">
+              <div class="audience-card-icon bg-emerald-light text-emerald">
+                <i class="bi bi-cash-coin"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Par Statut de Paiement</div>
+                <div class="audience-card-desc">Filtrer par mensualités en retard ou en règle</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+            <!-- Custom Contacts / Ads / Prospects -->
+            <label class="audience-card" for="aud_custom">
+              <input type="radio" name="audience_type" id="aud_custom" value="custom">
+              <div class="audience-card-icon" style="background:#e0f2fe;color:#0284c7;">
+                <i class="bi bi-megaphone-fill"></i>
+              </div>
+              <div class="audience-card-info">
+                <div class="audience-card-title">Contacts Externes &amp; Publicités</div>
+                <div class="audience-card-desc">Saisir ou coller une liste de numéros (prospects, annonces)</div>
+              </div>
+              <div class="audience-check-icon"><i class="bi bi-check-circle-fill"></i></div>
+            </label>
+
+          </div>
+
+          <!-- Dynamic Sub-Panels based on selected audience -->
+          
+          <!-- Sub-panel: Custom Contacts (Annonces & Publicités) -->
+          <div id="panel-custom" class="audience-subpanel d-none">
+            <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+              <label class="form-label fw-semibold text-dark mb-0">
+                <i class="bi bi-card-checklist text-primary me-1"></i> Saisissez ou collez vos numéros de destinataires (1 par ligne) :
+              </label>
+              <small class="text-muted">Format accepté : <code>0612345678</code> ou <code>0612345678, Nom du contact</code></small>
+            </div>
+            <textarea name="custom_phones" id="custom_phones" class="form-control font-monospace" rows="5"
+                      placeholder="0612345678, M. Prospect&#10;0699887766, Mme Client&#10;0655443322"
+                      style="font-size:0.875rem;" oninput="updateEstimatedRecipients()"></textarea>
+            <div class="d-flex align-items-center justify-content-between mt-2 flex-wrap gap-2">
+              <small class="text-muted">
+                <i class="bi bi-info-circle me-1"></i> Vous pouvez coller directement une colonne depuis Excel ou un fichier texte.
+              </small>
+              <span class="badge bg-light text-dark border" id="customCountBadge">0 contact(s) détecté(s)</span>
+            </div>
+          </div>
+          
+          <!-- Sub-panel: Levels Selector -->
+          <div id="panel-by-level" class="audience-subpanel d-none">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-semibold text-dark mb-0">Cochez les niveaux scolaires concernés :</label>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="toggleAllCheckboxes('level_ids', true)">Tout cocher</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="toggleAllCheckboxes('level_ids', false)">Tout décocher</button>
+              </div>
+            </div>
+            <div class="pill-checkbox-grid">
+              {% for lvl in levels %}
+                <label class="pill-checkbox-item">
+                  <input type="checkbox" name="level_ids" value="{{ lvl.id }}" onchange="updateEstimatedRecipients()">
+                  <span>{{ lvl.name }} <small class="text-muted">({{ lvl.category.name }})</small></span>
+                </label>
+              {% empty %}
+                <p class="text-muted small mb-0">Aucun niveau scolaire configuré.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Sub-panel: Course Groups Selector -->
+          <div id="panel-by-group" class="audience-subpanel d-none">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-semibold text-dark mb-0">Cochez les groupes de cours concernés :</label>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="toggleAllCheckboxes('group_ids', true)">Tout cocher</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="toggleAllCheckboxes('group_ids', false)">Tout décocher</button>
+              </div>
+            </div>
+            <div class="pill-checkbox-grid">
+              {% for grp in course_groups %}
+                <label class="pill-checkbox-item">
+                  <input type="checkbox" name="group_ids" value="{{ grp.id }}" onchange="updateEstimatedRecipients()">
+                  <span>
+                    <strong>{{ grp.name }}</strong>
+                    <small class="text-muted d-block">{{ grp.subject }} • {{ grp.teacher.name }}</small>
+                  </span>
+                </label>
+              {% empty %}
+                <p class="text-muted small mb-0">Aucun groupe de cours actif.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Sub-panel: Custom Student Picker -->
+          <div id="panel-by-student" class="audience-subpanel d-none">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+              <div class="input-group input-group-sm" style="max-width: 320px;">
+                <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+                <input type="text" id="studentSearchInput" class="form-control" placeholder="Rechercher un élève par nom..." oninput="filterStudentTable()">
+              </div>
+              <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('student_ids', true)">Tout sélectionner</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllCheckboxes('student_ids', false)">Tout désélectionner</button>
+              </div>
+            </div>
+            <div class="table-responsive border rounded-3" style="max-height: 280px; overflow-y: auto;">
+              <table class="table table-sm table-hover align-middle mb-0" id="studentsSelectionTable">
+                <thead class="table-light sticky-top">
+                  <tr>
+                    <th style="width: 40px;"><input type="checkbox" id="selectAllStudentsCheckbox" onchange="toggleAllCheckboxes('student_ids', this.checked)"></th>
+                    <th>Élève</th>
+                    <th>Niveau</th>
+                    <th>Parent / Tuteur</th>
+                    <th>Téléphone(s)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for st in all_active_students %}
+                    <tr class="student-row" data-name="{{ st.name|lower }}" data-level="{{ st.level.name|default:''|lower }}">
+                      <td>
+                        <input type="checkbox" name="student_ids" value="{{ st.id }}" class="student-select-cb" onchange="updateEstimatedRecipients()">
+                      </td>
+                      <td class="fw-semibold text-dark">{{ st.name }}</td>
+                      <td><span class="badge bg-light text-dark border">{{ st.level.name|default:"—" }}</span></td>
+                      <td class="text-secondary small">{{ st.parent_name|default:"Parent" }}</td>
+                      <td class="small font-monospace">
+                        {% if st.parent_contact %}<span class="badge bg-secondary-subtle text-secondary me-1">P1: {{ st.parent_contact }}</span>{% endif %}
+                        {% if st.phone %}<span class="badge bg-primary-subtle text-primary">Élève: {{ st.phone }}</span>{% endif %}
+                      </td>
+                    </tr>
+                  {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-3">Aucun élève trouvé</td></tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Sub-panel: Teachers Picker -->
+          <div id="panel-teachers" class="audience-subpanel d-none">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <label class="form-label fw-semibold text-dark mb-0">Cochez les professeurs destinataires :</label>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="toggleAllCheckboxes('teacher_ids', true)">Tout cocher</button>
+                <span class="text-muted">|</span>
+                <button type="button" class="btn btn-sm btn-link p-0 text-decoration-none" onclick="toggleAllCheckboxes('teacher_ids', false)">Tout décocher</button>
+              </div>
+            </div>
+            <div class="pill-checkbox-grid">
+              {% for t in teachers %}
+                <label class="pill-checkbox-item">
+                  <input type="checkbox" name="teacher_ids" value="{{ t.id }}" checked onchange="updateEstimatedRecipients()">
+                  <span>
+                    <strong>{{ t.name }}</strong>
+                    <small class="text-muted d-block"><i class="bi bi-telephone"></i> {{ t.phone }}</small>
+                  </span>
+                </label>
+              {% empty %}
+                <p class="text-muted small mb-0">Aucun professeur enregistré.</p>
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Sub-panel: Payment Filter -->
+          <div id="panel-by-payment" class="audience-subpanel d-none">
+            <label class="form-label fw-semibold text-dark mb-2">Statut des règlements pour le mois en cours :</label>
+            <div class="d-flex gap-3 flex-wrap">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="payment_filter" id="pay_unpaid" value="unpaid" checked onchange="updateEstimatedRecipients()">
+                <label class="form-check-label fw-medium text-danger" for="pay_unpaid">
+                  <i class="bi bi-exclamation-circle-fill me-1"></i> Familles avec solde en retard / Impayé
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="payment_filter" id="pay_paid" value="paid" onchange="updateEstimatedRecipients()">
+                <label class="form-check-label fw-medium text-success" for="pay_paid">
+                  <i class="bi bi-check-circle-fill me-1"></i> Familles à jour de leurs paiements
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="payment_filter" id="pay_all" value="all" onchange="updateEstimatedRecipients()">
+                <label class="form-check-label text-dark" for="pay_all">
+                  Toutes les familles (indifféremment)
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Secondary Filter: Contact Channels (applicable when audience involves students) -->
+          <div class="row align-items-center mt-3 pt-3 border-top" id="contactChannelRow">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold text-secondary mb-1">
+                <i class="bi bi-telephone-outbound me-1"></i> Canal de réception :
+              </label>
+              <small class="text-muted d-block">Quels numéros de téléphone cibler pour chaque élève ?</small>
+            </div>
+            <div class="col-md-8">
+              <select name="contact_channel" id="contact_channel" class="form-select form-select-sm" onchange="updateEstimatedRecipients()">
+                <option value="all_available" selected>📱 Tous les numéros disponibles (Parent 1, Parent 2 & Élève)</option>
+                <option value="parents_only">👪 Parents uniquement (Parent 1 & Parent 2 si renseigné)</option>
+                <option value="parent_1_only">👤 Parent principal uniquement (Contact 1)</option>
+                <option value="student_only">🎓 Téléphone direct de l'élève uniquement</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ─── 2. COMPOSER & LIVE SIMULATOR SECTION (TWO COLUMNS) ───────────── -->
+      <div class="row g-4 mb-4">
+        
+        <!-- Left Column: Composer, Templates & Formatting -->
+        <div class="col-lg-7">
+          <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-header bg-transparent border-bottom py-3 d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <span class="step-badge">2</span>
+                <h5 class="fw-bold text-dark mb-0">Rédiger le Message</h5>
+              </div>
+            </div>
+
+            <div class="card-body p-4">
+
+              <!-- Dynamic Variable Badges Toolbar -->
+              <div class="mb-3">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <label class="form-label fw-semibold text-secondary mb-0">
+                    <i class="bi bi-tags-fill text-primary me-1"></i> Insérer une variable dynamique :
+                  </label>
+                  <small class="text-muted">Clic pour insérer au curseur</small>
+                </div>
+                <div class="d-flex gap-1 flex-wrap variable-badges-bar">
+                  <button type="button" class="btn btn-sm var-badge" onclick="insertVariable('{name}')" title="Nom du parent ou du destinataire">
+                    <code>{name}</code> <span class="var-label">Destinataire</span>
+                  </button>
+                  <button type="button" class="btn btn-sm var-badge" onclick="insertVariable('{student_name}')" title="Nom complet de l'élève">
+                    <code>{student_name}</code> <span class="var-label">Élève</span>
+                  </button>
+                  <button type="button" class="btn btn-sm var-badge" onclick="insertVariable('{level}')" title="Niveau scolaire de l'élève">
+                    <code>{level}</code> <span class="var-label">Niveau</span>
+                  </button>
+                  <button type="button" class="btn btn-sm var-badge" onclick="insertVariable('{groups}')" title="Groupes de cours inscrits">
+                    <code>{groups}</code> <span class="var-label">Groupe(s)</span>
+                  </button>
+                  <button type="button" class="btn btn-sm var-badge" onclick="insertVariable('{school_name}')" title="Nom de l'établissement">
+                    <code>{school_name}</code> <span class="var-label">Établissement</span>
+                  </button>
+                  <button type="button" class="btn btn-sm var-badge" onclick="insertVariable('{date}')" title="Date d'aujourd'hui">
+                    <code>{date}</code> <span class="var-label">Date du jour</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- WhatsApp Markdown Formatting Toolbar -->
+              <div class="formatting-toolbar d-flex align-items-center justify-content-between p-2 rounded-top bg-light border border-bottom-0">
+                <div class="d-flex align-items-center gap-1">
+                  <button type="button" class="btn btn-sm btn-light border-0" onclick="wrapText('*', '*')" title="Gras WhatsApp (*texte*)">
+                    <i class="bi bi-type-bold"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-light border-0" onclick="wrapText('_', '_')" title="Italique WhatsApp (_texte_)">
+                    <i class="bi bi-type-italic"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-light border-0" onclick="wrapText('~', '~')" title="Barré WhatsApp (~texte~)">
+                    <i class="bi bi-type-strikethrough"></i>
+                  </button>
+                  <button type="button" class="btn btn-sm btn-light border-0" onclick="wrapText('```', '```')" title="Monospace (```texte```)">
+                    <i class="bi bi-code"></i>
+                  </button>
+                  <span class="toolbar-sep"></span>
+                  <!-- Quick Emojis -->
+                  <div class="quick-emojis d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('📢')">📢</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('🎓')">🎓</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('📅')">📅</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('⚠️')">⚠️</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('⏰')">⏰</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('✅')">✅</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('📍')">📍</button>
+                    <button type="button" class="btn btn-sm btn-light border-0 p-1" onclick="insertVariable('👋')">👋</button>
+                  </div>
+                </div>
+                <div class="text-muted small" id="charCounter">
+                  <span id="charCount">0</span> car. | <span id="wordCount">0</span> mots
+                </div>
+              </div>
+
+              <!-- Message Textarea -->
+              <textarea class="form-control rounded-0 rounded-bottom font-sans message-textarea" 
+                        name="message_template" id="message-template" rows="8"
+                        placeholder="Tapez votre message ici...&#10;&#10;Exemple :&#10;Bonjour {name},&#10;Nous vous informons que les examens blancs pour {student_name} ({level}) auront lieu le [DATE].&#10;&#10;Cordialement,&#10;{school_name}"></textarea>
+
+              <!-- Attachments Section -->
+              <div class="mt-3">
+                <label class="form-label fw-semibold text-secondary mb-1">
+                  <i class="bi bi-paperclip me-1"></i> Pièces jointes (Documents, Images, PDF) :
+                </label>
+                <div class="custom-file-dropzone border rounded-3 p-3 bg-light text-center" id="dropzoneContainer">
+                  <input type="file" name="attachments" id="attachments" class="d-none" multiple onchange="handleFileSelect(this)">
+                  <div class="d-flex flex-column align-items-center justify-content-center cursor-pointer" onclick="document.getElementById('attachments').click()">
+                    <i class="bi bi-cloud-arrow-up-fill text-primary" style="font-size: 2rem;"></i>
+                    <p class="mb-1 fw-semibold text-dark">Glissez-déposez des fichiers ici ou <span class="text-primary text-decoration-underline">Parcourez</span></p>
+                    <small class="text-muted">PDF, Images (JPG, PNG), Documents (Word, Excel) jusqu'à 25 Mo</small>
+                  </div>
+                  <!-- Attached Files Chip List -->
+                  <div id="fileChipsContainer" class="d-flex flex-wrap gap-2 mt-2 justify-content-center"></div>
+                </div>
+              </div>
+
+              <!-- Submit Button -->
+              <div class="mt-4 pt-2">
+                <button type="submit" class="btn btn-success btn-lg w-100 d-flex align-items-center justify-content-center gap-2 shadow-sm generate-btn" id="generateSubmitBtn">
+                  <i class="bi bi-whatsapp" style="font-size: 1.25rem;"></i>
+                  <span>Générer les messages WhatsApp (<span id="submitCountDisplay">{{ initial_contacts_count }}</span> destinataires)</span>
+                  <i class="bi bi-arrow-right ms-auto"></i>
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Smartphone Live WhatsApp Preview -->
+        <div class="col-lg-5">
+          <div class="card border-0 shadow-sm rounded-3 h-100">
+            <div class="card-header bg-transparent border-bottom py-3 d-flex align-items-center justify-content-between">
+              <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-phone-fill text-success"></i>
+                <h5 class="fw-bold text-dark mb-0">Simulateur WhatsApp en Direct</h5>
+              </div>
+              <span class="badge bg-success-subtle text-success rounded-pill px-2">Aperçu Réel</span>
+            </div>
+
+            <div class="card-body p-4 d-flex flex-column align-items-center justify-content-center bg-light">
+              
+              <!-- Smartphone Frame Mockup -->
+              <div class="smartphone-frame shadow">
+                <!-- Phone Top Speaker & Camera -->
+                <div class="phone-notch"></div>
+                
+                <!-- WhatsApp Screen -->
+                <div class="wa-screen">
+                  
+                  <!-- WhatsApp Chat Header -->
+                  <div class="wa-chat-header">
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="bi bi-arrow-left text-white" style="font-size: 14px;"></i>
+                      <div class="wa-avatar">
+                        <i class="bi bi-person-fill"></i>
+                      </div>
+                      <div class="wa-contact-info">
+                        <div class="wa-contact-name" id="simContactName">Ahmed Alami</div>
+                        <div class="wa-contact-status">en ligne</div>
+                      </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-3 text-white" style="font-size: 14px;">
+                      <i class="bi bi-camera-video-fill"></i>
+                      <i class="bi bi-telephone-fill"></i>
+                      <i class="bi bi-three-dots-vertical"></i>
+                    </div>
+                  </div>
+
+                  <!-- WhatsApp Chat Body with Authentic Background Pattern -->
+                  <div class="wa-chat-body">
+                    
+                    <!-- Date Pill -->
+                    <div class="wa-date-pill">AUJOURD'HUI</div>
+
+                    <!-- Security Notice -->
+                    <div class="wa-security-pill">
+                      <i class="bi bi-lock-fill me-1"></i> Les messages sont chiffrés de bout en bout.
+                    </div>
+
+                    <!-- Simulated Message Bubble -->
+                    <div class="wa-bubble-wrapper">
+                      <div class="wa-bubble incoming">
+                        
+                        <!-- Attachments preview in simulator -->
+                        <div id="simAttachmentPreview" class="wa-sim-attachment d-none">
+                          <div class="d-flex align-items-center gap-2 p-2 bg-white rounded border mb-2">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger fs-4"></i>
+                            <div class="overflow-hidden text-truncate small fw-semibold" id="simAttachmentName">Document.pdf</div>
+                          </div>
+                        </div>
+
+                        <!-- Text content -->
+                        <div id="simMessageText" class="wa-bubble-content">
+                          <em class="text-muted">Commencez à saisir un message ou choisissez un modèle à gauche...</em>
+                        </div>
+
+                        <!-- Timestamp & Status Check -->
+                        <div class="wa-bubble-meta">
+                          <span id="simTime">12:30</span>
+                          <span class="wa-checks"><i class="bi bi-check-all text-primary"></i></span>
+                        </div>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- WhatsApp Chat Footer Input (Mock) -->
+                  <div class="wa-chat-footer">
+                    <div class="wa-input-mock">
+                      <i class="bi bi-emoji-smile"></i>
+                      <span>Message</span>
+                      <i class="bi bi-paperclip ms-auto"></i>
+                    </div>
+                    <div class="wa-mic-btn">
+                      <i class="bi bi-mic-fill"></i>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+
+              <!-- Context hint under phone -->
+              <div class="mt-3 text-center text-muted small">
+                <i class="bi bi-info-circle me-1"></i>
+                Les variables comme <code>{name}</code> ou <code>{student_name}</code> sont automatiquement remplacées par les données réelles de chaque destinataire.
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </form>
+
+  </div>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <!-- TAB 2: COURSE WHATSAPP GROUPS HUB                                         -->
+  <!-- ══════════════════════════════════════════════════════════════════════════ -->
+  <div class="tab-pane fade" id="tab-groups" role="tabpanel">
+
+    <div class="card border-0 shadow-sm rounded-3 mb-4">
+      <div class="card-header bg-transparent border-bottom py-3 d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div>
+          <h5 class="fw-bold text-dark mb-1">
+            <i class="bi bi-people-fill text-success me-2"></i>Groupes WhatsApp des Cours
+          </h5>
+          <p class="text-muted small mb-0">Accédez, diffusez, partagez les liens d'invitation ou affichez les QR Codes pour vos classes.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <a href="{% url 'core:courses_list' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-gear-fill me-1"></i> Gérer les cours
+          </a>
+        </div>
+      </div>
+
+      <div class="card-body p-4">
+        
+        <!-- Filter bar for groups -->
+        <div class="row g-3 mb-4">
+          <div class="col-md-5">
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="bi bi-search"></i></span>
+              <input type="text" id="groupSearchInput" class="form-control" placeholder="Rechercher un groupe, une matière, un prof..." oninput="filterGroupsGrid()">
+            </div>
+          </div>
+          <div class="col-md-4">
+            <select id="groupLevelFilter" class="form-select" onchange="filterGroupsGrid()">
+              <option value="">Tous les niveaux</option>
+              {% for lvl in levels %}
+                <option value="{{ lvl.name|lower }}">{{ lvl.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-3 text-md-end text-muted small d-flex align-items-center justify-content-md-end">
+            <span id="groupsCountDisplay">{{ groups_with_link|length }}</span> groupe(s) avec lien WhatsApp
+          </div>
+        </div>
+
+        {% if groups_with_link %}
+          <div class="row g-3" id="groupsContainer">
+            {% for group in groups_with_link %}
+              <div class="col-lg-4 col-md-6 group-item-col"
+                   data-name="{{ group.name|lower }}"
+                   data-subject="{{ group.subject|lower }}"
+                   data-teacher="{{ group.teacher.name|default:''|lower }}"
+                   data-level="{{ group.level.name|default:''|lower }}">
+                
+                <div class="group-hub-card h-100 shadow-xs border rounded-3 d-flex flex-column">
+                  <div class="group-hub-card-header p-3 border-bottom d-flex align-items-start gap-3">
+                    <div class="group-hub-icon">
+                      <i class="bi bi-whatsapp"></i>
+                    </div>
+                    <div class="flex-grow-1 overflow-hidden">
+                      <h6 class="fw-bold text-dark text-truncate mb-1" title="{{ group.name }}">{{ group.name }}</h6>
+                      <div class="text-muted small text-truncate">
+                        <i class="bi bi-book me-1"></i>{{ group.subject }}
+                      </div>
+                      {% if group.level %}
+                        <span class="badge bg-light text-secondary border mt-1">{{ group.level.name }}</span>
+                      {% endif %}
+                    </div>
+                  </div>
+
+                  <div class="group-hub-card-body p-3 flex-grow-1">
+                    {% if group.teacher %}
+                      <div class="d-flex align-items-center gap-2 mb-2 text-secondary small">
+                        <i class="bi bi-person-fill text-muted"></i>
+                        <span>Professeur : <strong>{{ group.teacher.name }}</strong></span>
+                      </div>
+                    {% endif %}
+                    <div class="text-muted small d-flex align-items-center gap-2">
+                      <i class="bi bi-link-45deg text-success"></i>
+                      <span class="font-monospace text-truncate" style="font-size: 11px;">{{ group.whatsapp_group_link }}</span>
+                    </div>
+                  </div>
+
+                  <div class="group-hub-card-footer p-2 bg-light border-top d-flex align-items-center justify-content-between gap-1">
+                    <a href="{{ group.whatsapp_group_link }}" target="_blank" class="btn btn-sm btn-success d-flex align-items-center gap-1">
+                      <i class="bi bi-whatsapp"></i> Ouvrir
+                    </a>
+                    <div class="d-flex gap-1">
+                      <button type="button" class="btn btn-sm btn-outline-secondary" 
+                              onclick="copyGroupLink('{{ group.whatsapp_group_link|escapejs }}', this)" 
+                              title="Copier le lien">
+                        <i class="bi bi-clipboard"></i> Copier
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline-primary" 
+                              onclick="showQrModal('{{ group.name|escapejs }}', '{{ group.whatsapp_group_link|escapejs }}')" 
+                              title="Afficher le QR Code">
+                        <i class="bi bi-qr-code"></i> QR Code
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <div class="display-4 text-muted opacity-25 mb-3"><i class="bi bi-whatsapp"></i></div>
+            <h5 class="text-dark fw-bold">Aucun groupe WhatsApp configuré</h5>
+            <p class="text-muted small mb-4">Pour afficher les groupes ici, ajoutez leurs liens WhatsApp dans la gestion des groupes de cours.</p>
+            <a href="{% url 'core:courses_list' %}" class="btn btn-outline-success">
+              <i class="bi bi-plus-circle me-1"></i> Configurer les Groupes de Cours
+            </a>
+          </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+  </div>
+
+</div>
+
+<!-- QR Code Modal -->
+<div class="modal fade" id="qrCodeModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content border-0 shadow">
+      <div class="modal-header border-0 pb-0">
+        <h6 class="modal-title fw-bold" id="qrModalTitle">QR Code du Groupe</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center p-4">
+        <div id="qrImageContainer" class="p-2 border rounded bg-white d-inline-block shadow-xs mb-3">
+          <img id="qrCodeImg" src="" alt="QR Code" style="width: 220px; height: 220px; display: block;">
+        </div>
+        <p class="text-muted small mb-0">Scannez ce QR Code avec l'appareil photo de votre smartphone pour rejoindre le groupe WhatsApp.</p>
+      </div>
+      <div class="modal-footer border-0 pt-0 justify-content-center">
+        <a href="" id="qrOpenBtn" target="_blank" class="btn btn-sm btn-success">
+          <i class="bi bi-whatsapp me-1"></i> Ouvrir le lien
+        </a>
+        <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Fermer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Embedded Data for Live Calculations -->
+{{ students_json|json_script:"studentsData" }}
+{{ teachers_json|json_script:"teachersData" }}
+
+<!-- Toast Notification Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+  <div id="copyToast" class="toast align-items-center text-white bg-dark border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">
+        <i class="bi bi-check-circle-fill text-success me-2"></i> Lien copié dans le presse-papiers !
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+
+<style>
+/* ─── Modern Bulk Announcements Styling ───────────────────────────────────── */
+.header-icon-pill {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #25d366;
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 4px 10px rgba(37, 211, 102, 0.3);
+}
+
+.step-badge {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--primary);
+  color: white;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.custom-main-tabs .nav-link {
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-radius: 10px;
+  padding: 0.65rem 1.25rem;
+  transition: all 0.2s ease;
+}
+
+.custom-main-tabs .nav-link.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+}
+
+.live-counter-badge {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+  padding: 0.4rem 0.85rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+}
+
+/* Audience Grid & Cards */
+.audience-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.audience-card {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 1rem;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.audience-card input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.audience-card:hover {
+  border-color: #cbd5e1;
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.audience-card.active {
+  border-color: var(--primary);
+  background: #eff6ff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.12);
+}
+
+.audience-card-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+.bg-success-light { background: #d1fae5; color: #059669; }
+.bg-primary-light { background: #dbeafe; color: #2563eb; }
+.bg-indigo-light { background: #e0e7ff; color: #4f46e5; }
+.bg-amber-light { background: #fef3c7; color: #d97706; }
+.bg-teal-light { background: #ccfbf1; color: #0d9488; }
+.bg-rose-light { background: #ffe4e6; color: #e11d48; }
+.bg-purple-light { background: #f3e8ff; color: #9333ea; }
+.bg-emerald-light { background: #ecfdf5; color: #059669; }
+
+.audience-card-info {
+  flex-grow: 1;
+}
+
+.audience-card-title {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.audience-card-desc {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.audience-check-icon {
+  color: var(--primary);
+  font-size: 1.1rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.audience-card.active .audience-check-icon {
+  opacity: 1;
+}
+
+/* Audience Subpanels */
+.audience-subpanel {
+  background: var(--surface-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-top: 1rem;
+  animation: fadeIn 0.3s ease;
+}
+
+.pill-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.6rem;
+  max-height: 220px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.pill-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: all 0.15s ease;
+}
+
+.pill-checkbox-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.pill-checkbox-item input[type="checkbox"]:checked + span {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+/* Templates Bar */
+.template-categories-pills {
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.template-cat-btn.active {
+  background: var(--text-primary);
+  color: white;
+  border-color: var(--text-primary);
+}
+
+.template-pill-item {
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  background: white;
+  transition: all 0.15s ease;
+}
+
+.template-pill-item:hover {
+  background: var(--primary-light);
+  border-color: var(--primary) !important;
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+/* Variable Badges */
+.var-badge {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.5rem;
+  transition: all 0.15s ease;
+}
+
+.var-badge code {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.var-badge:hover {
+  background: #e2e8f0;
+  transform: scale(1.03);
+}
+
+.toolbar-sep {
+  width: 1px;
+  height: 18px;
+  background: #cbd5e1;
+  margin: 0 4px;
+}
+
+.message-textarea {
+  font-size: 0.92rem;
+  line-height: 1.6;
+  resize: vertical;
+  border-color: #cbd5e1;
+}
+
+.message-textarea:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: var(--primary);
+}
+
+.generate-btn {
+  background: #25d366;
+  border-color: #25d366;
+  font-weight: 600;
+  padding: 0.85rem 1.5rem;
+  transition: all 0.2s ease;
+}
+
+.generate-btn:hover {
+  background: #128C7E;
+  border-color: #128C7E;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 15px rgba(37, 211, 102, 0.35);
+}
+
+/* ─── Smartphone Frame & Live WhatsApp Simulation ─────────────────────────── */
+.smartphone-frame {
+  width: 320px;
+  height: 520px;
+  background: #1f2937;
+  border-radius: 36px;
+  padding: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.phone-notch {
+  width: 100px;
+  height: 14px;
+  background: #111827;
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+}
+
+.wa-screen {
+  width: 100%;
+  height: 100%;
+  background: #efeae2;
+  border-radius: 26px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.wa-chat-header {
+  background: #075e54;
+  padding: 18px 12px 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: white;
+  z-index: 5;
+}
+
+.wa-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
+.wa-contact-name {
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.wa-contact-status {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+.wa-chat-body {
+  flex-grow: 1;
+  padding: 10px;
+  overflow-y: auto;
+  background-image: radial-gradient(#d1d5db 1px, transparent 1px);
+  background-size: 16px 16px;
+  display: flex;
+  flex-direction: column;
+}
+
+.wa-date-pill, .wa-security-pill {
+  align-self: center;
+  background: rgba(255, 255, 255, 0.85);
+  font-size: 9px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: #4b5563;
+  margin-bottom: 6px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.wa-bubble-wrapper {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.wa-bubble.incoming {
+  background: #ffffff;
+  border-radius: 8px 8px 8px 0;
+  padding: 8px 10px;
+  max-width: 90%;
+  box-shadow: 0 1px 1px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.wa-bubble-content {
+  font-size: 12px;
+  color: #111827;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.wa-bubble-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
+  font-size: 9px;
+  color: #6b7280;
+  margin-top: 4px;
+}
+
+.wa-chat-footer {
+  background: #f0f2f5;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wa-input-mock {
+  flex-grow: 1;
+  background: white;
+  border-radius: 20px;
+  padding: 5px 10px;
+  font-size: 12px;
+  color: #9ca3af;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wa-mic-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #00a884;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+/* ─── Hub Cards Styling ───────────────────────────────────────────────────── */
+.group-hub-card {
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.group-hub-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md) !important;
+  border-color: rgba(37, 211, 102, 0.4) !important;
+}
+
+.group-hub-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #d1fae5;
+  color: #059669;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  flex-shrink: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Load embedded datasets
+const allStudents = JSON.parse(document.getElementById('studentsData')?.textContent || '[]');
+const allTeachers = JSON.parse(document.getElementById('teachersData')?.textContent || '[]');
+const schoolName = "{{ school_name|escapejs }}";
+const todayDate = "{{ today_date|escapejs }}";
+
+// State
+let currentAudience = 'all_parents_students';
+
+// Initialize UI
+document.addEventListener('DOMContentLoaded', function () {
+  setupAudienceCards();
+  setupTextareaListeners();
+  updateEstimatedRecipients();
+  updateLivePreview();
+});
+
+// Setup Audience Radio Cards
+function setupAudienceCards() {
+  const cards = document.querySelectorAll('.audience-card');
+  cards.forEach(card => {
+    card.addEventListener('click', function () {
+      cards.forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+      const radio = this.querySelector('input[type="radio"]');
+      if (radio) {
+        radio.checked = true;
+        currentAudience = radio.value;
+        toggleSubpanels(currentAudience);
+        updateEstimatedRecipients();
+        updateSimContactHeader();
+      }
+    });
+  });
+}
+
+function toggleSubpanels(aud) {
+  // Hide all subpanels first
+  document.querySelectorAll('.audience-subpanel').forEach(el => el.classList.add('d-none'));
+  
+  // Show channel row only for audiences that need it
+  const channelRow = document.getElementById('contactChannelRow');
+  const hideChannelFor = ['teachers', 'all_parents', 'all_students', 'all_parents_students', 'custom'];
+  if (channelRow) {
+    if (hideChannelFor.includes(aud)) {
+      channelRow.classList.add('d-none');
+    } else {
+      channelRow.classList.remove('d-none');
+    }
+  }
+
+  // Show specific subpanel — handle multi-word keys like by_level -> panel-by-level
+  const panelId = 'panel-' + aud.replace(/_/g, '-');
+  const panel = document.getElementById(panelId);
+  if (panel) panel.classList.remove('d-none');
+}
+
+function toggleAllCheckboxes(name, state) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach(cb => {
+    cb.checked = state;
+  });
+  updateEstimatedRecipients();
+}
+
+function filterStudentTable() {
+  const q = (document.getElementById('studentSearchInput')?.value || '').toLowerCase().trim();
+  document.querySelectorAll('#studentsSelectionTable .student-row').forEach(row => {
+    const name = row.getAttribute('data-name') || '';
+    const lvl = row.getAttribute('data-level') || '';
+    if (!q || name.includes(q) || lvl.includes(q)) {
+      row.style.display = '';
+    } else {
+      row.style.display = 'none';
+    }
+  });
+}
+
+// Calculate Estimated Contacts
+function updateEstimatedRecipients() {
+  let count = 0;
+  const channel = document.getElementById('contact_channel')?.value || 'all_available';
+
+  if (currentAudience === 'custom') {
+    const ta = document.getElementById('custom_phones');
+    if (ta) {
+      const lines = ta.value.split('\n').filter(l => l.trim().length > 0);
+      count = lines.length;
+      const badge = document.getElementById('customCountBadge');
+      if (badge) badge.textContent = count + ' contact(s) détecté(s)';
+    }
+  } else if (currentAudience === 'teachers') {
+    const checkedTIds = Array.from(document.querySelectorAll('input[name="teacher_ids"]:checked')).map(cb => parseInt(cb.value));
+    count = allTeachers.filter(t => t.has_phone && (checkedTIds.length === 0 || checkedTIds.includes(t.id))).length;
+  } else {
+    let filteredStudents = allStudents;
+
+    if (currentAudience === 'by_level') {
+      const checkedLevels = Array.from(document.querySelectorAll('input[name="level_ids"]:checked')).map(cb => parseInt(cb.value));
+      filteredStudents = allStudents.filter(s => checkedLevels.includes(s.level_id));
+    } else if (currentAudience === 'by_group') {
+      const checkedGroups = Array.from(document.querySelectorAll('input[name="group_ids"]:checked')).map(cb => parseInt(cb.value));
+      filteredStudents = allStudents.filter(s => s.group_ids.some(gId => checkedGroups.includes(gId)));
+    } else if (currentAudience === 'by_student') {
+      const checkedStudents = Array.from(document.querySelectorAll('input[name="student_ids"]:checked')).map(cb => parseInt(cb.value));
+      filteredStudents = allStudents.filter(s => checkedStudents.includes(s.id));
+    }
+
+    filteredStudents.forEach(s => {
+      if (currentAudience === 'all_parents_students') {
+        if (s.has_p1) count++;
+        if (s.has_p2) count++;
+        if (s.has_st_phone) count++;
+      } else if (currentAudience === 'all_parents') {
+        if (s.has_p1) count++;
+        if (s.has_p2) count++;
+      } else if (currentAudience === 'all_students') {
+        if (s.has_st_phone) count++;
+      } else {
+        if (channel === 'all_available') {
+          if (s.has_p1) count++;
+          if (s.has_p2) count++;
+          if (s.has_st_phone) count++;
+        } else if (channel === 'parents_only') {
+          if (s.has_p1) count++;
+          if (s.has_p2) count++;
+        } else if (channel === 'parent_1_only') {
+          if (s.has_p1) count++;
+        } else if (channel === 'student_only') {
+          if (s.has_st_phone) count++;
+        }
+      }
+    });
+  }
+
+  // Update counters
+  const countDisp = document.getElementById('recipientCountDisplay');
+  const submitDisp = document.getElementById('submitCountDisplay');
+  if (countDisp) countDisp.textContent = count;
+  if (submitDisp) submitDisp.textContent = count;
+}
+
+function updateSimContactHeader() {
+  const el = document.getElementById('simContactName');
+  if (!el) return;
+  if (currentAudience === 'teachers') {
+    el.textContent = "Prof. Yassine El Amrani";
+  } else if (currentAudience === 'all_students') {
+    el.textContent = "Fatima Zahra (Élève)";
+  } else {
+    el.textContent = "Ahmed Alami (Parent de Fatima)";
+  }
+}
+
+// ─── Templates & Composer Logic ─────────────────────────────────────────────
+function switchTemplateCategory(catKey, btn) {
+  document.querySelectorAll('.template-cat-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.template-group').forEach(grp => grp.classList.add('d-none'));
+  const target = document.getElementById('template-cat-' + catKey);
+  if (target) target.classList.remove('d-none');
+}
+
+function applyTemplate(btn) {
+  const rawText = btn.getAttribute('data-template');
+  const textarea = document.getElementById('message-template');
+  if (textarea && rawText) {
+    textarea.value = rawText;
+    textarea.focus();
+    updateLivePreview();
+    updateCharCounter();
+  }
+}
+
+function insertVariable(varText) {
+  const textarea = document.getElementById('message-template');
+  if (!textarea) return;
+  
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const currentVal = textarea.value;
+
+  textarea.value = currentVal.substring(0, start) + varText + currentVal.substring(end);
+  textarea.focus();
+  textarea.selectionStart = textarea.selectionEnd = start + varText.length;
+
+  updateLivePreview();
+  updateCharCounter();
+}
+
+function wrapText(prefix, suffix) {
+  const textarea = document.getElementById('message-template');
+  if (!textarea) return;
+
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const selectedText = textarea.value.substring(start, end);
+  const replacement = prefix + (selectedText || 'texte') + suffix;
+
+  textarea.value = textarea.value.substring(0, start) + replacement + textarea.value.substring(end);
+  textarea.focus();
+  textarea.selectionStart = start + prefix.length;
+  textarea.selectionEnd = start + replacement.length - suffix.length;
+
+  updateLivePreview();
+  updateCharCounter();
+}
+
+function setupTextareaListeners() {
+  const textarea = document.getElementById('message-template');
+  if (textarea) {
+    textarea.addEventListener('input', () => {
+      updateLivePreview();
+      updateCharCounter();
+    });
+  }
+
+  // Update clock in sim
+  const now = new Date();
+  const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+  const simTime = document.getElementById('simTime');
+  if (simTime) simTime.textContent = timeStr;
+}
+
+function updateCharCounter() {
+  const text = document.getElementById('message-template')?.value || '';
+  const charCount = text.length;
+  const wordCount = text.trim() ? text.trim().split(/\s+/).length : 0;
+
+  const charEl = document.getElementById('charCount');
+  const wordEl = document.getElementById('wordCount');
+  if (charEl) charEl.textContent = charCount;
+  if (wordEl) wordEl.textContent = wordCount;
+}
+
+// Convert WhatsApp Markdown to HTML for the Simulator
+function updateLivePreview() {
+  const textarea = document.getElementById('message-template');
+  const previewBox = document.getElementById('simMessageText');
+  if (!previewBox) return;
+
+  let text = textarea?.value || '';
+
+  if (!text.trim()) {
+    previewBox.innerHTML = '<em class="text-muted">Commencez à saisir un message ou choisissez un modèle à gauche...</em>';
+    return;
+  }
+
+  // Simulate variable replacements
+  let sampleName = (currentAudience === 'teachers') ? "Prof. Yassine" : "M. Ahmed";
+  let sampleStudent = "Fatima Zahra";
+  let sampleLevel = "2ème Année Bac - Sc. Maths";
+  let sampleGroups = "Mathématiques Grp A";
+
+  text = text
+    .replace(/{name}/g, `<strong>${sampleName}</strong>`)
+    .replace(/{student_name}/g, `<strong>${sampleStudent}</strong>`)
+    .replace(/{level}/g, `<strong>${sampleLevel}</strong>`)
+    .replace(/{groups}/g, `<strong>${sampleGroups}</strong>`)
+    .replace(/{school_name}/g, `<strong>${schoolName}</strong>`)
+    .replace(/{date}/g, `<strong>${todayDate}</strong>`);
+
+  // WhatsApp markdown parsing
+  // Bold *text*
+  text = text.replace(/\*([^\*]+)\*/g, '<strong>$1</strong>');
+  // Italic _text_
+  text = text.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // Strikethrough ~text~
+  text = text.replace(/~([^~]+)~/g, '<del>$1</del>');
+  // Monospace ```text```
+  text = text.replace(/```([^`]+)```/g, '<code class="p-1 bg-light rounded text-dark font-monospace" style="font-size:11px;">$1</code>');
+  // Linebreaks
+  text = text.replace(/\n/g, '<br>');
+
+  previewBox.innerHTML = text;
+}
+
+// File Drag & Drop & Attachments
+function handleFileSelect(input) {
+  const container = document.getElementById('fileChipsContainer');
+  const simAttach = document.getElementById('simAttachmentPreview');
+  const simAttachName = document.getElementById('simAttachmentName');
+
+  if (!container) return;
+  container.innerHTML = '';
+
+  if (input.files && input.files.length > 0) {
+    Array.from(input.files).forEach(file => {
+      const chip = document.createElement('span');
+      chip.className = 'badge bg-white text-dark border shadow-xs d-flex align-items-center gap-1 p-2';
+      chip.innerHTML = `
+        <i class="bi bi-file-earmark-text text-primary"></i>
+        <span>${file.name}</span>
+        <small class="text-muted">(${(file.size / 1024).toFixed(0)} Ko)</small>
+      `;
+      container.appendChild(chip);
+    });
+
+    if (simAttach && simAttachName) {
+      simAttach.classList.remove('d-none');
+      simAttachName.textContent = input.files[0].name;
+    }
+  } else {
+    if (simAttach) simAttach.classList.add('d-none');
+  }
+}
+
+// ─── Group Hub Functions (Filter, Copy, QR Code) ───────────────────────────
+function filterGroupsGrid() {
+  const q = (document.getElementById('groupSearchInput')?.value || '').toLowerCase().trim();
+  const lvl = (document.getElementById('groupLevelFilter')?.value || '').toLowerCase().trim();
+  let visibleCount = 0;
+
+  document.querySelectorAll('.group-item-col').forEach(col => {
+    const name = col.getAttribute('data-name') || '';
+    const subject = col.getAttribute('data-subject') || '';
+    const teacher = col.getAttribute('data-teacher') || '';
+    const level = col.getAttribute('data-level') || '';
+
+    const matchesQ = !q || name.includes(q) || subject.includes(q) || teacher.includes(q);
+    const matchesLvl = !lvl || level.includes(lvl);
+
+    if (matchesQ && matchesLvl) {
+      col.style.display = '';
+      visibleCount++;
+    } else {
+      col.style.display = 'none';
+    }
+  });
+
+  const countDisp = document.getElementById('groupsCountDisplay');
+  if (countDisp) countDisp.textContent = visibleCount;
+}
+
+function copyGroupLink(link, btn) {
+  if (!navigator.clipboard) {
+    const tempInput = document.createElement('input');
+    tempInput.value = link;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    document.execCommand('copy');
+    document.body.removeChild(tempInput);
+  } else {
+    navigator.clipboard.writeText(link);
+  }
+
+  // Show Toast
+  const toastEl = document.getElementById('copyToast');
+  if (toastEl) {
+    const toast = new bootstrap.Toast(toastEl);
+    toast.show();
+  }
+
+  // Button feedback
+  const origHtml = btn.innerHTML;
+  btn.innerHTML = '<i class="bi bi-check text-success"></i> Copié !';
+  setTimeout(() => { btn.innerHTML = origHtml; }, 2000);
+}
+
+function showQrModal(groupName, link) {
+  document.getElementById('qrModalTitle').textContent = "QR Code — " + groupName;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(link)}`;
+  document.getElementById('qrCodeImg').src = qrUrl;
+  document.getElementById('qrOpenBtn').href = link;
+
+  const modal = new bootstrap.Modal(document.getElementById('qrCodeModal'));
+  modal.show();
+}
+</script>
+{% endblock %}

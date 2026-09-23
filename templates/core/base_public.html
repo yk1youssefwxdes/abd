@@ -1,0 +1,250 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="fr" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Espace Enseignant — {{ SCHOOL_NAME }}">
+  <title>{% block title %}{{ SCHOOL_NAME }} — Espace Enseignant{% endblock %}</title>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="{% static 'favicon.png' %}">
+
+  <!-- Google Fonts — Inter -->
+  <link rel="stylesheet" href="{% static 'fonts/fonts.css' %}">
+
+  <!-- Vendor CSS -->
+  <link href="{% static 'bootstrap.min.css' %}" rel="stylesheet">
+  <link rel="stylesheet" href="{% static 'bootstrap-icons.css' %}">
+  <link href="{% static 'select2.min.css' %}" rel="stylesheet">
+
+  <style>
+    :root {
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --primary-light: #eff6ff;
+      --primary-rgb: 37, 99, 235;
+
+      /* Surfaces */
+      --body-bg: #f3f4f6;
+      --surface: #ffffff;
+      --border: #e5e7eb;
+      --text: #1f2937;
+      --text-muted: #6b7280;
+      
+      /* Glassmorphism settings */
+      --glass-bg: rgba(255, 255, 255, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.5);
+      --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.08);
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--body-bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Glassmorphic Top Navbar */
+    .public-navbar {
+      background: var(--glass-bg);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--glass-border);
+      box-shadow: var(--glass-shadow);
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      padding: 12px 24px;
+    }
+
+    .public-nav-container {
+      max-width: 900px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .public-brand {
+      font-weight: 800;
+      font-size: 18px;
+      color: var(--primary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity 0.2s ease;
+    }
+    
+    .public-brand:hover {
+      opacity: 0.85;
+      color: var(--primary-dark);
+    }
+
+    .btn-logout {
+      background: rgba(239, 68, 68, 0.1);
+      color: #dc2626;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      border-radius: 8px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      text-decoration: none;
+    }
+
+    .btn-logout:hover {
+      background: #dc2626;
+      color: #ffffff;
+      border-color: #dc2626;
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.2);
+    }
+
+    /* Main Container Layout */
+    .public-main {
+      flex: 1;
+      max-width: 900px;
+      width: 100%;
+      margin: 0 auto;
+      padding: 24px 16px 64px 16px;
+    }
+
+    /* Card styling */
+    .public-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -4px rgba(0, 0, 0, 0.05);
+      padding: 24px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    /* ERP style toast */
+    #toast-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 1060;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .erp-toast {
+      background: #1f2937;
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 250px;
+      animation: toast-in 0.3s ease;
+    }
+
+    .erp-toast.success { background: #10b981; }
+    .erp-toast.error { background: #ef4444; }
+    .erp-toast.warning { background: #f59e0b; }
+    .erp-toast.info { background: #3b82f6; }
+
+    @keyframes toast-in {
+      from { transform: translateY(100%) scale(0.9); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    @keyframes toast-out {
+      to { transform: translateY(20px); opacity: 0; }
+    }
+
+    /* Footer */
+    .public-footer {
+      background: transparent;
+      border-top: 1px solid var(--border);
+      padding: 24px;
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: auto;
+    }
+
+    @media (max-width: 576px) {
+      .public-navbar {
+        padding: 12px 16px;
+      }
+      .public-main {
+        padding: 16px 8px 48px 8px;
+      }
+    }
+  </style>
+  {% block extra_css %}{% endblock %}
+</head>
+<body>
+
+  <!-- Top Glass Navbar -->
+  <nav class="public-navbar">
+    <div class="public-nav-container">
+      <a href="{% url 'core:public_teacher_attendance_login' %}" class="public-brand">
+        <i class="bi bi-mortarboard-fill"></i>
+        <span>{{ SCHOOL_NAME }}</span>
+      </a>
+      {% if request.session.public_teacher_id %}
+      <a href="{% url 'core:public_teacher_attendance_logout' %}" class="btn-logout">
+        <i class="bi bi-box-arrow-right"></i>
+        <span>Quitter</span>
+      </a>
+      {% endif %}
+    </div>
+  </nav>
+
+  <!-- Main Area -->
+  <main class="public-main">
+    {% include 'core/_messages.html' %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- Toast Container -->
+  <div id="toast-container" aria-live="polite" aria-atomic="true"></div>
+
+  <!-- Footer -->
+  <footer class="public-footer">
+    <div>&copy; {% now "Y" %} {{ SCHOOL_NAME }} — Portail Présences Enseignant</div>
+    <div style="font-size: 11px; opacity: 0.8; margin-top: 4px;">
+      Besoin d'aide ? Contactez l'administration.
+    </div>
+  </footer>
+
+  <!-- Vendor JS -->
+  <script src="{% static 'jquery-3.6.0.min.js' %}"></script>
+  <script src="{% static 'bootstrap.bundle.min.js' %}"></script>
+  <script src="{% static 'select2.min.js' %}"></script>
+
+  <script>
+    // Global toast function
+    window.erpToast = function (msg, type = 'info', duration = 3200) {
+      const icons = { success: 'bi-check-circle-fill', error: 'bi-x-circle-fill', info: 'bi-info-circle-fill', warning: 'bi-exclamation-triangle-fill' };
+      const el = document.createElement('div');
+      el.className = 'erp-toast ' + type;
+      el.setAttribute('role', 'status');
+      el.innerHTML = `<i class="bi ${icons[type] || icons.info}" aria-hidden="true"></i> ${msg}`;
+      document.getElementById('toast-container').appendChild(el);
+      setTimeout(() => {
+        el.style.animation = 'toast-out 0.25s ease forwards';
+        setTimeout(() => el.remove(), 260);
+      }, duration);
+    };
+  </script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

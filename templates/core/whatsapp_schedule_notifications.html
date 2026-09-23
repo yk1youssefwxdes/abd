@@ -1,0 +1,1183 @@
+{% extends 'core/base.html' %}
+{% block title %}Notifications Planning WhatsApp — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+<span class="context-bar-sep">›</span>
+<a href="{% url 'core:whatsapp_dashboard' %}" class="context-bar-link"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+<span class="context-bar-sep">›</span>
+<span class="context-bar-current">Notifications Planning</span>
+{% endblock %}
+
+{% block content %}
+<div class="whatsapp-notifications-page pb-5">
+
+  <!-- Header Section -->
+  <div class="page-header d-flex align-items-start justify-content-between flex-wrap gap-3 mb-4">
+    <div>
+      <div class="d-inline-flex align-items-center gap-2 px-3 py-1 rounded-pill mb-2 border shadow-2xs"
+        style="background:rgba(37,211,102,0.08);border-color:rgba(37,211,102,0.25)!important;">
+        <i class="bi bi-whatsapp" style="color:#128C7E;"></i>
+        <span class="small fw-semibold" style="color:#128C7E;">Centre de Notifications WhatsApp</span>
+      </div>
+      <h1 class="page-title d-flex align-items-center gap-2 mb-1 fw-bold text-dark">
+        Planning & Séances
+      </h1>
+      <p class="page-subtitle text-muted mb-0" style="font-size:0.925rem;">
+        Gérez, prévisualisez et envoyez les alertes de modifications de cours en temps réel.
+        {% if not status_data.offline and status_data.status == 'READY' %}
+        <span
+          class="badge rounded-pill bg-success-subtle text-success-emphasis border border-success-subtle ms-2 px-2 py-1 align-middle">
+          <span class="status-pulse-dot active me-1"></span>Service Connecté (Envoi Automatique)
+        </span>
+        {% else %}
+        <span
+          class="badge rounded-pill bg-warning-subtle text-warning-emphasis border border-warning-subtle ms-2 px-2 py-1 align-middle">
+          <span class="status-pulse-dot warning me-1"></span>Mode Manuel (WhatsApp Web)
+        </span>
+        {% endif %}
+      </p>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-primary btn-sm rounded-pill px-3 shadow-2xs">
+        <i class="bi bi-calendar3 me-1"></i> Calendrier Planning
+      </a>
+      <a href="{% url 'core:whatsapp_dashboard' %}"
+        class="btn btn-outline-secondary btn-sm rounded-pill px-3 shadow-2xs">
+        <i class="bi bi-grid me-1"></i> Hub WhatsApp
+      </a>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Cards -->
+  <div class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card kpi-card h-100 shadow-2xs">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stat-card-label text-uppercase small text-muted fw-bold">En attente</div>
+            <div class="stat-card-value text-primary fw-bold display-6 my-1" id="statPendingCount">{{ unhandled_count }}
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-1">
+              <i class="bi bi-exclamation-circle text-primary"></i> Modifications non notifiées
+            </div>
+          </div>
+          <div class="stat-card-icon shadow-sm"
+            style="background:linear-gradient(135deg, rgba(99,102,241,0.15), rgba(79,70,229,0.25));color:#4f46e5;width:54px;height:54px;border-radius:14px;">
+            <i class="bi bi-clock-history fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card kpi-card h-100 shadow-2xs">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stat-card-label text-uppercase small text-muted fw-bold">Élèves & Parents</div>
+            <div class="stat-card-value text-amber fw-bold display-6 my-1" style="color:#d97706;"
+              id="statStudentsCount">{{ students_affected }}</div>
+            <div class="small text-muted d-flex align-items-center gap-1">
+              <i class="bi bi-person-check" style="color:#d97706;"></i> Destinataires familles
+            </div>
+          </div>
+          <div class="stat-card-icon shadow-sm"
+            style="background:linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.25));color:#d97706;width:54px;height:54px;border-radius:14px;">
+            <i class="bi bi-people-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card kpi-card h-100 shadow-2xs">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stat-card-label text-uppercase small text-muted fw-bold">Enseignants</div>
+            <div class="stat-card-value text-info fw-bold display-6 my-1" id="statTeachersCount">{{ teachers_affected }}
+            </div>
+            <div class="small text-muted d-flex align-items-center gap-1">
+              <i class="bi bi-person-badge text-info"></i> Professeurs concernés
+            </div>
+          </div>
+          <div class="stat-card-icon shadow-sm"
+            style="background:linear-gradient(135deg, rgba(14,165,233,0.15), rgba(2,132,199,0.25));color:#0284c7;width:54px;height:54px;border-radius:14px;">
+            <i class="bi bi-person-badge-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card kpi-card h-100 shadow-2xs d-flex flex-column justify-content-between"
+        style="border-left:4px solid #10b981;">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="stat-card-label text-uppercase small text-muted fw-bold">Action groupée</div>
+            <div class="mt-2">
+              {% if not status_data.offline and status_data.status == 'READY' %}
+              <button class="btn btn-sm btn-success fw-semibold px-3 py-2 rounded-pill shadow-sm" id="auto-send-all-btn"
+                type="button" style="background:#25d366;border-color:#25d366;">
+                <i class="bi bi-send-fill me-1"></i> Tout notifier (Auto)
+              </button>
+              {% else %}
+              <button class="btn btn-sm btn-success fw-semibold px-3 py-2 rounded-pill shadow-sm" id="open-all-btn"
+                type="button" style="background:#25d366;border-color:#25d366;">
+                <i class="bi bi-whatsapp me-1"></i> Tout ouvrir (Manuel)
+              </button>
+              {% endif %}
+            </div>
+          </div>
+          <div class="stat-card-icon shadow-sm"
+            style="background:linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.25));color:#059669;width:54px;height:54px;border-radius:14px;">
+            <i class="bi bi-send-check-fill fs-4"></i>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Bulk Progress Banner -->
+  <div id="bulk-progress-banner" class="alert alert-info border-0 shadow-sm mb-4 d-none"
+    style="border-radius:14px;background:#f0fdf4;border:1px solid #bbf7d0!important;">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+      <div class="d-flex align-items-center gap-2">
+        <div class="spinner-border spinner-border-sm text-success" role="status"></div>
+        <strong class="text-success-emphasis"><i class="bi bi-send-fill me-1 text-success"></i> Envoi automatique des
+          messages en cours...</strong>
+      </div>
+      <span id="bulk-progress-text"
+        class="fw-bold text-success-emphasis badge bg-success text-white px-3 py-1 rounded-pill"
+        style="font-size:0.85rem;">0 / 0</span>
+    </div>
+    <div class="progress" style="height:10px;border-radius:6px;background:rgba(37,211,102,0.15);">
+      <div id="bulk-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+        role="progressbar" style="width:0%;transition:width 0.4s ease;"></div>
+    </div>
+    <div class="small text-muted mt-2 d-flex justify-content-between">
+      <span>Un délai de sécurité de 1.5s est appliqué entre chaque contact pour respecter les politiques
+        WhatsApp.</span>
+      <span id="bulk-progress-percent" class="fw-semibold text-success">0%</span>
+    </div>
+  </div>
+
+  <!-- Filter & Channel Controls Toolbar -->
+  <div class="card shadow-2xs border-0 mb-4" style="border-radius:14px;">
+    <div class="card-body p-3 p-md-4">
+      <!-- Quick Date Presets Row -->
+      <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+        <span class="small fw-bold text-secondary text-uppercase me-1"><i class="bi bi-clock-history me-1"></i>Périodes :</span>
+        <button type="button" class="btn btn-sm btn-outline-primary rounded-pill px-3 py-1 date-preset-btn active" data-preset="all" onclick="applyDatePreset('all')">Toutes les dates</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 date-preset-btn" data-preset="today" onclick="applyDatePreset('today')">Aujourd'hui</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 date-preset-btn" data-preset="tomorrow" onclick="applyDatePreset('tomorrow')">Demain</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 date-preset-btn" data-preset="week" onclick="applyDatePreset('week')">Cette semaine</button>
+        <button type="button" class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1 date-preset-btn" data-preset="month" onclick="applyDatePreset('month')">Ce mois</button>
+      </div>
+
+      <div class="row g-3 align-items-center">
+        <!-- Date range pickers -->
+        <div class="col-lg-3 col-md-6">
+          <label class="form-label small fw-bold text-secondary text-uppercase mb-1">Du</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-date text-muted"></i></span>
+            <input type="date" id="filterDateStart" class="form-control form-control-sm border-start-0 ps-0"
+              value="{{ filter_date_start }}">
+          </div>
+        </div>
+        <div class="col-lg-3 col-md-6">
+          <label class="form-label small fw-bold text-secondary text-uppercase mb-1">Au</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-calendar-date text-muted"></i></span>
+            <input type="date" id="filterDateEnd" class="form-control form-control-sm border-start-0 ps-0"
+              value="{{ filter_date_end }}">
+          </div>
+        </div>
+
+        <!-- Search input -->
+        <div class="col-lg-4 col-md-8">
+          <label class="form-label small fw-bold text-secondary text-uppercase mb-1">Recherche instantanée</label>
+          <div class="input-group input-group-sm">
+            <span class="input-group-text bg-light border-end-0"><i class="bi bi-search text-muted"></i></span>
+            <input type="text" id="filterGroup" class="form-control form-control-sm border-start-0 ps-0"
+              placeholder="Groupe, matière, professeur, salle...">
+            <button class="btn btn-outline-secondary border-start-0" type="button" onclick="$('#filterGroup').val('').trigger('input');" title="Effacer"><i class="bi bi-x"></i></button>
+          </div>
+        </div>
+
+        <!-- Filter action buttons -->
+        <div class="col-lg-2 col-md-4 d-flex align-items-end gap-2 justify-content-lg-end mt-lg-auto pt-lg-2">
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="resetFilters()"
+            title="Réinitialiser les filtres">
+            <i class="bi bi-arrow-counterclockwise"></i>
+          </button>
+          <button class="btn btn-primary btn-sm rounded-pill px-3 fw-semibold flex-grow-1" onclick="loadChanges()">
+            <i class="bi bi-funnel-fill me-1"></i> Filtrer
+          </button>
+        </div>
+      </div>
+
+      <hr class="my-3 opacity-10">
+
+      <!-- Channels Switches -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 pt-1">
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge rounded-pill bg-light text-secondary border px-2 py-1 small">
+            <i class="bi bi-sliders2 me-1"></i> Canaux cibles
+          </span>
+          <span class="small text-muted">Sélectionnez les destinataires à inclure lors des envois :</span>
+        </div>
+        <div class="d-flex gap-4">
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="notifyTeachersSwitch" checked>
+            <label class="form-check-label fw-semibold small" for="notifyTeachersSwitch">
+              <i class="bi bi-person-badge me-1 text-info"></i> Professeurs
+            </label>
+          </div>
+          <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="notifyStudentsSwitch" checked>
+            <label class="form-check-label fw-semibold small" for="notifyStudentsSwitch">
+              <i class="bi bi-whatsapp me-1 text-success"></i> Élèves & Parents
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Queue Table Card -->
+  <div class="card shadow-2xs border-0 mb-4" id="mainCard" style="border-radius:14px;overflow:hidden;">
+    <div
+      class="card-header bg-white py-3 px-4 d-flex align-items-center justify-content-between flex-wrap gap-2 border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="stat-card-icon"
+          style="width:30px;height:30px;font-size:14px;background:#fef3c7;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;">
+          <i class="bi bi-list-check" style="color:#d97706;"></i>
+        </span>
+        <span class="fw-bold text-dark">File d'attente des modifications</span>
+        <span class="badge bg-warning text-dark rounded-pill px-2" id="pendingBadge">{{ unhandled_count }}</span>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="loadChanges()"
+          title="Actualiser la liste">
+          <i class="bi bi-arrow-clockwise me-1"></i> Actualiser
+        </button>
+        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" id="btnMarkSilentAll"
+          onclick="handleSilentAll()">
+          <i class="bi bi-check2-all me-1"></i> Tout marquer traité (sans envoi)
+        </button>
+      </div>
+    </div>
+
+    <!-- Multi-select Floating Action Bar -->
+    <div id="selectionToolbar"
+      class="d-none px-4 py-2 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2 animate__animated animate__fadeIn"
+      style="background:#eff6ff;">
+      <div class="d-flex align-items-center gap-3">
+        <span class="badge bg-primary text-white rounded-pill px-2 py-1">
+          <span id="selectedCount">0</span> sélectionné(s)
+        </span>
+        <button class="btn btn-link btn-sm text-secondary p-0 text-decoration-none" onclick="clearSelection()">
+          <i class="bi bi-x-circle me-1"></i> Annuler sélection
+        </button>
+      </div>
+      <div class="d-flex gap-2">
+        {% if not status_data.offline and status_data.status == 'READY' %}
+        <button class="btn btn-sm btn-success rounded-pill px-3 fw-semibold shadow-sm" onclick="sendSelectedAuto()"
+          style="background:#25d366;border-color:#25d366;">
+          <i class="bi bi-send-fill me-1"></i> Envoyer la sélection (Auto)
+        </button>
+        {% else %}
+        <button class="btn btn-sm btn-success rounded-pill px-3 fw-semibold shadow-sm" onclick="sendSelectedManual()"
+          style="background:#25d366;border-color:#25d366;">
+          <i class="bi bi-whatsapp me-1"></i> Ouvrir la sélection (Manuel)
+        </button>
+        {% endif %}
+        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="markSelectedSilent()">
+          <i class="bi bi-check2 me-1"></i> Marquer traité sans envoyer
+        </button>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0" id="changesTable" style="font-size:0.9rem;">
+        <thead class="table-light">
+          <tr class="text-secondary" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.04em;">
+            <th style="width:40px;" class="text-center">
+              <input type="checkbox" class="form-check-input" id="masterCheckbox" onchange="toggleAll(this)">
+            </th>
+            <th style="width:45px;">#</th>
+            <th>Séance & Groupe</th>
+            <th>Date & Horaires</th>
+            <th>Salle & Professeur</th>
+            <th>Modifications enregistrées</th>
+            <th>Destinataires</th>
+            <th>Message</th>
+            <th class="text-end pe-4">Action</th>
+          </tr>
+        </thead>
+        <tbody id="changesTableBody">
+          <tr>
+            <td colspan="9" class="text-center py-5 text-muted">
+              <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+              Chargement des modifications en attente...
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Empty State Container -->
+    <div id="emptyPendingState" class="text-center py-5 d-none p-4">
+      <div class="empty-state-icon mb-3">
+        <div class="p-3 bg-success bg-opacity-10 rounded-circle d-inline-flex text-success">
+          <i class="bi bi-check2-circle display-4"></i>
+        </div>
+      </div>
+      <h5 class="fw-bold text-dark mb-1">Toutes les notifications sont à jour !</h5>
+      <p class="text-muted small mb-3" style="max-width:460px;margin:auto;">
+        Aucune modification de cours n'est en attente de notification pour le moment. Toute modification future sera
+        enregistrée et apparaîtra ici automatiquement.
+      </p>
+      <a href="{% url 'core:sessions_schedule' %}" class="btn btn-outline-primary btn-sm rounded-pill px-4">
+        <i class="bi bi-calendar3 me-1"></i> Accéder au planning
+      </a>
+    </div>
+  </div>
+
+  <!-- Handled History Accordion -->
+  <div class="card shadow-2xs border-0" style="border-radius:14px;overflow:hidden;">
+    <div class="card-header bg-white d-flex align-items-center justify-content-between py-3 px-4 border-bottom">
+      <div class="d-flex align-items-center gap-2">
+        <span class="stat-card-icon"
+          style="width:30px;height:30px;font-size:14px;background:#d1fae5;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;">
+          <i class="bi bi-journal-check text-success"></i>
+        </span>
+        <span class="fw-bold text-dark">Historique récent des notifications traitées</span>
+        <span class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill ms-1 px-2">
+          {{ handled_today }} aujourd'hui</span>
+      </div>
+      <button class="btn btn-link btn-sm text-secondary p-0 text-decoration-none fw-semibold" id="toggleHistoryBtn"
+        onclick="toggleHistory()">
+        <i class="bi bi-chevron-down me-1" id="toggleHistoryIcon"></i> Afficher l'historique
+      </button>
+    </div>
+    <div id="historySection" class="d-none">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0" style="font-size:0.875rem;">
+          <thead class="table-light">
+            <tr class="text-secondary" style="font-size:0.78rem;text-transform:uppercase;letter-spacing:0.04em;">
+              <th>Séance / Groupe</th>
+              <th>Détails modifiés</th>
+              <th>Traité par</th>
+              <th>Date & Heure de traitement</th>
+              <th>Action</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for h in recent_handled %}
+            <tr>
+              <td>
+                {% if h.session %}
+                <div class="fw-semibold text-dark">{{ h.session.group.name }}</div>
+                <small class="text-muted"><i class="bi bi-calendar-event me-1"></i>{{ h.session.date|date:"d/m/Y" }} ·
+                  {{ h.session.start_time|time:"H:i" }}</small>
+                {% else %}
+                <span class="text-muted fst-italic small">Séance supprimée</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="d-flex flex-wrap gap-1">
+                  {% for key, val in h.new_values.items %}
+                  <span class="badge bg-light text-dark border small fw-normal py-1 px-2 rounded-pill">{{ key }}:
+                    <strong>{{ val }}</strong></span>
+                  {% empty %}
+                  <span class="text-muted small">—</span>
+                  {% endfor %}
+                </div>
+              </td>
+              <td class="small text-secondary"><i class="bi bi-person me-1"></i>{{ h.user.username|default:"Système" }}
+              </td>
+              <td class="small text-muted"><i class="bi bi-clock me-1"></i>{{ h.handled_at|date:"d/m/Y H:i"|default:"—"
+                }}</td>
+              <td><span class="badge bg-light text-secondary border small">{{ h.action }}</span></td>
+              <td><span
+                  class="badge bg-success-subtle text-success-emphasis border border-success-subtle rounded-pill px-2 py-1"><i
+                    class="bi bi-check-circle me-1"></i> Traité</span></td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="6" class="text-center py-4 text-muted small">Aucun historique de notification disponible.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- WhatsApp Message Preview Modal -->
+<div class="modal fade" id="previewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg" style="border-radius:18px;overflow:hidden;">
+      <div class="modal-header border-bottom py-3" style="background:#00a884;color:#fff;">
+        <div class="d-flex align-items-center gap-2">
+          <div class="p-2 rounded-circle bg-white text-success d-flex align-items-center justify-content-center"
+            style="width:36px;height:36px;">
+            <i class="bi bi-whatsapp fs-5" style="color:#00a884;"></i>
+          </div>
+          <div>
+            <h5 class="modal-title fw-bold mb-0 text-white">Aperçu du message WhatsApp</h5>
+            <small class="text-white text-opacity-75" id="previewModalSubtitle"></small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body p-4" style="background:#f8fafc;">
+        <!-- Course & Session Meta Box -->
+        <div class="p-3 bg-white rounded-3 border shadow-2xs mb-3" id="previewSessionInfo"></div>
+
+        <!-- WhatsApp Conversation Simulation -->
+        <div class="whatsapp-chat-preview-container rounded-3 border p-3 mb-3"
+          style="background:#efeae2;background-image:radial-gradient(#d1d7db 1px, transparent 1px);background-size:20px 20px;">
+          <!-- Tabs for Teacher vs Student message -->
+          <ul class="nav nav-pills nav-fill bg-white p-1 rounded-pill mb-3 border shadow-2xs" id="previewTab"
+            role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active rounded-pill py-1 small fw-semibold" id="teacher-msg-tab"
+                data-bs-toggle="tab" data-bs-target="#teacher-msg-pane" type="button" role="tab">
+                <i class="bi bi-person-badge me-1"></i> Message Professeur
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link rounded-pill py-1 small fw-semibold" id="student-msg-tab" data-bs-toggle="tab"
+                data-bs-target="#student-msg-pane" type="button" role="tab">
+                <i class="bi bi-people me-1"></i> Message Parents / Élèves
+              </button>
+            </li>
+          </ul>
+
+          <div class="tab-content" id="previewTabContent">
+            <!-- Teacher Pane -->
+            <div class="tab-pane fade show active" id="teacher-msg-pane" role="tabpanel">
+              <div class="whatsapp-bubble-wrapper d-flex flex-column align-items-end mb-2">
+                <div class="whatsapp-bubble shadow-sm p-3 rounded-3 w-100"
+                  style="background:#d9fdd3;position:relative;border:1px solid #c3e8c4;">
+                  <div id="previewTeacherMsg"
+                    style="white-space:pre-wrap;font-size:13.5px;line-height:1.6;color:#111b21;"></div>
+                  <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-success border-opacity-25">
+                    <button type="button" class="btn btn-xs btn-outline-success py-1 px-2 rounded-pill small" onclick="copyTeacherMsg()" style="font-size:11px;">
+                      <i class="bi bi-clipboard me-1"></i> Copier le texte
+                    </button>
+                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:11px;">
+                      <span>Maintenant</span>
+                      <i class="bi bi-check2-all text-primary" style="font-size:13px;"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Student Pane -->
+            <div class="tab-pane fade" id="student-msg-pane" role="tabpanel">
+              <div class="whatsapp-bubble-wrapper d-flex flex-column align-items-end mb-2">
+                <div class="whatsapp-bubble shadow-sm p-3 rounded-3 w-100"
+                  style="background:#d9fdd3;position:relative;border:1px solid #c3e8c4;">
+                  <div id="previewStudentMsg"
+                    style="white-space:pre-wrap;font-size:13.5px;line-height:1.6;color:#111b21;"></div>
+                  <div class="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-success border-opacity-25">
+                    <button type="button" class="btn btn-xs btn-outline-success py-1 px-2 rounded-pill small" onclick="copyStudentMsg()" style="font-size:11px;">
+                      <i class="bi bi-clipboard me-1"></i> Copier le texte
+                    </button>
+                    <div class="d-flex align-items-center gap-1 text-muted" style="font-size:11px;">
+                      <span>Maintenant</span>
+                      <i class="bi bi-check2-all text-primary" style="font-size:13px;"></i>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recipients List Details -->
+        <div class="p-3 bg-white rounded-3 border shadow-2xs" id="previewRecipientsList"></div>
+      </div>
+
+      <div class="modal-footer bg-white border-top justify-content-between p-3">
+        <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" data-bs-dismiss="modal">Fermer</button>
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-secondary btn-sm rounded-pill px-3"
+            onclick="handleFromPreview('mark_handled_silent')">
+            <i class="bi bi-check2-all me-1"></i> Marquer traité sans envoyer
+          </button>
+          {% if not status_data.offline and status_data.status == 'READY' %}
+          <button class="btn btn-sm btn-success fw-semibold px-4 rounded-pill shadow-sm"
+            onclick="handleFromPreview('auto_send')" style="background:#25d366;border-color:#25d366;">
+            <i class="bi bi-send-fill me-1"></i> Envoyer maintenant (Auto)
+          </button>
+          {% else %}
+          <button class="btn btn-sm btn-success fw-semibold px-4 rounded-pill shadow-sm"
+            onclick="handleFromPreview('manual_send')" style="background:#25d366;border-color:#25d366;">
+            <i class="bi bi-whatsapp me-1"></i> Ouvrir WhatsApp Web (Manuel)
+          </button>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Modern UI Tokens & Enhancement Styles */
+  .shadow-2xs {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  }
+
+  .kpi-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 14px;
+  }
+
+  .kpi-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px -4px rgba(0, 0, 0, 0.08);
+  }
+
+  .status-pulse-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+  }
+
+  .status-pulse-dot.active {
+    background-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+    animation: pulse-dot 2s infinite;
+  }
+
+  .status-pulse-dot.warning {
+    background-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.25);
+  }
+
+  @keyframes pulse-dot {
+    0% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4);
+    }
+
+    70% {
+      transform: scale(1);
+      box-shadow: 0 0 0 6px rgba(16, 185, 129, 0);
+    }
+
+    100% {
+      transform: scale(0.95);
+      box-shadow: 0 0 0 0 rgba(16, 185, 129, 0);
+    }
+  }
+
+  .diff-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.76rem;
+    background: #f8fafc;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.22rem 0.6rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+
+  .diff-chip.time {
+    background: #eff6ff;
+    color: #1e40af;
+    border-color: #dbeafe;
+  }
+
+  .diff-chip.room {
+    background: #fef3c7;
+    color: #92400e;
+    border-color: #fde68a;
+  }
+
+  .diff-chip.teacher {
+    background: #f0fdf4;
+    color: #166534;
+    border-color: #bbf7d0;
+  }
+
+  .diff-chip.status {
+    background: #fee2e2;
+    color: #991b1b;
+    border-color: #fecaca;
+  }
+
+  tr.selected-row {
+    background-color: #f0fdf4 !important;
+  }
+
+  tr.selected-row td {
+    background-color: #f0fdf4 !important;
+  }
+
+  .table>tbody>tr:hover td {
+    background-color: rgba(241, 245, 249, 0.6);
+  }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  let _changes = [];
+  let _previewItem = null;
+  const isAutoMode = {% if not status_data.offline and status_data.status == 'READY' %}true{% else %} false{% endif %};
+
+  $(document).ready(function () {
+    $.ajaxSetup({
+      headers: { "X-CSRFToken": "{{ csrf_token }}" }
+    });
+
+    loadChanges();
+
+    // Auto Send All button
+    $('#auto-send-all-btn').on('click', function () {
+      sendAllAuto();
+    });
+
+    // Manual Open All button
+    $('#open-all-btn').on('click', function () {
+      openAllManual();
+    });
+
+    // Live filter as user types
+    $('#filterGroup').on('input', function () {
+      filterTableInMemory();
+    });
+  });
+
+  function loadChanges() {
+    const tbody = $('#changesTableBody');
+    tbody.html('<tr><td colspan="9" class="text-center py-5 text-muted"><div class="spinner-border spinner-border-sm text-primary me-2"></div>Chargement des modifications...</td></tr>');
+    $('#emptyPendingState').addClass('d-none');
+    $('#changesTable').removeClass('d-none');
+
+    const p = new URLSearchParams();
+    const ds = $('#filterDateStart').val();
+    const de = $('#filterDateEnd').val();
+    if (ds) p.append('date_start', ds);
+    if (de) p.append('date_end', de);
+
+    $.get('/schedule/unhandled-changes-ajax/?' + p.toString(), function (data) {
+      if (!data.success) {
+        tbody.html(`<tr><td colspan="9" class="text-center text-danger py-4">${data.error || 'Erreur'}</td></tr>`);
+        return;
+      }
+      _changes = data.changes || [];
+      filterTableInMemory();
+
+      if (data.summary) {
+        $('#statStudentsCount').text(data.summary.students_affected || 0);
+        $('#statTeachersCount').text(data.summary.teachers_affected || 0);
+      }
+    }).fail(function (xhr) {
+      tbody.html(`<tr><td colspan="9" class="text-center text-danger py-4">Erreur réseau : ${xhr.statusText}</td></tr>`);
+    });
+  }
+
+  function filterTableInMemory() {
+    const g = $('#filterGroup').val().trim().toLowerCase();
+    let filtered = _changes;
+    if (g) {
+      filtered = _changes.filter(c =>
+        (c.group_name || '').toLowerCase().includes(g) ||
+        (c.teacher_name || '').toLowerCase().includes(g) ||
+        (c.room_name || '').toLowerCase().includes(g) ||
+        (c.subject || '').toLowerCase().includes(g)
+      );
+    }
+    renderChanges(filtered);
+  }
+
+  function renderChanges(list) {
+    const tbody = $('#changesTableBody');
+    if (!list.length) {
+      $('#changesTable').addClass('d-none');
+      $('#emptyPendingState').removeClass('d-none');
+      $('#pendingBadge, #statPendingCount').text('0');
+      $('#auto-send-all-btn, #open-all-btn').prop('disabled', true);
+      return;
+    }
+
+    $('#changesTable').removeClass('d-none');
+    $('#emptyPendingState').addClass('d-none');
+    $('#pendingBadge, #statPendingCount').text(list.length);
+    $('#auto-send-all-btn, #open-all-btn').prop('disabled', false);
+    $('#masterCheckbox').prop('checked', false);
+
+    let html = '';
+    list.forEach((c, idx) => {
+      const diffsHtml = (c.diffs || []).map(d => {
+        let chipClass = 'diff-chip';
+        const dLower = d.toLowerCase();
+        if (dLower.includes('horaire') || dLower.includes('heure') || dLower.includes('date')) chipClass += ' time';
+        else if (dLower.includes('salle')) chipClass += ' room';
+        else if (dLower.includes('prof') || dLower.includes('remplaçant')) chipClass += ' teacher';
+        else if (dLower.includes('statut') || dLower.includes('annul')) chipClass += ' status';
+        return `<span class="${chipClass}"><i class="bi bi-arrow-right-short"></i>${escHtml(d)}</span>`;
+      }).join(' ');
+
+      let actionBtnHtml = '';
+      if (isAutoMode) {
+        actionBtnHtml = `
+        <div class="d-flex align-items-center justify-content-end gap-1">
+          <button class="btn btn-sm btn-success auto-send-row-btn rounded-pill px-3 shadow-2xs" data-change-id="${c.id}" style="background:#25d366;border-color:#25d366;" title="Envoyer automatiquement">
+            <i class="bi bi-send-fill me-1"></i> Envoyer
+          </button>
+          <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width:31px;height:31px;padding:0;display:inline-flex;align-items:center;justify-content:center;" onclick="markSingleSilent(${c.id})" title="Marquer comme traité sans envoyer">
+            <i class="bi bi-check2"></i>
+          </button>
+        </div>
+      `;
+      } else {
+        actionBtnHtml = `
+        <div class="d-flex align-items-center justify-content-end gap-1">
+          ${c.teacher_whatsapp_link ? `
+            <a href="${c.teacher_whatsapp_link}" target="_blank" class="btn btn-sm btn-success whatsapp-row-link rounded-pill px-3 shadow-2xs" data-change-id="${c.id}" style="background:#25d366;border-color:#25d366;">
+              <i class="bi bi-whatsapp me-1"></i> Envoyer
+            </a>
+          ` : `
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" onclick="openPreview(${c.id})">
+              <i class="bi bi-eye me-1"></i> Voir
+            </button>
+          `}
+          <button class="btn btn-sm btn-outline-secondary rounded-circle" style="width:31px;height:31px;padding:0;display:inline-flex;align-items:center;justify-content:center;" onclick="markSingleSilent(${c.id})" title="Marquer traité">
+            <i class="bi bi-check2"></i>
+          </button>
+        </div>
+      `;
+      }
+
+      html += `
+      <tr id="change-row-${c.id}" data-change-id="${c.id}">
+        <td class="text-center">
+          <input type="checkbox" class="form-check-input row-checkbox" value="${c.id}" onchange="onRowCheckChange()">
+        </td>
+        <td class="text-muted small">${idx + 1}</td>
+        <td>
+          <div class="fw-bold text-dark">${escHtml(c.group_name)}</div>
+          <div class="small text-muted">${escHtml(c.subject || '')}</div>
+        </td>
+        <td>
+          <div class="fw-semibold text-dark"><i class="bi bi-calendar-check text-primary me-1"></i>${escHtml(c.date)}</div>
+          <div class="small text-muted"><i class="bi bi-clock text-secondary me-1"></i>${escHtml(c.time)}</div>
+        </td>
+        <td>
+          <div class="fw-medium text-dark"><i class="bi bi-door-open text-muted me-1"></i>${escHtml(c.room_name)}</div>
+          <div class="small text-muted"><i class="bi bi-person text-muted me-1"></i>${escHtml(c.teacher_name)}</div>
+        </td>
+        <td>
+          <div class="d-flex flex-wrap gap-1">${diffsHtml || '<span class="badge bg-light text-muted border">Modifié</span>'}</div>
+          ${c.change_reason ? `<div class="small text-muted fst-italic mt-1"><i class="bi bi-chat-left-dots text-secondary me-1"></i>${escHtml(c.change_reason)}</div>` : ''}
+        </td>
+        <td>
+          <span class="badge rounded-pill bg-light text-dark border px-2 py-1">
+            <i class="bi bi-people me-1 text-primary"></i> ${c.recipients_count || c.students_count} contact(s)
+          </span>
+        </td>
+        <td>
+          <button class="btn btn-sm btn-outline-secondary rounded-pill px-3 py-1" onclick="openPreview(${c.id})">
+            <i class="bi bi-eye me-1"></i> Aperçu
+          </button>
+        </td>
+        <td class="text-end pe-4">
+          ${actionBtnHtml}
+        </td>
+      </tr>
+    `;
+    });
+
+    tbody.html(html);
+
+    // Bind single auto-send buttons
+    $('.auto-send-row-btn').on('click', function () {
+      const changeId = $(this).data('change-id');
+      sendSingleAuto(changeId, $(this));
+    });
+
+    // Bind manual links
+    $('.whatsapp-row-link').on('click', function () {
+      const changeId = $(this).data('change-id');
+      $(this).css({ background: '#128C7E', borderColor: '#128C7E' }).html('<i class="bi bi-check"></i> Envoyé');
+      $.post('/schedule/handle-changes-ajax/', { action: 'mark_handled_silent', history_ids: changeId });
+    });
+  }
+
+  function toggleAll(master) {
+    $('.row-checkbox').prop('checked', master.checked);
+    onRowCheckChange();
+  }
+
+  function onRowCheckChange() {
+    const all = $('.row-checkbox');
+    const checked = $('.row-checkbox:checked');
+    $('#masterCheckbox').prop('checked', all.length > 0 && checked.length === all.length);
+    $('#selectedCount').text(checked.length);
+    if (checked.length > 0) $('#selectionToolbar').removeClass('d-none');
+    else $('#selectionToolbar').addClass('d-none');
+    all.each(function () {
+      const row = $('#change-row-' + $(this).val());
+      row.toggleClass('selected-row', $(this).prop('checked'));
+    });
+  }
+
+  function clearSelection() {
+    $('.row-checkbox').prop('checked', false);
+    $('#masterCheckbox').prop('checked', false);
+    onRowCheckChange();
+  }
+
+  function getSelectedIds() {
+    return $('.row-checkbox:checked').map(function () { return $(this).val(); }).get();
+  }
+
+  // ── Auto-Send Queue with Progress Bar ────────────────────────────
+  function sendQueueAuto(items, $mainBtn) {
+    const total = items.length;
+    if (total === 0) return;
+
+    const notifyTeachers = $('#notifyTeachersSwitch').is(':checked');
+    const notifyStudents = $('#notifyStudentsSwitch').is(':checked');
+
+    // Build flattened recipient messages list
+    const queue = [];
+    items.forEach(c => {
+      (c.recipients || []).forEach(r => {
+        if (r.type === 'teacher' && !notifyTeachers) return;
+        if (r.type === 'student' && !notifyStudents) return;
+        if (r.phone) {
+          queue.push({
+            changeId: c.id,
+            phone: r.phone,
+            message: r.message,
+            name: r.name
+          });
+        }
+      });
+    });
+
+    const totalMsgs = queue.length;
+    if (totalMsgs === 0) {
+      alert('Aucun numéro de téléphone disponible pour les modifications sélectionnées.');
+      return;
+    }
+
+    if (!confirm(`Voulez-vous envoyer automatiquement ${totalMsgs} message(s) WhatsApp pour ${total} modification(s) ?
+(Délai de sécurité de 1.5s entre chaque message)`)) {
+      return;
+    }
+
+    const origBtnText = $mainBtn ? $mainBtn.html() : '';
+    if ($mainBtn) $mainBtn.prop('disabled', true).html('<i class="bi bi-hourglass-split"></i> Envoi en cours...');
+
+    $('#bulk-progress-banner').removeClass('d-none');
+    $('#bulk-progress-text').text(`0 / ${totalMsgs}`);
+    $('#bulk-progress-percent').text('0%');
+    $('#bulk-progress-bar').css('width', '0%').addClass('progress-bar-striped progress-bar-animated');
+
+    let idx = 0;
+    function processNext() {
+      if (idx >= totalMsgs) {
+        $('#bulk-progress-bar').removeClass('progress-bar-striped progress-bar-animated');
+        $('#bulk-progress-text').text(`${totalMsgs} / ${totalMsgs} (Terminé)`);
+        $('#bulk-progress-percent').text('100%');
+        if ($mainBtn) $mainBtn.html('<i class="bi bi-check-circle"></i> Terminé !');
+
+        // Mark all processed history items as handled
+        const processedIds = [...new Set(queue.map(q => q.changeId))];
+        $.post('/schedule/handle-changes-ajax/', {
+          action: 'mark_handled_silent',
+          history_ids: processedIds.join(',')
+        }, function () {
+          setTimeout(function () {
+            if ($mainBtn) $mainBtn.html(origBtnText).prop('disabled', false);
+            $('#bulk-progress-banner').fadeOut(800, function () { $(this).addClass('d-none').show(); });
+            loadChanges();
+          }, 2200);
+        });
+        return;
+      }
+
+      const item = queue[idx];
+      const $row = $(`#change-row-${item.changeId}`);
+
+      $.ajax({
+        url: "{% url 'core:whatsapp_send_ajax' %}",
+        method: "POST",
+        data: {
+          phone: item.phone,
+          message: item.message,
+          message_type: "session_reminder",
+          history_id: item.changeId
+        },
+        success: function () {
+          $row.addClass('table-success');
+          $row.find('.auto-send-row-btn').removeClass('btn-success').addClass('btn-secondary').html('<i class="bi bi-check"></i> Envoyé').prop('disabled', true);
+          idx++;
+          const pct = Math.round((idx / totalMsgs) * 100);
+          $('#bulk-progress-text').text(`${idx} / ${totalMsgs}`);
+          $('#bulk-progress-percent').text(`${pct}%`);
+          $('#bulk-progress-bar').css('width', `${pct}%`);
+          setTimeout(processNext, 1500);
+        },
+        error: function () {
+          $row.find('.auto-send-row-btn').removeClass('btn-success').addClass('btn-danger').html('<i class="bi bi-arrow-clockwise"></i> Réessayer');
+          idx++;
+          const pct = Math.round((idx / totalMsgs) * 100);
+          $('#bulk-progress-text').text(`${idx} / ${totalMsgs}`);
+          $('#bulk-progress-percent').text(`${pct}%`);
+          $('#bulk-progress-bar').css('width', `${pct}%`);
+          setTimeout(processNext, 1500);
+        }
+      });
+    }
+
+    processNext();
+  }
+
+  function sendAllAuto() {
+    sendQueueAuto(_changes, $('#auto-send-all-btn'));
+  }
+
+  function sendSelectedAuto() {
+    const ids = getSelectedIds();
+    const selected = _changes.filter(c => ids.includes(String(c.id)));
+    sendQueueAuto(selected, null);
+  }
+
+  function sendSingleAuto(changeId, $btn) {
+    const change = _changes.find(c => String(c.id) === String(changeId));
+    if (!change) return;
+    $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span>');
+    sendQueueAuto([change], $btn);
+  }
+
+  // ── Manual Mode Queue ───────────────────────────────────────────
+  function openAllManual() {
+    const links = [];
+    _changes.forEach(c => {
+      (c.recipients || []).forEach(r => {
+        if (r.whatsapp_link) links.push({ link: r.whatsapp_link, changeId: c.id });
+      });
+    });
+    if (!links.length) { alert('Aucun lien WhatsApp disponible.'); return; }
+    if (!confirm(`Ouvrir les ${links.length} messages dans WhatsApp Web ?`)) return;
+
+    links.forEach((item, i) => {
+      setTimeout(() => {
+        window.open(item.link, '_blank');
+        $(`#change-row-${item.changeId}`).addClass('table-success');
+      }, i * 600);
+    });
+
+    const ids = [...new Set(links.map(l => l.changeId))];
+    $.post('/schedule/handle-changes-ajax/', { action: 'mark_handled_silent', history_ids: ids.join(',') });
+  }
+
+  function sendSelectedManual() {
+    const ids = getSelectedIds();
+    const selected = _changes.filter(c => ids.includes(String(c.id)));
+    const links = [];
+    selected.forEach(c => {
+      (c.recipients || []).forEach(r => {
+        if (r.whatsapp_link) links.push({ link: r.whatsapp_link, changeId: c.id });
+      });
+    });
+    if (!links.length) { alert('Aucun lien WhatsApp disponible.'); return; }
+
+    links.forEach((item, i) => {
+      setTimeout(() => {
+        window.open(item.link, '_blank');
+        $(`#change-row-${item.changeId}`).addClass('table-success');
+      }, i * 600);
+    });
+
+    $.post('/schedule/handle-changes-ajax/', { action: 'mark_handled_silent', history_ids: ids.join(',') });
+  }
+
+  // ── Silent Mark Handled ─────────────────────────────────────────
+  function markSingleSilent(changeId) {
+    $.post('/schedule/handle-changes-ajax/', { action: 'mark_handled_silent', history_ids: changeId }, function (data) {
+      if (data.success) {
+        $(`#change-row-${changeId}`).fadeOut(300, function () { $(this).remove(); });
+        _changes = _changes.filter(c => String(c.id) !== String(changeId));
+        $('#pendingBadge, #statPendingCount').text(_changes.length);
+        if (!_changes.length) {
+          $('#changesTable').addClass('d-none');
+          $('#emptyPendingState').removeClass('d-none');
+        }
+      }
+    });
+  }
+
+  function markSelectedSilent() {
+    const ids = getSelectedIds();
+    if (!ids.length) return;
+    $.post('/schedule/handle-changes-ajax/', { action: 'mark_handled_silent', history_ids: ids.join(',') }, function (data) {
+      if (data.success) {
+        loadChanges();
+        clearSelection();
+      }
+    });
+  }
+
+  function handleSilentAll() {
+    if (!confirm('Voulez-vous marquer toutes les modifications comme traitées sans envoyer de messages ?')) return;
+    $.post('/schedule/handle-changes-ajax/', { action: 'mark_handled_silent' }, function (data) {
+      if (data.success) {
+        loadChanges();
+      }
+    });
+  }
+
+  // ── Preview Modal ───────────────────────────────────────────────
+  function openPreview(changeId) {
+    const c = _changes.find(ch => String(ch.id) === String(changeId));
+    if (!c) return;
+    _previewItem = c;
+
+    $('#previewModalSubtitle').text(`${c.group_name} — ${c.date} ${c.time}`);
+    $('#previewSessionInfo').html(`
+    <div class="row g-2" style="font-size:13px;">
+      <div class="col-md-3"><span class="text-muted small">Groupe :</span> <strong>${escHtml(c.group_name)}</strong></div>
+      <div class="col-md-3"><span class="text-muted small">Date & Heure :</span> <strong>${escHtml(c.date)} ${escHtml(c.time)}</strong></div>
+      <div class="col-md-3"><span class="text-muted small">Salle :</span> <strong>${escHtml(c.room_name)}</strong></div>
+      <div class="col-md-3"><span class="text-muted small">Professeur :</span> <strong>${escHtml(c.teacher_name)}</strong></div>
+    </div>
+  `);
+
+    $('#previewTeacherMsg').text(c.teacher_message || 'Aucun message');
+
+    const studentRecipients = (c.recipients || []).filter(r => r.type === 'student');
+    const sampleStudentMsg = studentRecipients.length ? studentRecipients[0].message : 'Aucun élève inscrit';
+    $('#previewStudentMsg').text(sampleStudentMsg);
+
+    let recipientsListHtml = `<strong class="text-secondary small d-block mb-2 text-uppercase">Destinataires (${(c.recipients || []).length}) :</strong><div class="d-flex flex-wrap gap-1">`;
+    (c.recipients || []).forEach(r => {
+      const badgeColor = r.type === 'teacher' ? 'border-info text-info-emphasis bg-info-subtle' : 'border-success text-success-emphasis bg-success-subtle';
+      recipientsListHtml += `<span class="badge rounded-pill border ${badgeColor} py-1 px-2"><i class="bi ${r.type === 'teacher' ? 'bi-person-badge' : 'bi-person'} me-1"></i>${r.label}: <strong>${escHtml(r.name)}</strong> (${escHtml(r.phone)})</span>`;
+    });
+    recipientsListHtml += '</div>';
+    $('#previewRecipientsList').html(recipientsListHtml);
+
+    new bootstrap.Modal(document.getElementById('previewModal')).show();
+  }
+
+  function handleFromPreview(action) {
+    if (!_previewItem) return;
+    const modalEl = document.getElementById('previewModal');
+    bootstrap.Modal.getInstance(modalEl)?.hide();
+
+    if (action === 'mark_handled_silent') {
+      markSingleSilent(_previewItem.id);
+    } else if (action === 'auto_send') {
+      sendSingleAuto(_previewItem.id, $(`#change-row-${_previewItem.id} .auto-send-row-btn`));
+    } else if (action === 'manual_send') {
+      (_previewItem.recipients || []).forEach((r, i) => {
+        if (r.whatsapp_link) {
+          setTimeout(() => window.open(r.whatsapp_link, '_blank'), i * 500);
+        }
+      });
+      markSingleSilent(_previewItem.id);
+    }
+  }
+
+  function toggleHistory() {
+    const s = $('#historySection');
+    const btn = $('#toggleHistoryBtn');
+    if (s.hasClass('d-none')) {
+      s.removeClass('d-none');
+      btn.html('<i class="bi bi-chevron-up me-1"></i> Masquer l&apos;historique');
+    } else {
+      s.addClass('d-none');
+      btn.html('<i class="bi bi-chevron-down me-1"></i> Afficher l&apos;historique');
+    }
+  }
+
+  function applyDatePreset(preset) {
+    $('.date-preset-btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+    $(`.date-preset-btn[data-preset="${preset}"]`).addClass('active btn-primary').removeClass('btn-outline-secondary');
+
+    const today = new Date();
+    const formatDate = d => d.toISOString().split('T')[0];
+
+    if (preset === 'today') {
+      const todayStr = formatDate(today);
+      $('#filterDateStart').val(todayStr);
+      $('#filterDateEnd').val(todayStr);
+    } else if (preset === 'tomorrow') {
+      const tom = new Date(today);
+      tom.setDate(today.getDate() + 1);
+      const tomStr = formatDate(tom);
+      $('#filterDateStart').val(tomStr);
+      $('#filterDateEnd').val(tomStr);
+    } else if (preset === 'week') {
+      const day = today.getDay(); // 0 is Sunday
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+      const monday = new Date(today.setDate(diff));
+      const sunday = new Date(monday);
+      sunday.setDate(monday.getDate() + 6);
+      $('#filterDateStart').val(formatDate(monday));
+      $('#filterDateEnd').val(formatDate(sunday));
+    } else if (preset === 'month') {
+      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      $('#filterDateStart').val(formatDate(firstDay));
+      $('#filterDateEnd').val(formatDate(lastDay));
+    } else if (preset === 'all') {
+      $('#filterDateStart').val('');
+      $('#filterDateEnd').val('');
+    }
+    loadChanges();
+  }
+
+  function copyTeacherMsg() {
+    const text = $('#previewTeacherMsg').text();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      if (window.erpToast) window.erpToast('Message professeur copié dans le presse-papier !', 'success');
+      else alert('Copié !');
+    });
+  }
+
+  function copyStudentMsg() {
+    const text = $('#previewStudentMsg').text();
+    if (!text) return;
+    navigator.clipboard.writeText(text).then(() => {
+      if (window.erpToast) window.erpToast('Message élèves/parents copié dans le presse-papier !', 'success');
+      else alert('Copié !');
+    });
+  }
+
+  function resetFilters() {
+    $('#filterDateStart, #filterDateEnd, #filterGroup').val('');
+    $('.date-preset-btn').removeClass('active btn-primary').addClass('btn-outline-secondary');
+    $('.date-preset-btn[data-preset="all"]').addClass('active btn-primary').removeClass('btn-outline-secondary');
+    loadChanges();
+  }
+
+  function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,106 @@
+{% extends 'core/base.html' %}
+{% block title %}Salles de cours — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block breadcrumb %}
+  <span class="context-bar-sep">›</span>
+  <span class="context-bar-current"><i class="bi bi-door-open-fill"></i> Salles de cours</span>
+{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1 class="page-title"><i class="bi bi-door-open-fill me-2" style="color:var(--primary);"></i>Salles</h1>
+    <p class="page-subtitle">{{ rooms|length }} salle{{ rooms|length|pluralize }}</p>
+  </div>
+  <a href="/admin/core/room/add/" target="_blank" class="btn btn-primary">
+    <i class="bi bi-plus-lg"></i> Ajouter une salle
+  </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-3">
+      <div class="col-md-6">{{ filter.form.name }}</div>
+      <div class="col-md-4">{{ filter.form.min_capacity }}</div>
+      <div class="col-md-2">
+        <button class="btn btn-primary w-100"><i class="bi bi-search"></i> Filtrer</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if rooms %}
+  <div class="row g-4">
+    {% for room in rooms %}
+      <div class="col-lg-3 col-md-6">
+        <div class="card h-100">
+          <div class="card-body">
+
+            <!-- Icon header -->
+            <div class="d-flex align-items-center gap-3 mb-3">
+              <div class="stat-card-icon" style="width:40px;height:40px;font-size:18px;background:#d1fae5;">
+                <i class="bi bi-door-open-fill" style="color:#10b981;"></i>
+              </div>
+              <div>
+                <h5 class="mb-0 fw-700" style="font-size:15px;">{{ room.name }}</h5>
+              </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="d-flex flex-column gap-2 mb-3">
+              <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:var(--surface-alt);">
+                <span class="text-muted" style="font-size:12.5px;"><i class="bi bi-people me-1"></i>Capacité</span>
+                <strong>{{ room.capacity }} élèves</strong>
+              </div>
+              <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:var(--surface-alt);">
+                <span class="text-muted" style="font-size:12.5px;"><i class="bi bi-book me-1"></i>Cours</span>
+                {% if room.course_count %}
+                  <span class="badge badge-primary">{{ room.course_count }}</span>
+                {% else %}
+                  <span class="text-muted" style="font-size:12.5px;">Aucun</span>
+                {% endif %}
+              </div>
+              <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background:var(--surface-alt);">
+                <span class="text-muted" style="font-size:12.5px;"><i class="bi bi-calendar3 me-1"></i>Sessions</span>
+                {% if room.session_count %}
+                  <span class="badge badge-info">{{ room.session_count }}</span>
+                {% else %}
+                  <span class="text-muted" style="font-size:12.5px;">Aucune</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex gap-2 pt-2" style="border-top:1px solid var(--border);">
+              <a href="/admin/core/room/{{ room.id }}/change/" target="_blank"
+                 class="btn btn-sm btn-outline-primary flex-grow-1">
+                <i class="bi bi-pencil"></i> Éditer
+              </a>
+              <a href="/admin/core/room/{{ room.id }}/delete/" target="_blank"
+                 class="btn btn-sm btn-outline-danger">
+                <i class="bi bi-trash"></i>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="card">
+    <div class="card-body empty-state">
+      <div class="empty-state-icon"><i class="bi bi-door-open"></i></div>
+      <div class="empty-state-title">Aucune salle trouvée</div>
+      <div class="empty-state-text">Créez la première salle depuis l'administration.</div>
+      <div class="mt-3">
+        <a href="/admin/core/room/add/" target="_blank" class="btn btn-primary">
+          <i class="bi bi-plus-lg"></i> Ajouter une salle
+        </a>
+      </div>
+    </div>
+  </div>
+{% endif %}
+
+<style>.fw-700 { font-weight: 700; }</style>
+{% endblock %}

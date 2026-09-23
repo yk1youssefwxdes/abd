@@ -1,0 +1,518 @@
+{% extends 'core/kiosk_base.html' %}
+{% load static %}
+
+{% block title %}{{ student.name }} — Borne Parent — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block extra_css %}
+<style>
+  /* ─── Layout ─────────────────────────────────────────── */
+  .student-dashboard {
+    display: grid;
+    grid-template-columns: 360px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+
+  /* ─── Left Sidebar ─────────────────────────────────────── */
+  .sidebar-col { display: flex; flex-direction: column; gap: 20px; }
+
+  .profile-card {
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    border-radius: 24px;
+    padding: 32px 28px;
+    color: #ffffff;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 12px 24px -6px rgba(37, 99, 235, 0.35);
+  }
+
+  .profile-card::before {
+    content: '';
+    position: absolute;
+    top: -60px; right: -60px;
+    width: 180px; height: 180px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+  }
+
+  .profile-avatar {
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.2);
+    backdrop-filter: blur(8px);
+    font-size: 28px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+    border: 2px solid rgba(255,255,255,0.4);
+  }
+
+  .profile-name {
+    font-size: 22px; font-weight: 800;
+    margin-bottom: 4px; line-height: 1.2;
+  }
+
+  .profile-matricule {
+    font-size: 13px; font-weight: 600; letter-spacing: 0.5px;
+    opacity: 0.85;
+    background: rgba(255,255,255,0.15);
+    padding: 4px 10px; border-radius: 50px; display: inline-block;
+    margin-bottom: 16px;
+  }
+
+  .profile-meta { display: flex; flex-direction: column; gap: 8px; }
+
+  .meta-row {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; opacity: 0.9;
+  }
+
+  .meta-icon { font-size: 14px; opacity: 0.75; }
+
+  /* ─── Attendance Stats Card ─────────────────────────── */
+  .attendance-stat-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0; border-radius: 20px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  .stat-header {
+    font-size: 15px; font-weight: 700; color: #334155;
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .rate-ring-wrap {
+    display: flex; justify-content: center; margin-bottom: 20px;
+  }
+
+  .rate-ring {
+    position: relative; width: 110px; height: 110px;
+  }
+
+  .rate-ring svg { transform: rotate(-90deg); }
+
+  .rate-text {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-weight: 800; font-size: 24px; color: #0f172a;
+  }
+
+  .rate-label { font-size: 11px; color: #64748b; font-weight: 600; }
+
+  .stat-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .stat-box {
+    border-radius: 14px; padding: 14px;
+    text-align: center;
+  }
+
+  .stat-box.present { background: #f0fdf4; }
+  .stat-box.absent  { background: #fff1f2; }
+
+  .stat-val { font-size: 22px; font-weight: 800; margin-bottom: 2px; }
+  .stat-box.present .stat-val { color: #16a34a; }
+  .stat-box.absent  .stat-val { color: #dc2626; }
+  .stat-lbl { font-size: 12px; font-weight: 600; color: #64748b; }
+
+  /* ─── Groups Card ─────────────────────────────────────── */
+  .groups-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0; border-radius: 20px;
+    padding: 20px;
+  }
+
+  .group-pill {
+    background: #eff6ff;
+    color: #1d4ed8;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .group-pill:last-child { margin-bottom: 0; }
+  .group-teacher { font-size: 11.5px; color: #64748b; font-weight: 500; }
+
+  /* ─── Main Column: Tabs ────────────────────────────────── */
+  .main-col { display: flex; flex-direction: column; gap: 20px; }
+
+  .content-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0; border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+  }
+
+  .card-heading {
+    background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+    padding: 18px 24px;
+    font-size: 16px; font-weight: 700; color: #334155;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* ─── Attendance History ────────────────────────────────── */
+  .att-table { width: 100%; border-collapse: collapse; }
+  .att-table th {
+    background: #f8fafc; border-bottom: 1px solid #e2e8f0;
+    padding: 12px 20px; font-size: 12px; font-weight: 700; color: #64748b;
+    text-transform: uppercase; letter-spacing: 0.05em; text-align: left;
+  }
+
+  .att-table td { padding: 14px 20px; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+  .att-table tr:last-child td { border-bottom: none; }
+  .att-table tr:hover td { background: #fafbfc; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 50px; font-size: 12px; font-weight: 700;
+  }
+
+  .badge-present { background: #dcfce7; color: #16a34a; }
+  .badge-absent  { background: #fee2e2; color: #dc2626; }
+
+  /* ─── Remarks ────────────────────────────────────────────── */
+  .remark-item {
+    padding: 16px 24px; border-bottom: 1px solid #f1f5f9;
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+
+  .remark-item:last-child { border-bottom: none; }
+
+  .remark-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: #fef9c3; color: #ca8a04;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+
+  .remark-body { flex: 1; }
+  .remark-source {
+    font-size: 12px; font-weight: 700; color: #64748b;
+    margin-bottom: 4px;
+  }
+
+  .remark-text { font-size: 14px; color: #1e293b; line-height: 1.5; }
+  .remark-date { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+  /* ─── Announcements ──────────────────────────────────────── */
+  .announce-item {
+    padding: 16px 24px; border-bottom: 1px solid #f1f5f9;
+  }
+
+  .announce-item:last-child { border-bottom: none; }
+
+  .announce-tag {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 11px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 6px;
+    padding: 3px 8px; border-radius: 50px;
+  }
+
+  .tag-general { background: #eff6ff; color: #1d4ed8; }
+  .tag-event   { background: #faf5ff; color: #7c3aed; }
+
+  .announce-title { font-size: 15px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+  .announce-body  { font-size: 13.5px; color: #475569; line-height: 1.5; }
+
+  /* ─── Action bar ────────────────────────────────────────── */
+  .action-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid #e2e8f0;
+    padding: 16px 32px;
+    display: flex; justify-content: space-between; align-items: center;
+    z-index: 500;
+    gap: 16px;
+  }
+
+  .timeout-display {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; color: #64748b; font-weight: 600;
+  }
+
+  @media (max-width: 1024px) {
+    .student-dashboard { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Timeout Bar -->
+<div class="kiosk-timeout-bar">
+  <div class="kiosk-timeout-progress" id="timeoutProgress"></div>
+</div>
+
+<div class="student-dashboard" style="padding-bottom: 100px;">
+  <!-- ─── LEFT: Profile & Stats ─────────────────────── -->
+  <div class="sidebar-col">
+
+    <!-- Profile Card -->
+    <div class="profile-card">
+      <div class="profile-avatar">{{ student.name|slice:":1"|upper }}</div>
+      <h2 class="profile-name">{{ student.name }}</h2>
+      <span class="profile-matricule">{{ student.matricule }}</span>
+      <div class="profile-meta">
+        {% if student.level %}
+          <div class="meta-row">
+            <i class="bi bi-bar-chart-steps meta-icon"></i>
+            <span>Niveau : <strong>{{ student.level.name }}</strong></span>
+          </div>
+        {% endif %}
+        <div class="meta-row">
+          <i class="bi bi-person-fill meta-icon"></i>
+          <span>Parent : <strong>{{ student.parent_name|default:"—" }}</strong></span>
+        </div>
+        <div class="meta-row">
+          <i class="bi bi-telephone-fill meta-icon"></i>
+          <span>{{ student.parent_contact }}</span>
+        </div>
+        {% if student.parent_contact_2 %}
+        <div class="meta-row">
+          <i class="bi bi-telephone meta-icon"></i>
+          <span>{{ student.parent_contact_2 }} <span style="font-size:11px;opacity:.6;">(2)</span></span>
+        </div>
+        {% endif %}
+        {% if student.main_school %}
+          <div class="meta-row">
+            <i class="bi bi-building meta-icon"></i>
+            <span>{{ student.main_school }}</span>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Attendance Stats -->
+    <div class="attendance-stat-card">
+      <h3 class="stat-header">
+        <i class="bi bi-bar-chart-line text-primary"></i>
+        Présences Globales
+      </h3>
+      {% if total_atts > 0 %}
+        <div class="rate-ring-wrap">
+          <div class="rate-ring">
+            <svg width="110" height="110" viewBox="0 0 110 110">
+              <circle cx="55" cy="55" r="45"
+                fill="none"
+                stroke="#e2e8f0"
+                stroke-width="10"/>
+              <circle cx="55" cy="55" r="45"
+                fill="none"
+                stroke="{% if presence_rate >= 75 %}#16a34a{% elif presence_rate >= 50 %}#f59e0b{% else %}#dc2626{% endif %}"
+                stroke-width="10"
+                stroke-linecap="round"
+                stroke-dasharray="{{ presence_rate|floatformat:0 }} 100"
+                pathLength="100"/>
+            </svg>
+            <div class="rate-text">
+              <span>{{ presence_rate }}%</span>
+              <span class="rate-label">Taux</span>
+            </div>
+          </div>
+        </div>
+        <div class="stat-grid">
+          <div class="stat-box present">
+            <div class="stat-val">{{ present_count }}</div>
+            <div class="stat-lbl">✓ Présences</div>
+          </div>
+          <div class="stat-box absent">
+            <div class="stat-val">{{ absent_count }}</div>
+            <div class="stat-lbl">✗ Absences</div>
+          </div>
+        </div>
+        <p class="text-center text-muted mt-3 mb-0" style="font-size: 12px;">
+          Sur <strong>{{ total_atts }}</strong> séance{{ total_atts|pluralize:"s" }} enregistrée{{ total_atts|pluralize:"s" }}.
+        </p>
+      {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="bi bi-hourglass-split d-block mb-2" style="font-size: 28px; opacity: 0.4;"></i>
+          Aucune donnée de présence disponible.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Active Groups -->
+    <div class="groups-card">
+      <h3 class="stat-header px-0 mb-3" style="font-size: 15px; font-weight: 700; color: #334155;">
+        <i class="bi bi-collection text-primary"></i> Groupes actifs
+      </h3>
+      {% for group in active_groups %}
+        <div class="group-pill">
+          <i class="bi bi-journal-code"></i>
+          <div>
+            <div>{{ group.name }}</div>
+            <div class="group-teacher"><i class="bi bi-person-badge me-1"></i>Prof. {{ group.teacher.name }}</div>
+          </div>
+        </div>
+      {% empty %}
+        <div class="text-muted" style="font-size: 13px;">Aucun groupe actif.</div>
+      {% endfor %}
+    </div>
+
+  </div><!-- /.sidebar-col -->
+
+  <!-- ─── RIGHT: Tabs ────────────────────────────────── -->
+  <div class="main-col">
+
+    <!-- Recent Attendance -->
+    <div class="content-card">
+      <div class="card-heading">
+        <i class="bi bi-calendar-check text-primary"></i>
+        Historique récent des présences
+      </div>
+      {% if recent_attendances %}
+        <table class="att-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Groupe / Cours</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for att in recent_attendances %}
+              <tr>
+                <td style="white-space:nowrap; font-weight: 600;">{{ att.date|date:"d/m/Y" }}</td>
+                <td>{{ att.course_group.name }}</td>
+                <td>
+                  {% if att.is_present %}
+                    <span class="status-badge badge-present">
+                      <i class="bi bi-check-lg"></i> Présent
+                    </span>
+                  {% else %}
+                    <span class="status-badge badge-absent">
+                      <i class="bi bi-x-lg"></i> Absent
+                    </span>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% else %}
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-inbox d-block mb-2" style="font-size: 28px; opacity: 0.4;"></i>
+          Aucun historique de présence disponible.
+        </div>
+      {% endif %}
+    </div>
+
+    <!-- Teacher Remarks -->
+    {% if remarks %}
+    <div class="content-card">
+      <div class="card-heading">
+        <i class="bi bi-chat-quote text-warning"></i>
+        Remarques du Professeur
+      </div>
+      {% for remark in remarks %}
+        <div class="remark-item">
+          <div class="remark-icon"><i class="bi bi-pencil-fill"></i></div>
+          <div class="remark-body">
+            <div class="remark-source">
+              Prof. {{ remark.teacher_name }} — <em>{{ remark.course_group }}</em>
+            </div>
+            <div class="remark-text">{{ remark.note }}</div>
+            <div class="remark-date">{{ remark.date|date:"d/m/Y" }}</div>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- School Announcements -->
+    {% if announcements %}
+    <div class="content-card">
+      <div class="card-heading">
+        <i class="bi bi-megaphone text-primary"></i>
+        Annonces & Communications
+      </div>
+      {% for ann in announcements %}
+        <div class="announce-item">
+          <span class="announce-tag {% if ann.category == 'general' %}tag-general{% else %}tag-event{% endif %}">
+            <i class="bi {% if ann.category == 'general' %}bi-megaphone{% else %}bi-calendar-event{% endif %}"></i>
+            {{ ann.get_category_display }}
+          </span>
+          {% if ann.event_date %}
+            <span class="announce-tag" style="background:#f0fdf4; color:#16a34a; margin-left: 4px;">
+              <i class="bi bi-calendar3"></i> {{ ann.event_date|date:"d/m/Y" }}
+            </span>
+          {% endif %}
+          <h4 class="announce-title">{{ ann.title }}</h4>
+          <div class="announce-body">{{ ann.content|linebreaksbr }}</div>
+        </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+  </div><!-- /.main-col -->
+</div><!-- /.student-dashboard -->
+
+<!-- ─── Fixed Action Bar ─────────────────────────── -->
+<div class="action-bar">
+  <div class="timeout-display">
+    <svg width="36" height="36" viewBox="0 0 36 36">
+      <circle cx="18" cy="18" r="15" fill="none" stroke="#e2e8f0" stroke-width="3"/>
+      <circle cx="18" cy="18" r="15" fill="none"
+        stroke="#3b82f6" stroke-width="3"
+        stroke-linecap="round"
+        id="timeoutRing"
+        style="transform: rotate(-90deg); transform-origin: 50% 50%;
+               stroke-dasharray: 94.25; stroke-dashoffset: 0;"/>
+    </svg>
+    <span>Retour automatique dans <strong id="timeoutSeconds">{{ timeout }}</strong>s</span>
+  </div>
+  <a href="{% url 'core:kiosk_clear' %}" class="btn btn-kiosk btn-kiosk-primary" style="min-width: 220px;">
+    <i class="bi bi-search me-2"></i> Nouvelle recherche
+  </a>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  const timeoutDuration = parseInt("{{ timeout }}");
+  const circumference = 2 * Math.PI * 15; // r=15
+  let timeLeft = timeoutDuration;
+  const progressBarEl = document.getElementById('timeoutProgress');
+  const ringEl = document.getElementById('timeoutRing');
+  const textEl = document.getElementById('timeoutSeconds');
+  let countdownInterval;
+
+  function updateVisuals() {
+    textEl.textContent = timeLeft;
+    const barPct = (timeLeft / timeoutDuration) * 100;
+    progressBarEl.style.width = barPct + '%';
+
+    const offset = circumference - (timeLeft / timeoutDuration) * circumference;
+    if (ringEl) ringEl.style.strokeDashoffset = offset;
+  }
+
+  function resetTimer() {
+    timeLeft = timeoutDuration;
+    updateVisuals();
+  }
+
+  function startCountdown() {
+    updateVisuals();
+    countdownInterval = setInterval(() => {
+      timeLeft--;
+      if (timeLeft <= 0) {
+        clearInterval(countdownInterval);
+        window.location.href = "{% url 'core:kiosk_clear' %}";
+      } else {
+        updateVisuals();
+      }
+    }, 1000);
+  }
+
+  const events = ['click', 'touchstart', 'scroll', 'keydown', 'mousemove'];
+  events.forEach(e => document.addEventListener(e, resetTimer, { passive: true }));
+
+  startCountdown();
+</script>
+{% endblock %}

@@ -1,0 +1,9 @@
+Modification de séance
+
+Groupe : {group_name}
+Date : {date}
+Heure : {start_time} - {end_time}
+Salle : {room_name}
+
+Les informations suivantes ont change :
+{change_lines}

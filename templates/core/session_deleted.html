@@ -1,0 +1,24 @@
+{% extends 'core/base.html' %}
+{% block title %}Session supprimée — {{ SCHOOL_NAME }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="margin-top:60px;">
+  <div class="col-lg-5">
+    <div class="card text-center" style="border-color:#fca5a5;">
+      <div class="card-body py-5">
+        <div class="mb-4">
+          <div class="stat-card-icon mx-auto" style="width:64px;height:64px;font-size:30px;background:#fee2e2;">
+            <i class="bi bi-trash-fill" style="color:#ef4444;"></i>
+          </div>
+        </div>
+        <h4 class="fw-700 mb-2">Session supprimée</h4>
+        <p class="text-muted mb-4">La session a été supprimée avec succès du planning.</p>
+        <a href="{% url 'core:sessions_schedule' %}" class="btn btn-primary">
+          <i class="bi bi-calendar3"></i> Retour au planning
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+<style>.fw-700 { font-weight: 700; }</style>
+{% endblock %}
