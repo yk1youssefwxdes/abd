@@ -24,6 +24,7 @@ import datetime
 import json
 import logging
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -283,7 +284,7 @@ def run_obfuscation(release_root: Path, non_interactive: bool) -> None:
         cwd=str(release_root),
         capture_output=True,
         text=True,
-        timeout=300,
+        timeout=900,
     )
 
     if res.returncode != 0:
@@ -307,6 +308,39 @@ def run_obfuscation(release_root: Path, non_interactive: bool) -> None:
     shutil.rmtree(release_root)
     shutil.move(obf_output_dir, release_root)
     logger.info("[OK] Obfuscated application applied to release directory.")
+
+
+def build_go_launcher(release_root: Path) -> None:
+    """Compile tools/launcher/main.go into SchoolERP.exe and place it in the release root.
+    Falls back to a pre-built bin/SchoolERP.exe if Go is not available."""
+    out_exe = release_root / "SchoolERP.exe"
+    prebuilt = PROJECT_ROOT / "bin" / "SchoolERP.exe"
+
+    go_exe = shutil.which("go")
+    if go_exe:
+        logger.info("Building Go silent launcher (SchoolERP.exe) from source...")
+        launcher_src = PROJECT_ROOT / "tools" / "launcher"
+        if (launcher_src / "main.go").exists():
+            cmd = [go_exe, "build", "-ldflags=-H windowsgui -s -w", "-o", str(out_exe), "."]
+            res = subprocess.run(cmd, cwd=str(launcher_src), capture_output=True, text=True, timeout=120)
+            if res.returncode == 0 and out_exe.exists():
+                logger.info(f"[OK] SchoolERP.exe built ({out_exe.stat().st_size // 1024} KB)")
+                # Keep bin/ in sync with latest build
+                try:
+                    prebuilt.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(out_exe, prebuilt)
+                except Exception:
+                    pass
+                return
+            logger.warning(f"Go build failed: {res.stderr.strip()}")
+
+    # Fallback: use pre-built exe committed to bin/
+    if prebuilt.exists():
+        shutil.copy2(prebuilt, out_exe)
+        logger.info(f"[OK] SchoolERP.exe copied from bin/ ({out_exe.stat().st_size // 1024} KB) — Go not available on this machine.")
+    else:
+        logger.warning("[SKIP] SchoolERP.exe not available (no Go, no bin/SchoolERP.exe). Shortcuts will use pythonw fallback.")
+
 
 
 def clean_release_directory(release_root: Path) -> None:
@@ -489,13 +523,230 @@ def create_zip_package(release_root: Path, zip_path: Path) -> None:
     logger.info(f"[OK] ZIP release package created ({zip_path.stat().st_size / (1024*1024):.2f} MB).")
 
 
+def get_default_programs_dir() -> Path:
+    """Return default Programs folder for installation."""
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        return Path(local_app_data) / "Programs" / "School ERP"
+    return Path.home() / "AppData" / "Local" / "Programs" / "School ERP"
+
+
+def deploy_to_programs_folder(
+    release_root: Path,
+    install_dir: Path,
+    enable_autostart: bool = False,
+    launch_after: bool = False,
+) -> bool:
+    """
+    Deploy the obfuscated/encrypted release to the Programs folder.
+    Configures venv using host Python (no bundled runtimes), applies migrations,
+    collects static files, and creates Desktop & Start Menu shortcuts pointing to the Programs folder.
+    """
+    logger.info(f"Deploying encrypted client release to Programs folder: {install_dir}")
+
+    # 1. Create target directory and copy obfuscated files
+    install_dir.mkdir(parents=True, exist_ok=True)
+
+    for item in release_root.iterdir():
+        if item.name in ("venv", ".venv", "build", "dist"):
+            continue
+        dest_item = install_dir / item.name
+        if item.is_dir():
+            if dest_item.exists():
+                shutil.rmtree(dest_item, ignore_errors=True)
+            shutil.copytree(item, dest_item)
+        else:
+            shutil.copy2(item, dest_item)
+
+    logger.info("[OK] Encrypted code and assets deployed to Programs folder.")
+
+    # 2. Virtual environment in target directory using host Python (no bundled runtimes)
+    target_venv = install_dir / "venv"
+    is_win = platform.system().lower() == "windows"
+    target_py = target_venv / "Scripts" / "python.exe" if is_win else target_venv / "bin" / "python"
+    target_pyw = target_venv / "Scripts" / "pythonw.exe" if is_win else target_py
+
+    if not target_py.is_file():
+        logger.info("Configuring Python virtual environment in Programs directory...")
+        subprocess.run([sys.executable, "-m", "venv", str(target_venv)], check=True)
+        logger.info("[OK] Virtual environment created.")
+
+    # 3. Ensure requirements.txt installed
+    req_file = install_dir / "requirements.txt"
+    if req_file.exists():
+        logger.info("Installing/verifying production Python dependencies in Programs venv...")
+        subprocess.run(
+            [str(target_py), "-m", "pip", "install", "--no-warn-script-location", "-r", str(req_file)],
+            check=True,
+        )
+        logger.info("[OK] Dependencies verified.")
+
+    # 4. Initialize customer data directories & environment
+    sub_env = os.environ.copy()
+    sub_env["SCHOOL_ERP_BASE_DIR"] = str(install_dir)
+    sub_env["DJANGO_SETTINGS_MODULE"] = "school_erp.settings"
+    sub_env["AUTO_LICENSE"] = "true"
+
+    # Also copy license.enc to %PROGRAMDATA%/SchoolERP/licenses/license.enc
+    try:
+        sys.path.insert(0, str(install_dir))
+        from core.paths import get_licenses_dir, ensure_data_directories
+        ensure_data_directories()
+        lic_dest = get_licenses_dir() / "license.enc"
+        shutil.copy2(install_dir / "license.enc", lic_dest)
+        logger.info(f"[OK] License registered at {lic_dest}")
+    except Exception as exc:
+        logger.warning(f"Could not copy license to ProgramData: {exc}")
+
+    manage_py = install_dir / "manage.py"
+    if manage_py.exists():
+        logger.info("Applying database migrations in Programs installation...")
+        subprocess.run(
+            [str(target_py), str(manage_py), "migrate", "--noinput"],
+            cwd=str(install_dir),
+            env=sub_env,
+            check=True,
+        )
+        logger.info("[OK] Database migrations completed.")
+
+        logger.info("Collecting static files in Programs installation...")
+        subprocess.run(
+            [str(target_py), str(manage_py), "collectstatic", "--noinput"],
+            cwd=str(install_dir),
+            env=sub_env,
+            capture_output=True,
+        )
+        logger.info("[OK] Static assets collected.")
+
+    # 5. Create start_server.bat in Programs folder
+    start_bat = install_dir / "start_server.bat"
+    start_bat_content = f"""@echo off
+title School ERP Server
+setlocal
+cd /d "%~dp0"
+
+if exist "venv\\Scripts\\python.exe" (
+    "venv\\Scripts\\python.exe" run_server.py %*
+) else (
+    python run_server.py %*
+)
+
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo Server exited with error code %ERRORLEVEL%.
+    pause
+)
+"""
+    try:
+        start_bat.write_text(start_bat_content, encoding="utf-8")
+    except Exception:
+        pass
+
+    # 6. Create Desktop, Start Menu, and Startup shortcuts
+    # Prefer the compiled Go launcher; fall back to pythonw + run_server.py
+    go_launcher = install_dir / "SchoolERP.exe"
+    run_server = install_dir / "run_server.py"
+    icon_file = install_dir / "static" / "favicon.ico"
+    if not icon_file.exists():
+        icon_file = install_dir / "static" / "images" / "app_icon.ico"
+    icon_path_str = str(icon_file) if icon_file.exists() else ""
+
+    use_go_launcher = go_launcher.exists()
+
+    if is_win:
+        try:
+            desktop_dir = Path(os.environ.get("USERPROFILE", "C:")) / "Desktop"
+            start_menu_dir = Path(os.environ.get("APPDATA", "C:")) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
+            startup_dir = start_menu_dir / "Startup"
+
+            # Use SchoolERP.exe if built, otherwise fall back to pythonw + run_server.py
+            if use_go_launcher:
+                shortcut_target = str(go_launcher)
+                shortcut_args = ""
+                logger.info("Shortcuts will point to SchoolERP.exe (Go launcher).")
+            else:
+                shortcut_target = str(target_pyw)
+                shortcut_args = f'"{run_server}"'
+                logger.info("Shortcuts will point to pythonw.exe (Go launcher not available).")
+
+            def _make_shortcut(path: str, with_startup: bool = False) -> str:
+                s = f'''
+Set oWS = WScript.CreateObject("WScript.Shell")
+
+' Desktop
+sLinkFile = "{desktop_dir}\\School ERP.lnk"
+Set oLink = oWS.CreateShortcut(sLinkFile)
+oLink.TargetPath = "{shortcut_target}"
+oLink.Arguments = "{shortcut_args}"
+oLink.WorkingDirectory = "{install_dir}"
+oLink.Description = "School ERP"
+'''
+                if icon_path_str:
+                    s += f'oLink.IconLocation = "{icon_path_str}"\n'
+                s += 'oLink.Save\n'
+
+                s += f'''
+' Start Menu
+sLinkFile2 = "{start_menu_dir}\\School ERP.lnk"
+Set oLink2 = oWS.CreateShortcut(sLinkFile2)
+oLink2.TargetPath = "{shortcut_target}"
+oLink2.Arguments = "{shortcut_args}"
+oLink2.WorkingDirectory = "{install_dir}"
+oLink2.Description = "School ERP"
+'''
+                if icon_path_str:
+                    s += f'oLink2.IconLocation = "{icon_path_str}"\n'
+                s += 'oLink2.Save\n'
+
+                if with_startup:
+                    s += f'''
+' Startup
+sLinkFile3 = "{startup_dir}\\School ERP.lnk"
+Set oLink3 = oWS.CreateShortcut(sLinkFile3)
+oLink3.TargetPath = "{shortcut_target}"
+oLink3.Arguments = "{shortcut_args}"
+oLink3.WorkingDirectory = "{install_dir}"
+oLink3.Description = "School ERP Auto-Start"
+'''
+                    if icon_path_str:
+                        s += f'oLink3.IconLocation = "{icon_path_str}"\n'
+                    s += 'oLink3.Save\n'
+                return s
+
+            vbs_script = _make_shortcut(str(install_dir), with_startup=enable_autostart)
+            temp_vbs = install_dir / "_create_shortcut.vbs"
+            temp_vbs.write_text(vbs_script, encoding="utf-8")
+            subprocess.run(["cscript", "//Nologo", str(temp_vbs)], capture_output=True)
+            if temp_vbs.exists():
+                temp_vbs.unlink()
+
+            logger.info("[OK] Desktop & Start Menu shortcuts created pointing to Programs installation.")
+        except Exception as exc:
+            logger.warning(f"Could not create Windows shortcut: {exc}")
+
+    # 7. Optionally Launch
+    if launch_after:
+        logger.info("Launching School ERP from Programs folder in background...")
+        subprocess.Popen([str(target_pyw), str(run_server)], cwd=str(install_dir))
+        logger.info("[OK] Server launched. Opening browser...")
+
+    return True
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="School ERP Client Release Builder Tool")
     parser.add_argument("--client", help="Client name (e.g. 'Example School')")
     parser.add_argument("--fingerprint", help="Target client machine hardware fingerprint (SHA-256)")
     parser.add_argument("--start-date", help="License start date (YYYY-MM-DD)")
     parser.add_argument("--end-date", help="License end date (YYYY-MM-DD)")
+    parser.add_argument("--trial", action="store_true", help="Generate 14-day free trial license")
+    parser.add_argument("--trial-days", type=int, default=14, help="Number of trial days (default 14)")
+    parser.add_argument("--permanent", action="store_true", help="Generate 10-year permanent license")
     parser.add_argument("--output", help="Custom output directory for release build")
+    parser.add_argument("--install-programs", action="store_true", help="Deploy the encrypted release to the Windows Programs folder")
+    parser.add_argument("--install-dir", help="Custom Programs folder target directory")
+    parser.add_argument("--autostart", action="store_true", default=False, help="Enable Windows boot autostart")
+    parser.add_argument("--launch", action="store_true", default=False, help="Launch application after setup")
     parser.add_argument("--smoke-test", action="store_true", help="Run runtime smoke test after packaging")
     parser.add_argument("--keep-build", action="store_true", help="Keep uncompressed release build directory")
     parser.add_argument("--verbose", action="store_true", help="Enable verbose debug logging")
@@ -504,10 +755,27 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    # Ensure UTF-8 output on Windows consoles to avoid charmap codec errors
+    if sys.platform == "win32":
+        try:
+            import io
+            sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+            sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     args = parse_args()
 
     if args.verbose:
         logger.setLevel(logging.DEBUG)
+
+    today = datetime.date.today()
+    if args.trial:
+        args.start_date = today.isoformat()
+        args.end_date = (today + datetime.timedelta(days=args.trial_days)).isoformat()
+    elif args.permanent:
+        args.start_date = today.isoformat()
+        args.end_date = (today + datetime.timedelta(days=3650)).isoformat()
 
     # 1. Gather client info
     if args.client and args.start_date and args.end_date:
@@ -569,7 +837,10 @@ def main() -> int:
         # Step 3: Obfuscation
         run_obfuscation(release_dir, non_interactive=args.yes)
 
-        # Step 4: Scrub development source & tools
+        # Step 4: Build Go silent launcher
+        build_go_launcher(release_dir)
+
+        # Step 4.5: Scrub development source & tools
         clean_release_directory(release_dir)
 
         # Step 5: Pre-packaging verification audit
@@ -592,17 +863,26 @@ def main() -> int:
         # Step 8: Final ZIP package
         create_zip_package(release_dir, zip_file)
 
-        if not args.keep_build:
-            # Leave release_dir intact per requirements or client build structure
-            pass
+        # Step 9: Deploy to Programs folder if requested
+        if args.install_programs or args.install_dir:
+            target_prog = Path(args.install_dir).resolve() if args.install_dir else get_default_programs_dir()
+            deploy_to_programs_folder(
+                release_root=release_dir,
+                install_dir=target_prog,
+                enable_autostart=args.autostart,
+                launch_after=args.launch,
+            )
 
         print("\n==================================================")
         print("BUILD SUCCESSFUL")
         print("==================================================")
         print(f"Client    : {client_name}")
-        print(f"License   : {start_date} → {end_date}")
+        print(f"License   : {start_date} -> {end_date}")
         print(f"Release   : {release_dir}")
         print(f"Package   : {zip_file}")
+        if args.install_programs or args.install_dir:
+            target_prog = Path(args.install_dir).resolve() if args.install_dir else get_default_programs_dir()
+            print(f"Programs  : {target_prog}")
         print("==================================================\n")
         return 0
 
@@ -614,3 +894,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+

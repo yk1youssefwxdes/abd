@@ -2,25 +2,27 @@
 """
 School ERP - Automated Client PC Setup & Deployment Tool
 =========================================================
-This script runs on the client's PC to fully automate:
-1. System environment & Python/Node runtime verification
-2. Hardware fingerprint detection & license activation
-3. Python dependencies installation (if not using pre-bundled runtime)
-4. WhatsApp service (Node.js) dependencies installation
-5. Customer data directory creation (%PROGRAMDATA% / data)
+Automated setup tool for School ERP:
+1. Environment & Python/Node verification (Python 3.10+ required)
+2. Virtual environment (venv) self-bootstrap & dependency management
+3. WhatsApp microservice (Node.js) dependency management
+4. Hardware fingerprint detection & license activation (Trial / Permanent / Custom / Custom File)
+5. Production configuration & customer storage setup (%PROGRAMDATA% / SchoolERP)
 6. SQLite database initialization & migrations
 7. Static assets collection
-8. Desktop and Start Menu shortcut creation (with pythonw.exe silent launch)
-9. Smoke testing and automatic server launch
+8. Desktop, Start Menu & autostart shortcut generation (pythonw silent background launch)
+9. Smoke test and automatic server launch
 
 Usage:
     python setup_client.py
-    python setup_client.py --non-interactive --launch
+    python setup_client.py --non-interactive --trial --launch
+    python setup_client.py --lock-here --launch
 """
 
 from __future__ import annotations
 
 import argparse
+import datetime
 import hashlib
 import json
 import os
@@ -33,15 +35,27 @@ from typing import Optional, Tuple
 
 APP_NAME = "School ERP"
 PROJECT_ROOT = Path(__file__).resolve().parent
-
-# Console colors (if supported)
 IS_WIN = platform.system().lower() == "windows"
 
+CRITICAL_MODULES = [
+    "django",
+    "cryptography",
+    "waitress",
+    "whitenoise",
+    "PIL",
+    "reportlab",
+    "openpyxl",
+]
+
+
+# ==============================================================================
+# Logging Helpers
+# ==============================================================================
 
 def log_header(title: str) -> None:
-    print("\n" + "=" * 64)
+    print("\n" + "=" * 68)
     print(f"  {title}")
-    print("=" * 64)
+    print("=" * 68)
 
 
 def log_step(step: int, total: int, title: str) -> None:
@@ -50,6 +64,10 @@ def log_step(step: int, total: int, title: str) -> None:
 
 def log_ok(msg: str) -> None:
     print(f"  [OK] {msg}")
+
+
+def log_info(msg: str) -> None:
+    print(f"  [INFO] {msg}")
 
 
 def log_warn(msg: str) -> None:
@@ -61,11 +79,139 @@ def log_error(msg: str) -> None:
 
 
 # ==============================================================================
-# 1. Hardware Fingerprint & Licensing
+# Virtual Environment Resolution & Self-Bootstrapping
+# ==============================================================================
+
+def get_venv_dir() -> Path:
+    """Return the primary virtual environment directory."""
+    return PROJECT_ROOT / "venv"
+
+
+def get_venv_python() -> Path:
+    """Locate the Python executable inside the virtual environment."""
+    v_dir = get_venv_dir()
+    if IS_WIN:
+        return v_dir / "Scripts" / "python.exe"
+    return v_dir / "bin" / "python"
+
+
+def get_venv_pythonw() -> Path:
+    """Locate pythonw.exe inside the virtual environment for windowless execution."""
+    v_dir = get_venv_dir()
+    if IS_WIN:
+        pw = v_dir / "Scripts" / "pythonw.exe"
+        if pw.is_file():
+            return pw
+    return get_venv_python()
+
+
+def is_running_in_project_venv() -> bool:
+    """Check if the current process is running inside the project's venv."""
+    try:
+        current_py = Path(sys.executable).resolve()
+        target_py = get_venv_python().resolve()
+        return current_py == target_py
+    except Exception:
+        return False
+
+
+def ensure_venv_created(host_python: str) -> bool:
+    """Create a virtual environment if it does not already exist."""
+    py_exe = get_venv_python()
+    if py_exe.is_file():
+        return True
+
+    print(f"  Creating isolated virtual environment (venv) using {host_python}...")
+    try:
+        res = subprocess.run([host_python, "-m", "venv", str(get_venv_dir())], capture_output=True, text=True)
+        if res.returncode != 0:
+            log_error(f"Failed to create virtual environment: {res.stderr.strip()}")
+            return False
+        log_ok(f"Virtual environment created at {get_venv_dir()}")
+        return True
+    except Exception as exc:
+        log_error(f"Virtual environment creation error: {exc}")
+        return False
+
+
+def check_python_dependencies(python_exe: str) -> bool:
+    """Check whether all critical Python packages are installed in the target interpreter."""
+    check_code = f"import {', '.join(CRITICAL_MODULES)}"
+    try:
+        res = subprocess.run([python_exe, "-c", check_code], capture_output=True)
+        return res.returncode == 0
+    except Exception:
+        return False
+
+
+def install_python_dependencies(python_exe: str) -> bool:
+    """Install or update packages from requirements.txt into the virtual environment."""
+    req_file = PROJECT_ROOT / "requirements.txt"
+    if not req_file.exists():
+        log_warn("requirements.txt not found. Skipping pip install.")
+        return True
+
+    print("  Installing/verifying required packages via pip (this may take a moment)...")
+    cmd = [python_exe, "-m", "pip", "install", "--no-warn-script-location", "-r", str(req_file)]
+    res = subprocess.run(cmd)
+    if res.returncode != 0:
+        # Fallback for environments requiring --break-system-packages
+        cmd_fallback = cmd + ["--break-system-packages"]
+        res = subprocess.run(cmd_fallback)
+
+    if res.returncode == 0:
+        log_ok("Python dependencies installed successfully.")
+        return True
+    else:
+        log_error("Failed to install Python dependencies via pip.")
+        return False
+
+
+def bootstrap_into_venv() -> None:
+    """
+    Ensure the script executes inside the project virtual environment (venv).
+    If currently running under system Python, this creates the venv, installs requirements,
+    and re-executes inside venv/Scripts/python.exe.
+    """
+    if is_running_in_project_venv():
+        return
+
+    # Check minimum Python version of the caller
+    if sys.version_info < (3, 10):
+        log_error(f"Python 3.10+ is required. Found Python {sys.version_info.major}.{sys.version_info.minor}")
+        sys.exit(1)
+
+    host_py = sys.executable
+    if not ensure_venv_created(host_py):
+        sys.exit(1)
+
+    venv_py = str(get_venv_python())
+
+    # Check and install dependencies into venv if not already present
+    if not check_python_dependencies(venv_py):
+        print("  Bootstrapping dependencies into virtual environment...")
+        if not install_python_dependencies(venv_py):
+            sys.exit(1)
+
+    # Re-exec inside the virtual environment
+    re_exec_cmd = [venv_py, str(PROJECT_ROOT / "setup_client.py")] + sys.argv[1:]
+    try:
+        res = subprocess.run(re_exec_cmd)
+        sys.exit(res.returncode)
+    except KeyboardInterrupt:
+        print("\n  Setup cancelled by user.")
+        sys.exit(1)
+    except Exception as exc:
+        log_error(f"Failed to delegate to virtual environment: {exc}")
+        sys.exit(1)
+
+
+# ==============================================================================
+# Hardware Fingerprint & Licensing
 # ==============================================================================
 
 def get_hardware_fingerprint() -> str:
-    """Return SHA-256 hash of the stable machine identifiers using canonical core.hardware."""
+    """Return SHA-256 hash of the stable machine identifiers using core.hardware."""
     try:
         sys.path.insert(0, str(PROJECT_ROOT))
         from core.hardware import get_fingerprint_hash
@@ -96,7 +242,6 @@ def get_hardware_fingerprint() -> str:
 def verify_license() -> Tuple[bool, str]:
     """Check if a valid license file exists and is active for this machine."""
     try:
-        # Import core paths & license verification
         sys.path.insert(0, str(PROJECT_ROOT))
         from core.paths import get_license_file_path, ensure_data_directories
         ensure_data_directories()
@@ -105,38 +250,40 @@ def verify_license() -> Tuple[bool, str]:
         if not license_path.is_file():
             return False, f"License file not found (looked in {license_path})"
 
-        from core.license import validate_or_exit
-        # If validate_or_exit does not raise/exit, license is valid
+        from core.license import validate_or_exit, _reset_validation_cache
+        _reset_validation_cache()
         is_valid = validate_or_exit()
         return is_valid, f"Valid license active at {license_path}"
-    except SystemExit:
-        return False, "License is expired or not locked to this hardware fingerprint."
+    except SystemExit as se:
+        msg = str(se) if str(se) else "License is expired or not locked to this hardware fingerprint."
+        return False, msg
     except Exception as exc:
         return False, f"License validation error: {exc}"
 
 
 def activate_license_file(license_src: str) -> bool:
-    """Copy user provided license file to data/licenses directory."""
+    """Copy user-provided license.enc file to data/licenses directory and project root."""
     src = Path(license_src).resolve()
     if not src.is_file():
-        log_error(f"File not found: {src}")
+        log_error(f"License file not found: {src}")
         return False
 
     try:
-        from core.paths import get_licenses_dir, get_base_dir
-        dest = get_licenses_dir() / "license.enc"
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
-        # Also copy to base dir as fallback
-        shutil.copy2(src, get_base_dir() / "license.enc")
-        log_ok(f"License installed to {dest}")
+        sys.path.insert(0, str(PROJECT_ROOT))
+        from core.paths import get_licenses_dir, get_base_dir, ensure_data_directories
+        ensure_data_directories()
+
+        dest_data = get_licenses_dir() / "license.enc"
+        dest_base = get_base_dir() / "license.enc"
+        dest_data.parent.mkdir(parents=True, exist_ok=True)
+
+        shutil.copy2(src, dest_data)
+        shutil.copy2(src, dest_base)
+        log_ok(f"License file installed successfully to {dest_data}")
         return True
     except Exception as exc:
         log_error(f"Failed to install license: {exc}")
         return False
-
-
-import datetime
 
 
 def generate_locked_license_for_this_machine(
@@ -148,7 +295,8 @@ def generate_locked_license_for_this_machine(
     try:
         sys.path.insert(0, str(PROJECT_ROOT))
         from core.license_utils import encrypt_license_payload, get_license_secret
-        from core.paths import get_licenses_dir, get_base_dir
+        from core.paths import get_licenses_dir, get_base_dir, ensure_data_directories
+        ensure_data_directories()
 
         today = datetime.date.today()
         if start_date is None:
@@ -157,6 +305,7 @@ def generate_locked_license_for_this_machine(
         if trial_days is not None:
             end_date = (today + datetime.timedelta(days=trial_days)).isoformat()
         elif end_date is None:
+            # Default permanent: 10 years
             end_date = (today + datetime.timedelta(days=3650)).isoformat()
 
         fp = get_hardware_fingerprint()
@@ -168,7 +317,6 @@ def generate_locked_license_for_this_machine(
         secret_key = get_license_secret()
         encrypted = encrypt_license_payload(payload, secret_key, "license.enc")
 
-        # Write to customer data licenses directory and base dir
         dest_data = get_licenses_dir() / "license.enc"
         dest_base = get_base_dir() / "license.enc"
         dest_data.parent.mkdir(parents=True, exist_ok=True)
@@ -178,94 +326,19 @@ def generate_locked_license_for_this_machine(
         dest_base.write_text(content, encoding="utf-8")
 
         duration_desc = f"{trial_days}-Day Trial" if trial_days else f"{start_date} -> {end_date}"
-        log_ok(f"Hardware-locked license activated ({duration_desc}) for Fingerprint: {fp[:8]}...{fp[-6:]}")
+        log_ok(f"Hardware-locked license generated ({duration_desc}) for Fingerprint: {fp[:8]}...{fp[-6:]}")
         return True
     except Exception as exc:
         log_error(f"Failed to generate locked license: {exc}")
         return False
 
 
-
-
-
 # ==============================================================================
-# 2. Runtime Discovery (Bundled vs. System)
+# WhatsApp Service Dependencies (Node.js)
 # ==============================================================================
 
-def get_python_exe() -> str:
-    """Locate Python executable (prefers bundled runtime, then virtualenv, then sys.executable)."""
-    runtime_py_win = PROJECT_ROOT / "runtime" / "python" / "python.exe"
-    runtime_py_lin = PROJECT_ROOT / "runtime" / "python" / "bin" / "python"
-    
-    if IS_WIN and runtime_py_win.is_file():
-        return str(runtime_py_win)
-    elif not IS_WIN and runtime_py_lin.is_file():
-        return str(runtime_py_lin)
-
-    for venv_dir in ("venv", ".venv"):
-        v_win = PROJECT_ROOT / venv_dir / "Scripts" / "python.exe"
-        v_lin = PROJECT_ROOT / venv_dir / "bin" / "python"
-        if IS_WIN and v_win.is_file():
-            return str(v_win)
-        elif not IS_WIN and v_lin.is_file():
-            return str(v_lin)
-
-    return sys.executable
-
-
-def get_pythonw_exe() -> str:
-    """Locate pythonw.exe for silent background execution without cmd window."""
-    py = get_python_exe()
-    py_dir = Path(py).parent
-    pythonw = py_dir / "pythonw.exe"
-    if pythonw.is_file():
-        return str(pythonw)
-    return py
-
-
-def get_node_exe() -> Optional[str]:
-    """Locate Node.js executable."""
-    bundled_win = PROJECT_ROOT / "runtime" / "node" / "node.exe"
-    bundled_lin = PROJECT_ROOT / "runtime" / "node" / "bin" / "node"
-    if IS_WIN and bundled_win.is_file():
-        return str(bundled_win)
-    elif not IS_WIN and bundled_lin.is_file():
-        return str(bundled_lin)
-
-    which_node = shutil.which("node") or shutil.which("node.exe")
-    return which_node
-
-
-# ==============================================================================
-# 3. Environment & Dependencies Setup
-# ==============================================================================
-
-def setup_python_dependencies(python_exe: str) -> bool:
-    """Install Python packages from requirements.txt if not already installed."""
-    # Test if Django is available
-    test_cmd = [python_exe, "-c", "import django; print(django.__version__)"]
-    res = subprocess.run(test_cmd, capture_output=True, text=True)
-    if res.returncode == 0:
-        log_ok(f"Python environment verified (Django v{res.stdout.strip()})")
-        return True
-
-    req_file = PROJECT_ROOT / "requirements.txt"
-    if not req_file.exists():
-        log_warn("requirements.txt not found. Skipping pip install.")
-        return True
-
-    print("  Installing required Python packages via pip...")
-    cmd = [python_exe, "-m", "pip", "install", "--no-warn-script-location", "-r", str(req_file)]
-    res = subprocess.run(cmd)
-    if res.returncode != 0:
-        # Fallback: system-managed Python environments (Debian/Ubuntu) need --break-system-packages
-        cmd_fallback = cmd + ["--break-system-packages"]
-        res = subprocess.run(cmd_fallback)
-    return res.returncode == 0
-
-
-def setup_node_dependencies(node_exe: Optional[str]) -> bool:
-    """Ensure whatsapp_service node_modules are present."""
+def setup_node_dependencies() -> bool:
+    """Ensure whatsapp_service node_modules are present using installed Node.js/npm."""
     wa_dir = PROJECT_ROOT / "whatsapp_service"
     if not wa_dir.is_dir():
         return True
@@ -275,30 +348,35 @@ def setup_node_dependencies(node_exe: Optional[str]) -> bool:
         log_ok("WhatsApp service node_modules already present.")
         return True
 
-    if not node_exe:
-        log_warn("Node.js not found. WhatsApp automation will be unavailable until Node.js is installed.")
+    npm_cmd = shutil.which("npm") or shutil.which("npm.cmd")
+    node_cmd = shutil.which("node") or shutil.which("node.exe")
+
+    if not npm_cmd or not node_cmd:
+        log_warn("Node.js or npm is not installed on system PATH.")
+        log_info("WhatsApp automation will be paused until Node.js is installed.")
+        log_info("You can download Node.js from https://nodejs.org/ and run 'npm install' in whatsapp_service.")
         return True
 
-    print("  Installing WhatsApp service Node dependencies...")
-    npm_cmd = shutil.which("npm") or shutil.which("npm.cmd")
-    if not npm_cmd:
-        npm_cmd = str(Path(node_exe).parent / ("npm.cmd" if IS_WIN else "npm"))
+    print("  Installing WhatsApp service Node dependencies via npm...")
+    try:
+        res = subprocess.run([npm_cmd, "install", "--omit=dev"], cwd=str(wa_dir), capture_output=True, text=True)
+        if res.returncode == 0:
+            log_ok("WhatsApp service Node dependencies installed successfully.")
+            return True
+        else:
+            log_warn(f"npm install completed with warnings: {res.stderr.strip()[:200]}")
+            return True
+    except Exception as exc:
+        log_warn(f"Could not run npm install: {exc}")
+        return True
 
-    if os.path.exists(npm_cmd) or shutil.which(npm_cmd):
-        res = subprocess.run([npm_cmd, "ci", "--omit=dev"], cwd=str(wa_dir))
-        if res.returncode != 0:
-            # Fallback to npm install
-            res = subprocess.run([npm_cmd, "install", "--omit=dev"], cwd=str(wa_dir))
-        return res.returncode == 0
 
-    log_warn("npm not found to install node_modules.")
-    return True
-
+# ==============================================================================
+# Environment Configuration & Database Initialization
+# ==============================================================================
 
 def configure_environment(base_dir: Path) -> None:
-    """
-    Generate and configure a secure production .env file for the client system.
-    """
+    """Generate and configure a secure production .env file for the client system."""
     env_file = base_dir / ".env"
     if not env_file.exists():
         import secrets
@@ -323,7 +401,7 @@ WA_PORT=3000
         except Exception:
             pass
 
-        log_ok("Production environment (.env) configured with unique secrets.")
+        log_ok("Production environment (.env) configured with secure keys.")
     else:
         log_ok("Existing environment (.env) preserved.")
 
@@ -341,16 +419,13 @@ def initialize_application(python_exe: str) -> bool:
     # Generate / configure environment file
     configure_environment(PROJECT_ROOT)
 
-
-    # Run migrations — pass PROJECT_ROOT so subprocesses resolve the same license.enc path
+    # Run database migrations
     manage_py = PROJECT_ROOT / "manage.py"
     if manage_py.exists():
         print("  Applying database migrations (manage.py migrate)...")
         sub_env = os.environ.copy()
         sub_env["SCHOOL_ERP_BASE_DIR"] = str(PROJECT_ROOT)
         sub_env["DJANGO_SETTINGS_MODULE"] = "school_erp.settings"
-        # Allow migration subprocess to bypass hardware fingerprint check —
-        # setup_client.py already verified/generated the license above.
         sub_env["AUTO_LICENSE"] = "true"
         res = subprocess.run(
             [python_exe, str(manage_py), "migrate", "--noinput"],
@@ -358,11 +433,11 @@ def initialize_application(python_exe: str) -> bool:
             env=sub_env,
         )
         if res.returncode != 0:
-            log_error("Échec de la migration de la base de données.")
+            log_error("Database migration failed.")
             return False
-        log_ok("Base de données initialisée avec succès.")
+        log_ok("Database initialized and migrated successfully.")
 
-        # Collect static files if staticfiles/ does not exist
+        # Collect static files
         staticfiles_dir = PROJECT_ROOT / "staticfiles"
         if not staticfiles_dir.exists() or not any(staticfiles_dir.iterdir()):
             print("  Collecting static assets (manage.py collectstatic)...")
@@ -370,25 +445,50 @@ def initialize_application(python_exe: str) -> bool:
                 [python_exe, str(manage_py), "collectstatic", "--noinput"],
                 cwd=str(PROJECT_ROOT),
                 env=sub_env,
+                capture_output=True,
             )
-            log_ok("Fichiers statiques collectés.")
+            log_ok("Static assets collected successfully.")
 
     return True
 
 
 # ==============================================================================
-# 5. Desktop Shortcuts Creation
+# Shortcuts & Quick Launchers Creation
 # ==============================================================================
 
 def create_desktop_shortcuts(pythonw_exe: str, enable_autostart: bool = False) -> None:
-    """Create Windows / Linux Desktop, Start Menu, and optional Startup shortcuts."""
+    """Create Windows / Linux Desktop, Start Menu, Startup shortcuts, and start_server.bat."""
     run_server = PROJECT_ROOT / "run_server.py"
     icon_file = PROJECT_ROOT / "static" / "images" / "app_icon.ico"
     icon_path_str = str(icon_file) if icon_file.exists() else ""
 
+    # Always generate/update start_server.bat in project root for convenience
+    start_bat = PROJECT_ROOT / "start_server.bat"
+    start_bat_content = f"""@echo off
+title School ERP Server
+setlocal
+cd /d "%~dp0"
+
+if exist "venv\\Scripts\\python.exe" (
+    "venv\\Scripts\\python.exe" run_server.py %*
+) else (
+    python run_server.py %*
+)
+
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo Server exited with error code %ERRORLEVEL%.
+    pause
+)
+"""
+    try:
+        start_bat.write_text(start_bat_content, encoding="utf-8")
+        log_ok("Local launcher created: start_server.bat")
+    except Exception:
+        pass
+
     if IS_WIN:
         try:
-            # Generate VBScript to create shell .lnk shortcuts natively (no pip required)
             desktop_dir = Path(os.environ.get("USERPROFILE", "C:")) / "Desktop"
             start_menu_dir = Path(os.environ.get("APPDATA", "C:")) / "Microsoft" / "Windows" / "Start Menu" / "Programs"
             startup_dir = Path(os.environ.get("APPDATA", "C:")) / "Microsoft" / "Windows" / "Start Menu" / "Programs" / "Startup"
@@ -479,23 +579,13 @@ Categories=Office;Education;
             log_warn(f"Could not create Linux shortcut: {exc}")
 
 
-
 def scrub_sensitive_dev_files(base_dir: Path) -> None:
-    """
-    Remove development tooling, license generator tools, test suites, and docs
-    from the client installation directory to prevent easy reverse-engineering.
-    """
+    """Optional developer scrubbing tool for producing clean customer distribution packages."""
     dirs_to_remove = [
         "tools",
         "playwright_test",
         "docs",
         "tests",
-        "scripts",
-        ".git",
-        ".github",
-        ".claude",
-        ".gemini",
-        ".agents",
     ]
     files_to_remove = [
         "license_source.json",
@@ -505,8 +595,6 @@ def scrub_sensitive_dev_files(base_dir: Path) -> None:
         "railway.json",
         "Procfile",
         ".env.example",
-        "setup.sh",
-        "setup.bat",
     ]
 
     for d in dirs_to_remove:
@@ -522,28 +610,23 @@ def scrub_sensitive_dev_files(base_dir: Path) -> None:
             except Exception:
                 pass
 
-    # Remove temporary .vbs
-    temp_vbs = base_dir / "_create_shortcut.vbs"
-    if temp_vbs.is_file():
-        try:
-            temp_vbs.unlink()
-        except Exception:
-            pass
-
-    log_ok("Sensitive developer tools, test suites, and source artifacts scrubbed.")
+    log_ok("Sensitive developer tools and artifacts scrubbed.")
 
 
 # ==============================================================================
 # Main Orchestration Flow
 # ==============================================================================
 
-
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="School ERP Client PC Automated Setup")
+    parser.add_argument("--install-programs", action="store_true", help="Build client release with encrypted code and install in Programs folder")
+    parser.add_argument("--programs-dir", help="Custom Programs folder installation directory")
+    parser.add_argument("--client-name", default="School ERP", help="Client name")
     parser.add_argument("--license", help="Path to license.enc to install")
     parser.add_argument("--lock-here", action="store_true", help="Generate & activate a license locked strictly to THIS computer")
     parser.add_argument("--trial", action="store_true", help="Activate 14-day free trial license locked to THIS computer")
     parser.add_argument("--trial-days", type=int, default=14, help="Number of trial days (default 14)")
+    parser.add_argument("--permanent", action="store_true", help="Activate 10-year permanent license")
     parser.add_argument("--start-date", default=None, help="License start date (YYYY-MM-DD)")
     parser.add_argument("--end-date", default=None, help="License end date (YYYY-MM-DD)")
     parser.add_argument("--autostart", action="store_true", default=None, help="Start School ERP automatically on Windows boot")
@@ -551,13 +634,129 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--non-interactive", action="store_true", help="Run without interactive prompts")
     parser.add_argument("--launch", action="store_true", help="Launch the server automatically after setup")
     parser.add_argument("--fingerprint-only", action="store_true", help="Display hardware fingerprint and exit")
+    parser.add_argument("--scrub-dev-files", action="store_true", help="Scrub development files for packaging")
     return parser.parse_args()
 
 
+def run_programs_encrypted_release(args: argparse.Namespace, venv_py: str, fp: str) -> int:
+    """Use tools/build_client_release.py to build an obfuscated release and install it to Programs folder."""
+    log_header(f"{APP_NAME} - Client Release Builder (Programs Folder)")
+
+    client_name = args.client_name
+    if not args.non_interactive and not args.install_programs:
+        inp = input(f"  Enter Client / School Name [{client_name}]: ").strip()
+        if inp:
+            client_name = inp
+
+    # License selection
+    start_date = args.start_date
+    end_date = args.end_date
+    trial_days = args.trial_days
+
+    is_trial = args.trial
+    is_perm = args.permanent or args.lock_here
+
+    if not is_trial and not is_perm and not (start_date and end_date):
+        if not args.non_interactive:
+            print("\n  Select License Option for this client:")
+            print("    [1] 14-Day Free Trial (Hardware-locked to THIS PC) [Default]")
+            print("    [2] Full Permanent License (10 Years, locked to THIS PC)")
+            print("    [3] Custom Trial / Days")
+            lic_choice = input("\n  Enter choice [1/2/3] (default 1): ").strip()
+            if lic_choice in ("", "1"):
+                is_trial = True
+                trial_days = 14
+            elif lic_choice == "2":
+                is_perm = True
+            elif lic_choice == "3":
+                custom_str = input("  Enter number of trial days [e.g. 14, 30]: ").strip()
+                try:
+                    trial_days = int(custom_str) if custom_str else 14
+                except ValueError:
+                    trial_days = 14
+                is_trial = True
+        else:
+            is_trial = True
+
+    # Programs directory
+    local_app_data = os.environ.get("LOCALAPPDATA")
+    if local_app_data:
+        default_prog = Path(local_app_data) / "Programs" / APP_NAME
+    else:
+        default_prog = Path.home() / "AppData" / "Local" / "Programs" / APP_NAME
+
+    if args.programs_dir:
+        programs_dir = Path(args.programs_dir).resolve()
+    elif not args.non_interactive:
+        inp_prog = input(f"\n  Installation Directory [{default_prog}]: ").strip()
+        programs_dir = Path(inp_prog).resolve() if inp_prog else default_prog
+    else:
+        programs_dir = default_prog
+
+    # Autostart
+    enable_autostart = args.autostart
+    if enable_autostart is None:
+        if not args.non_interactive:
+            inp_auto = input("\n  Start School ERP automatically when Windows boots? [y/N]: ").strip().lower()
+            enable_autostart = inp_auto in ("y", "yes")
+        else:
+            enable_autostart = False
+
+    # Launch after setup
+    should_launch = args.launch
+    if not should_launch and not args.non_interactive:
+        inp_launch = input("\n  Launch School ERP immediately after setup? [Y/n]: ").strip().lower()
+        should_launch = inp_launch in ("", "y", "yes")
+
+    print("\n  Starting encrypted release compilation & deployment...")
+    build_script = PROJECT_ROOT / "tools" / "build_client_release.py"
+
+    cmd = [
+        venv_py,
+        str(build_script),
+        "--client", client_name,
+        "--fingerprint", fp,
+        "--install-programs",
+        "--install-dir", str(programs_dir),
+        "--yes",
+    ]
+
+    if is_trial:
+        cmd.extend(["--trial", "--trial-days", str(trial_days)])
+    elif is_perm:
+        cmd.append("--permanent")
+    elif start_date and end_date:
+        cmd.extend(["--start-date", start_date, "--end-date", end_date])
+
+    if enable_autostart:
+        cmd.append("--autostart")
+    if should_launch:
+        cmd.append("--launch")
+
+    res = subprocess.run(cmd, cwd=str(PROJECT_ROOT))
+    if res.returncode == 0:
+        log_header("CLIENT RELEASE DEPLOYED SUCCESSFULLY!")
+        print(f"  Installation Directory : {programs_dir}")
+        print(f"  Code Protection        : Encrypted & Obfuscated (Pyarmor + Fernet)")
+        print(f"  Web Interface URL      : http://127.0.0.1:8000")
+        print(f"  Desktop Shortcut       : Created on Desktop & Start Menu")
+        print(f"  Quick Launcher         : {programs_dir / 'start_server.bat'}")
+        print(f"  Hardware Fingerprint   : {fp}")
+        print(f"  Windows Boot Startup   : {'Enabled' if enable_autostart else 'Disabled'}")
+        print("=" * 68 + "\n")
+        return 0
+    else:
+        log_error("Release builder failed to deploy client release.")
+        return res.returncode
+
+
 def main() -> int:
+    # First: Ensure execution inside the project virtual environment (venv)
+    bootstrap_into_venv()
+
     args = parse_arguments()
 
-    log_header(f"{APP_NAME} - Automated Client Setup")
+    log_header(f"{APP_NAME} - Automated System Setup")
 
     # Step 1: Hardware Fingerprint
     fp = get_hardware_fingerprint()
@@ -566,10 +765,42 @@ def main() -> int:
     if args.fingerprint_only:
         return 0
 
+    venv_py = str(get_venv_python())
+    venv_pyw = str(get_venv_pythonw())
+
+    # Check setup mode
+    if args.install_programs:
+        return run_programs_encrypted_release(args, venv_py, fp)
+
+    if not args.non_interactive:
+        print("  Select Setup Mode:")
+        print("    [1] Make Client Release in Programs Folder (Encrypted Code) [Recommended]")
+        print("    [2] Quick Local Development Setup (Current Folder, In-Place)")
+        mode_choice = input("\n  Enter choice [1/2] (default 1): ").strip()
+        if mode_choice in ("", "1"):
+            return run_programs_encrypted_release(args, venv_py, fp)
+
     TOTAL_STEPS = 6
 
-    # Step 2: License Check / Installation / On-Site Lock
-    log_step(1, TOTAL_STEPS, "License Verification & Activation")
+    # Step 1: Environment & Python Runtime
+    log_step(1, TOTAL_STEPS, "Environment & Python Runtime Verification")
+    venv_py = str(get_venv_python())
+    venv_pyw = str(get_venv_pythonw())
+    print(f"  Active Python Interpreter : {venv_py}")
+    if check_python_dependencies(venv_py):
+        log_ok("Python virtual environment verified and all core dependencies present.")
+    else:
+        print("  Installing missing dependencies from requirements.txt...")
+        if not install_python_dependencies(venv_py):
+            log_error("Setup cannot proceed without required dependencies.")
+            return 1
+
+    # Step 2: WhatsApp Microservice Dependencies
+    log_step(2, TOTAL_STEPS, "WhatsApp Microservice (Node.js)")
+    setup_node_dependencies()
+
+    # Step 3: License Verification & Activation
+    log_step(3, TOTAL_STEPS, "License Verification & Activation")
     if args.trial:
         generate_locked_license_for_this_machine(trial_days=args.trial_days)
     elif args.lock_here:
@@ -583,8 +814,8 @@ def main() -> int:
     else:
         log_warn(lic_msg)
         if not args.non_interactive:
-            print("\n  License required to run this software on this PC.")
-            print(f"  Hardware Fingerprint: {fp}")
+            print("\n  License required to run School ERP on this PC.")
+            print(f"  Target Fingerprint: {fp}")
             print("\n  Select License Option:")
             print("    [1] 14-Day Free Trial (Hardware-locked to THIS PC) [Default]")
             print("    [2] Full Permanent License (10 Years, locked to THIS PC)")
@@ -592,7 +823,11 @@ def main() -> int:
             print("    [4] Install custom license.enc file")
             print("    [5] Continue without activating license now")
 
-            choice = input("\n  Enter choice [1/2/3/4/5] (default 1): ").strip()
+            try:
+                choice = input("\n  Enter choice [1/2/3/4/5] (default 1): ").strip()
+            except (EOFError, KeyboardInterrupt):
+                choice = "1"
+
             if choice in ("", "1"):
                 generate_locked_license_for_this_machine(trial_days=14)
                 valid, lic_msg = verify_license()
@@ -627,64 +862,64 @@ def main() -> int:
                         else:
                             log_error(lic_msg)
             else:
-                print("  [INFO] Continuing setup. Place license.enc before running.")
+                log_info("Continuing setup without active license. Place license.enc before running.")
+        else:
+            # In non-interactive mode with no explicit license, default to 14-day trial
+            print("  Non-interactive mode: generating 14-Day Free Trial license...")
+            generate_locked_license_for_this_machine(trial_days=args.trial_days or 14)
+            valid, lic_msg = verify_license()
+            if valid:
+                log_ok("14-Day Free Trial license activated successfully.")
 
-
-
-    # Step 3: Runtime Discovery & Python Dependencies
-    log_step(2, TOTAL_STEPS, "Runtime & Python Dependencies")
-    python_exe = get_python_exe()
-    pythonw_exe = get_pythonw_exe()
-    print(f"  Using Python interpreter: {python_exe}")
-    setup_python_dependencies(python_exe)
-
-    # Step 4: WhatsApp Service & Node.js Dependencies
-    log_step(3, TOTAL_STEPS, "WhatsApp Microservice (Node.js)")
-    node_exe = get_node_exe()
-    if node_exe:
-        print(f"  Using Node.js interpreter: {node_exe}")
-    setup_node_dependencies(node_exe)
-
-    # Step 5: Database & Static Setup
+    # Step 4: Database & Customer Storage Setup
     log_step(4, TOTAL_STEPS, "Database & Customer Storage Setup")
-    initialize_application(python_exe)
+    if not initialize_application(venv_py):
+        log_error("Application initialization failed.")
+        return 1
 
-    # Step 6: Shortcuts & Startup Creation
+    # Step 5: Shortcuts & Desktop Creation
     log_step(5, TOTAL_STEPS, "Desktop & Startup Shortcuts")
     enable_autostart = args.autostart
     if enable_autostart is None:
         if not args.non_interactive:
-            autostart_choice = input("\n  Start School ERP automatically when Windows boots? [Y/n]: ").strip().lower()
-            enable_autostart = autostart_choice in ("", "y", "yes")
+            try:
+                autostart_choice = input("\n  Start School ERP automatically when Windows boots? [Y/n]: ").strip().lower()
+                enable_autostart = autostart_choice in ("", "y", "yes")
+            except (EOFError, KeyboardInterrupt):
+                enable_autostart = False
         else:
-            enable_autostart = True
+            enable_autostart = False
 
-    create_desktop_shortcuts(pythonw_exe, enable_autostart=enable_autostart)
+    create_desktop_shortcuts(venv_pyw, enable_autostart=enable_autostart)
 
-    # Step 7: Scrub sensitive files & Final Status
-    log_step(6, TOTAL_STEPS, "Security Scrubbing & Completion")
-    scrub_sensitive_dev_files(PROJECT_ROOT)
+    # Step 6: Security & Completion
+    log_step(6, TOTAL_STEPS, "Final Verification & Completion")
+    if args.scrub_dev_files:
+        scrub_sensitive_dev_files(PROJECT_ROOT)
 
     log_header("SETUP COMPLETED SUCCESSFULLY!")
     print(f"  Application Location : {PROJECT_ROOT}")
-    print(f"  Launcher             : {PROJECT_ROOT / 'run_server.py'}")
+    print(f"  Web Interface URL    : http://127.0.0.1:8000")
+    print(f"  Desktop Shortcut     : Created on Desktop & Start Menu")
+    print(f"  Quick Launcher       : {PROJECT_ROOT / 'start_server.bat'}")
     print(f"  Hardware Fingerprint : {fp}")
     print(f"  Windows Boot Startup : {'Enabled (auto-starts on boot)' if enable_autostart else 'Disabled'}")
-    print("================================================================\n")
-
+    print("=" * 68 + "\n")
 
     should_launch = args.launch
     if not should_launch and not args.non_interactive:
-        choice = input("Would you like to launch School ERP now? [Y/n]: ").strip().lower()
-        should_launch = choice in ("", "y", "yes")
+        try:
+            choice = input("Would you like to launch School ERP now? [Y/n]: ").strip().lower()
+            should_launch = choice in ("", "y", "yes")
+        except (EOFError, KeyboardInterrupt):
+            should_launch = False
 
     if should_launch:
         print("\n  Launching School ERP in background...")
-        subprocess.Popen([pythonw_exe, str(PROJECT_ROOT / "run_server.py")], cwd=str(PROJECT_ROOT))
-        print("  [OK] Server launched. Opening browser...")
+        subprocess.Popen([venv_pyw, str(PROJECT_ROOT / "run_server.py")], cwd=str(PROJECT_ROOT))
+        print("  [OK] Server launched. Opening browser in a few seconds...")
 
     return 0
-
 
 
 if __name__ == "__main__":

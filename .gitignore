@@ -79,3 +79,10 @@ Thumbs.db
 .gemini/
 .github/
 license.enc
+license_local.enc.bak
+
+# Go build cache
+tools/launcher/__debug_bin*
+
+# Pre-built launcher — always tracked (client PCs may not have Go)
+!bin/SchoolERP.exe
