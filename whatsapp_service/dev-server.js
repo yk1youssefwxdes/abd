@@ -7,7 +7,7 @@ const port = Number(process.env.WA_PORT || 3000);
 const host = process.env.WA_HOST || '0.0.0.0';
 const API_KEY = process.env.WA_API_KEY || null;
 
-const SERVICE_VERSION = 'dev-1.0.0';
+const SERVICE_VERSION = '2.0.0-optimal';
 
 app.use(express.json({ limit: '100mb' }));
 
@@ -59,9 +59,9 @@ function requireApiKey(req, res, next) {
 const clientStatus = 'READY';
 
 const clientInfo = {
-    pushname: 'DEV WhatsApp',
+    pushname: 'Youssef',
     wid: {
-        user: '212600000000'
+        user: '212715125245'
     },
     platform: 'development'
 };

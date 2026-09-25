@@ -237,14 +237,93 @@ def find_free_port(start_port, host="0.0.0.0", max_port=65535):
     raise RuntimeError(f"No available TCP port found starting from {start_port}.")
 
 
-def get_local_ip():
-    """Return the local LAN IP address without requiring internet access."""
+def get_all_lan_ips() -> list[str]:
+    """Return all valid IPv4 LAN addresses for this machine, prioritized by usability."""
+    found: list[str] = []
+
+    # Method 1: Hostname lookup
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect(("10.255.255.255", 1))
-            return sock.getsockname()[0]
+        hostname = socket.gethostname()
+        lip = socket.gethostbyname(hostname)
+        if lip and not lip.startswith("127.") and not lip.startswith("169.254."):
+            found.append(lip)
+        _, _, ips = socket.gethostbyname_ex(hostname)
+        for ip in ips:
+            if ip and ip not in found and not ip.startswith("127.") and not ip.startswith("169.254."):
+                found.append(ip)
     except Exception:
-        return "127.0.0.1"
+        pass
+
+    # Method 2: Route probe
+    for probe in ("8.8.8.8", "1.1.1.1", "10.255.255.255"):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+                sock.settimeout(0.2)
+                sock.connect((probe, 80))
+                ip = sock.getsockname()[0]
+                if ip and ip not in found and not ip.startswith("127.") and not ip.startswith("169.254."):
+                    found.append(ip)
+        except Exception:
+            pass
+
+    # Prioritize 192.168.* (standard Wi-Fi/Ethernet router), then 10.*, then others
+    def _ip_order(val: str) -> int:
+        if val.startswith("192.168."):
+            return 1
+        if val.startswith("10."):
+            return 2
+        return 3
+
+    found.sort(key=_ip_order)
+    return found or ["127.0.0.1"]
+
+
+def get_local_ip() -> str:
+    """Return primary local LAN IP address."""
+    return get_all_lan_ips()[0]
+
+
+def auto_configure_lan_env(port: int = 8000) -> tuple[str, str, list[str]]:
+    """
+    Auto-detect local IP and hostname and update DJANGO_ALLOWED_HOSTS
+    and DJANGO_CSRF_TRUSTED_ORIGINS in os.environ for LAN accessibility.
+    """
+    try:
+        hostname = socket.gethostname()
+        local_ip = socket.gethostbyname(hostname)
+    except Exception:
+        hostname = "localhost"
+        local_ip = "127.0.0.1"
+
+    all_ips = get_all_lan_ips()
+    discovered_hosts = set(all_ips)
+    discovered_hosts.update([local_ip, hostname, "127.0.0.1", "localhost", "0.0.0.0"])
+
+    # Update DJANGO_ALLOWED_HOSTS
+    raw_hosts = os.environ.get("DJANGO_ALLOWED_HOSTS", "*")
+    hosts = [h.strip() for h in raw_hosts.split(",") if h.strip()]
+    for item in ["*", hostname, local_ip] + all_ips:
+        if item and item not in hosts:
+            hosts.append(item)
+    os.environ["DJANGO_ALLOWED_HOSTS"] = ",".join(hosts)
+
+    # Update DJANGO_CSRF_TRUSTED_ORIGINS
+    raw_csrf = os.environ.get("DJANGO_CSRF_TRUSTED_ORIGINS", "")
+    csrf_list = [c.strip() for c in raw_csrf.split(",") if c.strip()]
+    for host in discovered_hosts:
+        if host == "*":
+            continue
+        for p in (port, 8000, 80):
+            origin = f"http://{host}:{p}" if p not in (80, 443) else f"http://{host}"
+            if origin not in csrf_list:
+                csrf_list.append(origin)
+    os.environ["DJANGO_CSRF_TRUSTED_ORIGINS"] = ",".join(csrf_list)
+
+    return hostname, local_ip, all_ips
+
+
+# Run immediate LAN environment bootstrap at launch
+auto_configure_lan_env()
 
 
 # ---------------------------------------------------------------------------
@@ -886,12 +965,14 @@ class ServerApp:
             return
 
         port = self._session.django_port
-        lan_url = f"http://{self.local_ip}:{port}"
+        all_ips = get_all_lan_ips()
+        current_ip_holder = [self.local_ip if self.local_ip in all_ips else all_ips[0]]
+        current_url_holder = [f"http://{current_ip_holder[0]}:{port}"]
 
         modal = tk.Toplevel(self.root)
         modal.title(f"{APP_NAME} — Accès Réseau Local (Wi-Fi / LAN)")
-        modal.geometry("440x560")
-        modal.minsize(420, 520)
+        modal.geometry("460x600")
+        modal.minsize(440, 560)
         modal.configure(bg=BG)
         modal.transient(self.root)
         modal.grab_set()
@@ -899,8 +980,8 @@ class ServerApp:
         # Center on parent window
         try:
             modal.update_idletasks()
-            x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 220
-            y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 280
+            x = self.root.winfo_x() + (self.root.winfo_width() // 2) - 230
+            y = self.root.winfo_y() + (self.root.winfo_height() // 2) - 300
             modal.geometry(f"+{max(0, x)}+{max(0, y)}")
         except Exception:
             pass
@@ -917,35 +998,75 @@ class ServerApp:
             container,
             text="Scannez ce QR Code pour ouvrir l'application sur un autre appareil\n(connecté au même réseau Wi-Fi).",
             font=(FONT, 9), bg=BG, fg=TEXT_DIM, justify="center",
-        ).pack(pady=(0, 14))
+        ).pack(pady=(0, 10))
 
         # QR Code Canvas
-        matrix = _generate_qr_matrix(lan_url)
-        canvas_size = 230
+        canvas_size = 220
         qr_canvas = tk.Canvas(
             container, width=canvas_size, height=canvas_size,
             bg="#ffffff", highlightthickness=0, relief="flat",
         )
-        qr_canvas.pack(pady=(0, 14))
+        qr_canvas.pack(pady=(0, 10))
 
-        if matrix:
-            n = len(matrix)
-            margin = 15
-            cell = (canvas_size - 2 * margin) / n
-            for r in range(n):
-                for c in range(n):
-                    if matrix[r][c]:
-                        x1 = margin + c * cell
-                        y1 = margin + r * cell
-                        x2 = x1 + cell
-                        y2 = y1 + cell
-                        qr_canvas.create_rectangle(x1, y1, x2, y2, fill="#000000", outline="")
-        else:
-            qr_canvas.create_text(
-                canvas_size // 2, canvas_size // 2,
-                text="QR Code non disponible\n(Module qrcode manquant)",
-                fill="#333333", font=(FONT, 10), justify="center",
-            )
+        def _render_qr(target_url: str):
+            qr_canvas.delete("all")
+            matrix = _generate_qr_matrix(target_url)
+            if matrix:
+                n = len(matrix)
+                margin = 12
+                cell = (canvas_size - 2 * margin) / n
+                for r in range(n):
+                    for c in range(n):
+                        if matrix[r][c]:
+                            x1 = margin + c * cell
+                            y1 = margin + r * cell
+                            x2 = x1 + cell
+                            y2 = y1 + cell
+                            qr_canvas.create_rectangle(x1, y1, x2, y2, fill="#000000", outline="")
+            else:
+                qr_canvas.create_text(
+                    canvas_size // 2, canvas_size // 2,
+                    text="QR Code non disponible\n(Module qrcode manquant)",
+                    fill="#333333", font=(FONT, 10), justify="center",
+                )
+
+        _render_qr(current_url_holder[0])
+
+        # Multi-interface IP selector buttons (if multiple networks active)
+        ip_btn_refs = []
+        if len(all_ips) > 1:
+            sel_frame = tk.Frame(container, bg=BG)
+            sel_frame.pack(fill="x", pady=(0, 8))
+            tk.Label(sel_frame, text="Choisir l'interface réseau :", font=(FONT, 8), bg=BG, fg=TEXT_DIM).pack(anchor="w", pady=(0, 2))
+            btn_row = tk.Frame(sel_frame, bg=BG)
+            btn_row.pack(fill="x")
+
+            def _switch_ip(new_ip):
+                current_ip_holder[0] = new_ip
+                current_url_holder[0] = f"http://{new_ip}:{port}"
+                url_entry.configure(state="normal")
+                url_entry.delete(0, "end")
+                url_entry.insert(0, current_url_holder[0])
+                url_entry.configure(state="readonly")
+                _render_qr(current_url_holder[0])
+                for b, b_ip in ip_btn_refs:
+                    if b_ip == new_ip:
+                        b.config(bg=ACCENT, fg=BG)
+                    else:
+                        b.config(bg=PANEL, fg=TEXT_DIM)
+
+            for ip_opt in all_ips:
+                label_txt = f"Wi-Fi ({ip_opt})" if ip_opt.startswith("192.168.") else f"Réseau ({ip_opt})"
+                is_active = (ip_opt == current_ip_holder[0])
+                b = tk.Button(
+                    btn_row, text=label_txt, font=(FONT, 8, "bold"),
+                    bg=ACCENT if is_active else PANEL,
+                    fg=BG if is_active else TEXT_DIM,
+                    bd=0, padx=6, pady=3, cursor="hand2",
+                    command=lambda i=ip_opt: _switch_ip(i),
+                )
+                b.pack(side="left", padx=(0, 4))
+                ip_btn_refs.append((b, ip_opt))
 
         # Address Box
         addr_card = tk.Frame(container, bg=PANEL, padx=12, pady=8,
@@ -961,7 +1082,7 @@ class ServerApp:
             addr_card, font=("Consolas", 10, "bold"),
             bg=PANEL_ALT, fg=ACCENT, relief="flat", bd=0, justify="center",
         )
-        url_entry.insert(0, lan_url)
+        url_entry.insert(0, current_url_holder[0])
         url_entry.configure(state="readonly")
         url_entry.pack(fill="x", pady=(4, 0))
 
@@ -971,7 +1092,7 @@ class ServerApp:
 
         def _copy_link(btn):
             self.root.clipboard_clear()
-            self.root.clipboard_append(lan_url)
+            self.root.clipboard_append(current_url_holder[0])
             btn.config(text="✓ Adresse copiée !", bg=GREEN)
             self.root.after(2000, lambda: btn.config(text="📋 Copier le lien", bg=PANEL))
 
@@ -991,6 +1112,20 @@ class ServerApp:
                     messagebox.showinfo(
                         "Pare-feu Windows",
                         f"Port {port} débloqué dans le Pare-feu Windows !\nLes autres ordinateurs et téléphones du réseau Wi-Fi peuvent maintenant se connecter.",
+                    )
+                    return
+
+                # Request elevation via PowerShell UAC
+                ps_cmd = (
+                    f"Start-Process netsh -ArgumentList "
+                    f"'advfirewall firewall add rule name=\"School ERP Web (Port {port})\" dir=in action=allow protocol=TCP localport={port}' "
+                    f"-Verb RunAs -Wait"
+                )
+                ps_res = subprocess.run(["powershell", "-NoProfile", "-Command", ps_cmd], capture_output=True, text=True)
+                if ps_res.returncode == 0:
+                    messagebox.showinfo(
+                        "Pare-feu Windows",
+                        f"Port {port} débloqué dans le Pare-feu Windows avec succès !\nLes autres appareils du réseau peuvent maintenant se connecter.",
                     )
                 else:
                     messagebox.showwarning(
@@ -1065,7 +1200,7 @@ class ServerApp:
         except subprocess.TimeoutExpired:
             self._thread_log("ERROR: Node.js version check timed out.")
 
-        server_js_path    = os.path.join(service_dir, "server.js")
+        server_js_path    = os.path.join(service_dir, "dev-server.js")
         package_json_path = os.path.join(service_dir, "package.json")
 
         if not node_available:
@@ -1077,7 +1212,7 @@ class ServerApp:
             return
 
         if not os.path.isfile(server_js_path):
-            self._thread_log("ERROR: whatsapp_service/server.js not found.")
+            self._thread_log("ERROR: whatsapp_service/dev-server.js not found.")
             return
 
         if not os.path.isfile(package_json_path):
@@ -1127,7 +1262,7 @@ class ServerApp:
 
             try:
                 process = subprocess.Popen(
-                    [node_cmd, "server.js"],
+                    [node_cmd, "dev-server.js"],
                     env=env,
                     **popen_kwargs,
                 )
@@ -1254,6 +1389,7 @@ class ServerApp:
         try:
             import os
             import django
+            auto_configure_lan_env(session.django_port or 8000)
             os.environ.setdefault("DJANGO_SETTINGS_MODULE", "school_erp.settings")
             django.setup()
             from django.core.management import call_command
@@ -1429,6 +1565,13 @@ class ServerApp:
         try:
             session.django_port = find_free_port(8000)
             self._log(f"Port Web Django alloué : {session.django_port}")
+
+            hn, lip, ips = auto_configure_lan_env(session.django_port)
+            self.local_ip = lip
+            self._log(f"Réseau LAN configuré : Hôte '{hn}' & IP '{lip}' autorisés pour l'accès local.")
+            if len(ips) > 1:
+                self._log(f"Adresses réseau disponibles : {', '.join(ips)}")
+
             session.whatsapp_port = find_free_port(3000, host="127.0.0.1")
             self._log(f"Port service WhatsApp alloué : {session.whatsapp_port}")
 

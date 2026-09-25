@@ -938,6 +938,16 @@ def step_assets(base_dir: str, dist_dir: str) -> None:
             shutil.copy2(src, os.path.join(ws_dest, fname))
             _ok(f"Copied whatsapp_service/{fname}")
 
+    # Copy existing node_modules if present to avoid long network downloads
+    ws_nm_src = os.path.join(ws_src, 'node_modules')
+    ws_nm_dest = os.path.join(ws_dest, 'node_modules')
+    if os.path.isdir(ws_nm_src) and not os.path.exists(ws_nm_dest):
+        try:
+            shutil.copytree(ws_nm_src, ws_nm_dest, dirs_exist_ok=True)
+            _ok("Copied existing whatsapp_service/node_modules")
+        except Exception as exc:
+            _warn(f"Could not copy node_modules: {exc}")
+
 
 # ======================================================================
 #  Step 5 -- npm install
@@ -946,7 +956,12 @@ def step_assets(base_dir: str, dist_dir: str) -> None:
 def step_npm(dist_dir: str) -> None:
     _banner("STEP 5 - npm install (dist/whatsapp_service)")
     ws_dir = os.path.join(dist_dir, 'whatsapp_service')
-    npm    = shutil.which('npm.cmd') or shutil.which('npm') or 'npm'
+    ws_nm = os.path.join(ws_dir, 'node_modules')
+    if os.path.isdir(ws_nm) and any(os.scandir(ws_nm)):
+        _ok("node_modules already present in whatsapp_service -- skipped re-download.")
+        return
+
+    npm = shutil.which('npm.cmd') or shutil.which('npm') or 'npm'
 
     if not os.path.isfile(os.path.join(ws_dir, 'package.json')):
         _warn("No package.json found -- skipping npm install.")

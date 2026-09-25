@@ -9,6 +9,14 @@ echo Adding Windows Firewall Rule to allow other PCs on the school
 echo network to connect to School ERP (Port 8000)...
 echo.
 
+:: Check for Administrator permissions; auto-elevate if needed
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Requesting Administrator privileges to configure Windows Firewall...
+    powershell -NoProfile -Command "Start-Process cmd -ArgumentList '/c \"\"%~f0\"\"' -Verb RunAs"
+    exit /b
+)
+
 :: Add Windows Firewall Rule for Port 8000
 netsh advfirewall firewall add rule name="School ERP Web Access (Port 8000)" dir=in action=allow protocol=TCP localport=8000 >nul 2>&1
 

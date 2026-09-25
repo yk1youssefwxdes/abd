@@ -383,11 +383,18 @@ def configure_environment(base_dir: Path) -> None:
         secret_key = secrets.token_urlsafe(64)
         wa_key = secrets.token_hex(24)
 
+        import socket
+        try:
+            _hn = socket.gethostname()
+            _lip = socket.gethostbyname(_hn)
+        except Exception:
+            _hn, _lip = "localhost", "127.0.0.1"
+
         env_content = f"""# School ERP - Production Environment Configuration
 DJANGO_SECRET_KEY={secret_key}
 DJANGO_DEBUG=False
-DJANGO_ALLOWED_HOSTS=127.0.0.1,localhost,0.0.0.0
-DJANGO_CSRF_TRUSTED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000
+DJANGO_ALLOWED_HOSTS=*,127.0.0.1,localhost,{_lip},{_hn}
+DJANGO_CSRF_TRUSTED_ORIGINS=http://127.0.0.1:8000,http://localhost:8000,http://{_lip}:8000
 WA_API_KEY={wa_key}
 WA_PORT=3000
 """
