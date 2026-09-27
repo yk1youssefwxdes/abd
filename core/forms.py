@@ -224,9 +224,9 @@ class EnrollmentForm(forms.ModelForm):
 class CourseGroupForm(forms.ModelForm):
     """Form for creating and editing course groups (classes)"""
     levels = forms.ModelMultipleChoiceField(
-        queryset=Level.objects.all().select_related('category'),
+        queryset=Level.objects.all().select_related('category').order_by('category__name', 'order', 'name'),
         required=False,
-        widget=forms.SelectMultiple(attrs={'class': 'form-select select2', 'multiple': 'multiple'}),
+        widget=forms.SelectMultiple(attrs={'class': 'form-select d-none', 'multiple': 'multiple', 'id': 'id_levels'}),
         label="Niveaux académiques"
     )
     

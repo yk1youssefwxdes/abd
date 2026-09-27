@@ -29,6 +29,7 @@ from core.version import VERSION, APP_NAME
 ensure_data_directories()
 migrate_legacy_data()
 
+JS_SERVER_NAME = "dev-server.js"
 
 # ---------------------------------------------------------------------------
 # Runtime discovery helpers (Commercial Bundled vs. Local Development)
@@ -1200,7 +1201,7 @@ class ServerApp:
         except subprocess.TimeoutExpired:
             self._thread_log("ERROR: Node.js version check timed out.")
 
-        server_js_path    = os.path.join(service_dir, "dev-server.js")
+        server_js_path    = os.path.join(service_dir, JS_SERVER_NAME)
         package_json_path = os.path.join(service_dir, "package.json")
 
         if not node_available:
@@ -1212,7 +1213,7 @@ class ServerApp:
             return
 
         if not os.path.isfile(server_js_path):
-            self._thread_log("ERROR: whatsapp_service/dev-server.js not found.")
+            self._thread_log(f"ERROR: whatsapp_service/{JS_SERVER_NAME} not found.")
             return
 
         if not os.path.isfile(package_json_path):
@@ -1262,7 +1263,7 @@ class ServerApp:
 
             try:
                 process = subprocess.Popen(
-                    [node_cmd, "dev-server.js"],
+                    [node_cmd, JS_SERVER_NAME],
                     env=env,
                     **popen_kwargs,
                 )

@@ -4,6 +4,170 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{% static 'css/schedule_ux.css' %}">
+<style>
+/* Premium Level Selector Side Component */
+.level-picker-card {
+  background: var(--surface-card, #ffffff);
+  border: 1px solid var(--border-color, #e2e8f0) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  border-radius: 14px !important;
+  overflow: hidden;
+}
+
+.level-category-group {
+  background: var(--surface-alt, #f8fafc);
+  border: 1px solid var(--border-color, #e2e8f0) !important;
+  border-radius: 12px !important;
+  transition: all 0.2s ease;
+}
+
+.level-category-group:hover {
+  border-color: var(--primary-subtle, #bfdbfe) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.level-chip-btn {
+  background-color: var(--card-bg, #ffffff);
+  border: 1px solid var(--border-color, #cbd5e1) !important;
+  color: var(--text-primary, #334155);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  padding: 6px 14px;
+  border-radius: 50rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.level-chip-btn .chip-icon {
+  opacity: 0;
+  transform: scale(0.3);
+  width: 0;
+  margin-right: 0;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  font-size: 14px;
+}
+
+.level-chip-btn:hover {
+  border-color: var(--primary, #3b82f6) !important;
+  color: var(--primary, #2563eb);
+  background-color: var(--primary-subtle, #eff6ff);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(59, 130, 246, 0.12);
+}
+
+.level-chip-btn.active {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
+  border-color: #1d4ed8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+  font-weight: 600;
+}
+
+.level-chip-btn.active .chip-icon {
+  opacity: 1;
+  transform: scale(1);
+  width: auto;
+  margin-right: 2px;
+}
+
+.level-chip-btn.active:hover {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%) !important;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+}
+
+.btn-subtle-primary {
+  background-color: rgba(37, 99, 235, 0.08);
+  color: var(--primary, #2563eb);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 6px 14px;
+  transition: all 0.2s ease;
+}
+
+.btn-subtle-primary:hover {
+  background-color: var(--primary, #2563eb);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.2);
+}
+
+.btn-subtle-secondary {
+  background-color: rgba(100, 116, 139, 0.08);
+  color: #475569;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 8px;
+  padding: 6px 14px;
+  transition: all 0.2s ease;
+}
+
+.btn-subtle-secondary:hover {
+  background-color: #64748b;
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.summary-chip-item {
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+  border-radius: 50rem;
+  padding: 4px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  animation: fadeIn 0.15s ease-in-out;
+}
+
+.summary-chip-item .remove-chip {
+  cursor: pointer;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: all 0.15s ease;
+}
+
+.summary-chip-item .remove-chip:hover {
+  background-color: rgba(225, 29, 72, 0.15);
+  color: #e11d48;
+}
+
+/* Custom smooth scrollbar for categories */
+#levels-picker-categories-wrapper::-webkit-scrollbar {
+  width: 5px;
+}
+#levels-picker-categories-wrapper::-webkit-scrollbar-track {
+  background: var(--surface-bg, #f1f5f9);
+  border-radius: 4px;
+}
+#levels-picker-categories-wrapper::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 4px;
+}
+#levels-picker-categories-wrapper::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+</style>
 {% endblock %}
 
 {% block breadcrumb %}
@@ -38,10 +202,10 @@
     </div>
   {% endif %}
 
-  <div class="row justify-content-center">
+  <div class="row g-4">
 
-    <!-- Center column (no sidebar) -->
-    <div class="col-lg-9">
+    <!-- Left Main Column: Form fields & Schedules -->
+    <div class="col-lg-7 col-xl-7">
 
       <!-- General info card -->
       <div class="card mb-4">
@@ -76,16 +240,6 @@
             </div>
 
             <div class="col-md-6">
-              <label for="{{ form.levels.id_for_label }}" class="form-label d-flex align-items-center justify-content-between">
-                <span><i class="bi bi-layers text-primary me-1"></i> {{ form.levels.label }}</span>
-                <small class="text-muted">Sélection multiple</small>
-              </label>
-              {{ form.levels }}
-              {% if form.levels.errors %}<div class="invalid-feedback d-block">{% for e in form.levels.errors %}{{ e }}{% endfor %}</div>{% endif %}
-              <div class="form-text">Ce groupe peut appartenir à plusieurs niveaux (ex: Débutant + Élémentaire).</div>
-            </div>
-
-            <div class="col-md-6">
               <label for="{{ form.monthly_price.id_for_label }}" class="form-label">
                 {{ form.monthly_price.label }} <span style="color:var(--danger);">*</span>
               </label>
@@ -96,13 +250,13 @@
               {% if form.monthly_price.errors %}<div class="invalid-feedback d-block">{% for e in form.monthly_price.errors %}{{ e }}{% endfor %}</div>{% endif %}
             </div>
 
-            <div class="col-12">
+            <div class="col-md-6">
               <label for="{{ form.whatsapp_group_link.id_for_label }}" class="form-label">
                 <i class="bi bi-whatsapp" style="color: #25d366;"></i> {{ form.whatsapp_group_link.label }}
               </label>
               {{ form.whatsapp_group_link }}
               {% if form.whatsapp_group_link.errors %}<div class="invalid-feedback d-block">{% for e in form.whatsapp_group_link.errors %}{{ e }}{% endfor %}</div>{% endif %}
-              <div class="form-text">Lien d'invitation du groupe WhatsApp pour ce groupe de cours (ex: https://chat.whatsapp.com/...)</div>
+              <div class="form-text">Lien d'invitation (ex: https://chat.whatsapp.com/...)</div>
             </div>
           </div>
         </div>
@@ -264,6 +418,114 @@
         </div>
       </div>
 
+    </div>
+
+    <!-- Right Side Column: Spacious & Premium Niveaux Académiques Selection Panel -->
+    <div class="col-lg-5 col-xl-5">
+      <div class="card level-picker-card mb-4 sticky-top" style="top: 1.25rem; z-index: 10;">
+        <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2 py-3 px-3.5 bg-white border-bottom">
+          <div class="d-flex align-items-center gap-2.5">
+            <span class="d-inline-flex align-items-center justify-content-center rounded-circle bg-primary-subtle text-primary p-2" style="width: 38px; height: 38px;">
+              <i class="bi bi-layers-fill" style="font-size: 18px;"></i>
+            </span>
+            <div>
+              <h6 class="mb-0 fw-bold text-dark" style="font-size: 15px;">{{ form.levels.label }}</h6>
+              <small class="text-muted" style="font-size: 12px;">Sélection multiple</small>
+            </div>
+          </div>
+          <span id="selected-levels-badge" class="badge rounded-pill bg-primary px-3 py-1.5 text-white" style="font-size: 12px; font-weight: 600;">
+            0 sélectionné
+          </span>
+        </div>
+
+        <div class="card-body p-3 p-md-3.5">
+          <!-- Master Actions -->
+          <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+            <button type="button" class="btn-subtle-primary flex-fill text-center" id="btn-select-all-levels" title="Tout sélectionner dans tous les niveaux">
+              <i class="bi bi-check-all me-1"></i>Tout sélectionner
+            </button>
+            <button type="button" class="btn-subtle-secondary flex-fill text-center" id="btn-clear-all-levels" title="Effacer la sélection">
+              <i class="bi bi-x-circle me-1"></i>Effacer
+            </button>
+          </div>
+
+          <!-- Real-time Filter/Search Bar -->
+          <div class="position-relative mb-3">
+            <i class="bi bi-search position-absolute top-50 translate-middle-y ms-3 text-muted" style="font-size: 14px;"></i>
+            <input type="text" id="level-search-input" class="form-control form-control-md ps-5 pe-4 rounded-pill" placeholder="Rechercher un niveau (ex: 2BAC, 1AC)..." style="font-size: 13.5px; background: var(--surface-bg, #f8fafc); border-color: var(--border-color, #cbd5e1);">
+            <button type="button" id="level-search-clear" class="btn btn-link text-muted position-absolute end-0 top-50 translate-middle-y me-2 p-0 border-0 d-none" style="text-decoration: none;">
+              <i class="bi bi-x-circle-fill" style="font-size: 14px;"></i>
+            </button>
+          </div>
+
+          <!-- Completely Hidden Native Select (No form-select visible in UI) -->
+          <div style="display:none !important;">
+            {{ form.levels }}
+          </div>
+          {% if form.levels.errors %}
+            <div class="invalid-feedback d-block mb-3">{% for e in form.levels.errors %}{{ e }}{% endfor %}</div>
+          {% endif %}
+
+          <!-- Scrollable Categorized Level Chips Grid -->
+          <div id="levels-picker-categories-wrapper" style="max-height: 520px; overflow-y: auto; padding-right: 4px;">
+            {% regroup form.fields.levels.queryset by category as category_groups %}
+            <div id="levels-picker-categories" class="d-flex flex-column gap-3">
+              {% for cat in category_groups %}
+                <div class="level-category-group p-3" data-category-name="{{ cat.grouper.name|lower }}">
+                  <!-- Category Header -->
+                  <div class="d-flex align-items-center justify-content-between mb-2.5 pb-2 border-bottom flex-wrap gap-2" style="border-color: var(--border-color, #e2e8f0)!important;">
+                    <div class="d-flex align-items-center gap-2">
+                      <i class="bi bi-journal-bookmark-fill text-primary" style="font-size: 14px;"></i>
+                      <span class="fw-bold text-dark" style="font-size: 14px;">{{ cat.grouper.name }}</span>
+                      {% if not cat.grouper.is_academic %}
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill" style="font-size: 10.5px;">Non-académique</span>
+                      {% endif %}
+                      <span class="badge bg-light text-muted border rounded-pill cat-selection-counter" style="font-size: 11px; font-weight: 600;">0/{{ cat.list|length }}</span>
+                    </div>
+                    <button type="button" class="btn btn-link btn-sm text-primary text-decoration-none p-0 cat-toggle-btn fw-600" data-cat-id="{{ cat.grouper.id }}" style="font-size: 12px;">
+                      <i class="bi bi-check2-all me-1"></i>Sélectionner la catégorie
+                    </button>
+                  </div>
+
+                  <!-- Chips -->
+                  <div class="d-flex flex-wrap gap-2">
+                    {% for level in cat.list %}
+                      <button type="button" 
+                              class="level-chip-btn"
+                              data-level-id="{{ level.id }}"
+                              data-level-name="{{ level.name|lower }}"
+                              data-category-id="{{ cat.grouper.id }}">
+                        <i class="bi bi-check-lg chip-icon"></i>
+                        <span class="chip-label">{{ level.name }}</span>
+                      </button>
+                    {% endfor %}
+                  </div>
+                </div>
+              {% empty %}
+                <div class="text-muted text-center py-4">Aucun niveau académique configuré.</div>
+              {% endfor %}
+            </div>
+
+            <!-- Search No Results Notice -->
+            <div id="no-levels-found" class="text-center py-4 d-none">
+              <i class="bi bi-search text-muted display-6 mb-2 d-block" style="font-size: 28px;"></i>
+              <p class="text-muted mb-0 fw-500">Aucun niveau ne correspond à "<span id="search-query-display" class="fw-bold text-dark"></span>"</p>
+            </div>
+          </div>
+
+          <!-- Selected Summary Bar -->
+          <div id="selected-summary-bar" class="mt-3 pt-3 border-top d-flex align-items-start gap-2 flex-wrap" style="border-color: var(--border-color, #e2e8f0)!important;">
+            <span class="text-muted small fw-600 flex-shrink-0 pt-1" style="font-size: 12.5px;">Niveaux choisis :</span>
+            <div id="selected-summary-chips" class="d-flex flex-wrap gap-1.5 flex-grow-1">
+              <span class="text-muted small fst-italic pt-1" style="font-size: 12.5px;">Aucun niveau sélectionné</span>
+            </div>
+          </div>
+
+          <div class="form-text mt-2 text-muted" style="font-size: 12px;">
+            <i class="bi bi-info-circle me-1"></i> Cliquez sur un niveau pour l'ajouter ou le retirer du groupe.
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>
@@ -1014,6 +1276,236 @@ document.addEventListener('DOMContentLoaded', function () {
     const wrapper = btn.closest('.d-flex');
     const roomSel = wrapper ? wrapper.querySelector('select[name$="-room"]') : null;
     openRoomModal(roomSel);
+  });
+}());
+</script>
+
+<!-- Interactive Niveaux Académiques Level Picker Logic -->
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function() {
+    const nativeSelect = document.getElementById('id_levels');
+    if (!nativeSelect) return;
+
+    const searchInput = document.getElementById('level-search-input');
+    const searchClearBtn = document.getElementById('level-search-clear');
+    const chipBtns = document.querySelectorAll('.level-chip-btn');
+    const categoryGroups = document.querySelectorAll('.level-category-group');
+    const catToggleBtns = document.querySelectorAll('.cat-toggle-btn');
+    const selectAllBtn = document.getElementById('btn-select-all-levels');
+    const clearAllBtn = document.getElementById('btn-clear-all-levels');
+    const selectedBadge = document.getElementById('selected-levels-badge');
+    const summaryChipsContainer = document.getElementById('selected-summary-chips');
+    const noFoundNotice = document.getElementById('no-levels-found');
+    const searchQueryDisplay = document.getElementById('search-query-display');
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+
+    function syncUIFromNativeSelect() {
+      const selectedValues = new Set(
+        Array.from(nativeSelect.options)
+          .filter(opt => opt.selected)
+          .map(opt => String(opt.value))
+      );
+
+      let totalSelected = 0;
+      const selectedDetails = [];
+
+      chipBtns.forEach(btn => {
+        const levelId = String(btn.getAttribute('data-level-id'));
+        const isSelected = selectedValues.has(levelId);
+        
+        btn.classList.toggle('active', isSelected);
+        btn.setAttribute('aria-checked', isSelected ? 'true' : 'false');
+        
+        if (isSelected) {
+          totalSelected++;
+          const labelEl = btn.querySelector('.chip-label');
+          selectedDetails.push({
+            id: levelId,
+            name: labelEl ? labelEl.textContent.trim() : ''
+          });
+        }
+      });
+
+      // Update total badge
+      if (selectedBadge) {
+        selectedBadge.textContent = totalSelected === 1 ? '1 niveau sélectionné' : `${totalSelected} niveaux sélectionnés`;
+      }
+
+      // Update per-category counters and headers
+      categoryGroups.forEach(group => {
+        const groupChips = group.querySelectorAll('.level-chip-btn');
+        const groupSelectedCount = group.querySelectorAll('.level-chip-btn.active').length;
+        const counterEl = group.querySelector('.cat-selection-counter');
+        
+        if (counterEl) {
+          counterEl.textContent = `${groupSelectedCount}/${groupChips.length}`;
+          if (groupSelectedCount > 0) {
+            counterEl.classList.remove('bg-light', 'text-muted');
+            counterEl.classList.add('bg-primary-subtle', 'text-primary', 'fw-bold');
+          } else {
+            counterEl.classList.remove('bg-primary-subtle', 'text-primary', 'fw-bold');
+            counterEl.classList.add('bg-light', 'text-muted');
+          }
+        }
+
+        const toggleBtn = group.querySelector('.cat-toggle-btn');
+        if (toggleBtn) {
+          const allSelected = (groupSelectedCount === groupChips.length && groupChips.length > 0);
+          toggleBtn.innerHTML = allSelected 
+            ? '<i class="bi bi-x-circle me-1"></i>Tout décocher' 
+            : '<i class="bi bi-check2-all me-1"></i>Sélectionner la catégorie';
+        }
+      });
+
+      // Render summary chips
+      if (summaryChipsContainer) {
+        if (selectedDetails.length === 0) {
+          summaryChipsContainer.innerHTML = '<span class="text-muted small fst-italic pt-1">Aucun niveau sélectionné</span>';
+        } else {
+          summaryChipsContainer.innerHTML = selectedDetails.map(item => `
+            <span class="summary-chip-item">
+              ${escapeHtml(item.name)}
+              <i class="bi bi-x remove-chip" data-remove-id="${item.id}" title="Supprimer ${escapeHtml(item.name)}"></i>
+            </span>
+          `).join('');
+        }
+      }
+    }
+
+    function toggleLevel(levelId, forceState) {
+      const targetVal = String(levelId);
+      let changed = false;
+
+      Array.from(nativeSelect.options).forEach(opt => {
+        if (String(opt.value) === targetVal) {
+          const newState = (forceState !== undefined) ? forceState : !opt.selected;
+          if (opt.selected !== newState) {
+            opt.selected = newState;
+            changed = true;
+          }
+        }
+      });
+
+      if (changed) {
+        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      syncUIFromNativeSelect();
+    }
+
+    // Individual Chip Clicks
+    chipBtns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const levelId = this.getAttribute('data-level-id');
+        toggleLevel(levelId);
+      });
+    });
+
+    // Summary Tag Removal
+    if (summaryChipsContainer) {
+      summaryChipsContainer.addEventListener('click', function(e) {
+        const removeBtn = e.target.closest('.remove-chip');
+        if (removeBtn) {
+          const levelId = removeBtn.getAttribute('data-remove-id');
+          toggleLevel(levelId, false);
+        }
+      });
+    }
+
+    // Category Toggle Click
+    catToggleBtns.forEach(btn => {
+      btn.addEventListener('click', function(e) {
+        e.preventDefault();
+        const group = this.closest('.level-category-group');
+        if (!group) return;
+
+        const groupChips = group.querySelectorAll('.level-chip-btn');
+        const groupSelectedCount = group.querySelectorAll('.level-chip-btn.active').length;
+        const targetState = groupSelectedCount < groupChips.length;
+
+        const idsToToggle = new Set();
+        groupChips.forEach(chip => {
+          idsToToggle.add(String(chip.getAttribute('data-level-id')));
+        });
+
+        Array.from(nativeSelect.options).forEach(opt => {
+          if (idsToToggle.has(String(opt.value))) {
+            opt.selected = targetState;
+          }
+        });
+
+        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        syncUIFromNativeSelect();
+      });
+    });
+
+    // Master Select All
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        Array.from(nativeSelect.options).forEach(opt => opt.selected = true);
+        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        syncUIFromNativeSelect();
+      });
+    }
+
+    // Master Clear All
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        Array.from(nativeSelect.options).forEach(opt => opt.selected = false);
+        nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        syncUIFromNativeSelect();
+      });
+    }
+
+    // Real-Time Filter / Search
+    if (searchInput) {
+      searchInput.addEventListener('input', function() {
+        const q = this.value.trim().toLowerCase();
+        if (searchClearBtn) {
+          searchClearBtn.classList.toggle('d-none', q.length === 0);
+        }
+
+        let totalVisibleCategories = 0;
+
+        categoryGroups.forEach(group => {
+          let visibleInGroup = 0;
+          const chips = group.querySelectorAll('.level-chip-btn');
+
+          chips.forEach(chip => {
+            const name = chip.getAttribute('data-level-name') || '';
+            const matches = !q || name.includes(q);
+            chip.style.display = matches ? 'inline-flex' : 'none';
+            if (matches) visibleInGroup++;
+          });
+
+          group.style.display = (visibleInGroup > 0) ? 'block' : 'none';
+          if (visibleInGroup > 0) totalVisibleCategories++;
+        });
+
+        if (noFoundNotice) {
+          const noMatch = (totalVisibleCategories === 0 && q.length > 0);
+          noFoundNotice.classList.toggle('d-none', !noMatch);
+          if (searchQueryDisplay) searchQueryDisplay.textContent = this.value;
+        }
+      });
+
+      if (searchClearBtn) {
+        searchClearBtn.addEventListener('click', function() {
+          searchInput.value = '';
+          searchInput.dispatchEvent(new Event('input'));
+          searchInput.focus();
+        });
+      }
+    }
+
+    // Initial Sync
+    syncUIFromNativeSelect();
   });
 }());
 </script>
