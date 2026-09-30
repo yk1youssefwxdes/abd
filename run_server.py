@@ -29,7 +29,7 @@ from core.version import VERSION, APP_NAME
 ensure_data_directories()
 migrate_legacy_data()
 
-JS_SERVER_NAME = "dev-server.js"
+JS_SERVER_NAME = "server.js"
 
 # ---------------------------------------------------------------------------
 # Runtime discovery helpers (Commercial Bundled vs. Local Development)

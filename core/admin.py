@@ -1,3 +1,4 @@
+from core.utils import get_setting
 from django.contrib import admin
 from django.utils.html import format_html
 from django.utils.safestring import mark_safe
@@ -35,46 +36,11 @@ class TonarozAdminSite(UnfoldAdminSite):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.site_header = getattr(settings, 'SCHOOL_NAME', "Afnane center")
-        self.site_title = f"Admin {getattr(settings, 'SCHOOL_NAME', 'Afnane center')}"
+        self.site_header = get_setting('SCHOOL_NAME')
+        self.site_title = f"Admin {get_setting('SCHOOL_NAME')}"
 
     def get_urls(self):
         analytics_urls = [
-            path(
-                'analytics/dashboard/',
-                self.admin_view(self._analytics_dashboard),
-                name='analytics_dashboard',
-            ),
-            path(
-                'analytics/revenue/',
-                self.admin_view(self._analytics_revenue),
-                name='analytics_revenue',
-            ),
-            path(
-                'analytics/attendance/',
-                self.admin_view(self._analytics_attendance),
-                name='analytics_attendance',
-            ),
-            path(
-                'analytics/students/',
-                self.admin_view(self._analytics_students),
-                name='analytics_students',
-            ),
-            path(
-                'analytics/operational/',
-                self.admin_view(self._analytics_operational),
-                name='analytics_operational',
-            ),
-            path(
-                'analytics/rooms/',
-                self.admin_view(self._analytics_rooms),
-                name='analytics_rooms',
-            ),
-            path(
-                'analytics/teachers/',
-                self.admin_view(self._analytics_teachers),
-                name='analytics_teachers',
-            ),
             path(
                 'message-templates/',
                 self.admin_view(self._message_templates),
@@ -82,113 +48,6 @@ class TonarozAdminSite(UnfoldAdminSite):
             ),
         ]
         return analytics_urls + super().get_urls()
-
-    def _analytics_dashboard(self, request):
-        from core.analytics import director_dashboard
-        context = {**self.each_context(request), **director_dashboard()}
-        return render(request, 'admin/analytics_dashboard.html', context)
-
-    def _analytics_revenue(self, request):
-        from core.analytics import RevenueAnalytics
-        months = int(request.GET.get('months', 3))
-        context = {
-            **self.each_context(request),
-            'monthly_series': RevenueAnalytics.monthly_series(months),
-            'ytd': RevenueAnalytics.ytd_summary(),
-            'by_group': RevenueAnalytics.revenue_by_course_group(),
-            'methods': RevenueAnalytics.payment_method_breakdown(),
-            'current_month': RevenueAnalytics.current_month_summary(),
-            'months': months,
-        }
-        return render(request, 'admin/analytics_revenue.html', context)
-
-    def _analytics_attendance(self, request):
-        from core.analytics import AttendanceAnalytics
-        from datetime import datetime, date
-        today = date.today()
-        start_str = request.GET.get('start_date', today.replace(day=1).isoformat())
-        end_str   = request.GET.get('end_date',   today.isoformat())
-        try:
-            start = datetime.strptime(start_str, '%Y-%m-%d').date()
-        except ValueError:
-            start = today.replace(day=1)
-        try:
-            end = datetime.strptime(end_str, '%Y-%m-%d').date()
-        except ValueError:
-            end = today
-        context = {
-            **self.each_context(request),
-            'students': AttendanceAnalytics.student_absence_summary(start, end),
-            'weekly':   AttendanceAnalytics.weekly_trend(),
-            'groups':   AttendanceAnalytics.group_attendance_matrix(start.replace(day=1)),
-            'heatmap':  AttendanceAnalytics.daily_absence_heatmap(start.replace(day=1)),
-            'start_date': start_str,
-            'end_date':   end_str,
-        }
-        return render(request, 'admin/analytics_attendance.html', context)
-
-    def _analytics_students(self, request):
-        from core.analytics import StudentAnalytics
-        context = {
-            **self.each_context(request),
-            'enrollment_trend': StudentAnalytics.enrollment_trend(),
-            'churn':            StudentAnalytics.churn_signals(),
-            'level_dist':       StudentAnalytics.level_distribution(),
-            'enroll_stats':     StudentAnalytics.enrollment_stats(),
-            'multi_group':      StudentAnalytics.multi_group_students(),
-        }
-        return render(request, 'admin/analytics_students.html', context)
-
-    def _analytics_operational(self, request):
-        from core.analytics import OperationalAnalytics
-        context = {
-            **self.each_context(request),
-            'completion':    OperationalAnalytics.session_completion_rate(months=6),
-            'cancellations': OperationalAnalytics.cancellation_reasons_by_group(),
-            'uncompleted':   OperationalAnalytics.uncompleted_sessions(),
-            'health':        OperationalAnalytics.scheduling_health(),
-        }
-        return render(request, 'admin/analytics_operational.html', context)
-
-    def _analytics_rooms(self, request):
-        from core.analytics import RoomAnalytics
-        context = {
-            **self.each_context(request),
-            'occupancy':   RoomAnalytics.occupancy_summary(),
-            'peak_hours':  RoomAnalytics.peak_hour_matrix(),
-            'class_sizes': RoomAnalytics.class_size_distribution(),
-            'class_usage': RoomAnalytics.class_usage_list(),
-        }
-        return render(request, 'admin/analytics_rooms.html', context)
-
-    def _analytics_teachers(self, request):
-        from core.analytics import TeacherAnalytics
-        from datetime import date
-        today = date.today()
-        month_start = today.replace(day=1)
-        
-        start_str = request.GET.get('start_date', month_start.isoformat())
-        end_str = request.GET.get('end_date', today.isoformat())
-        
-        from datetime import datetime
-        try:
-            start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
-        except ValueError:
-            start_date = month_start
-        try:
-            end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
-        except ValueError:
-            end_date = today
-            
-        context = {
-            **self.each_context(request),
-            'payroll': TeacherAnalytics.payroll_summary(start_date, end_date),
-            'load': TeacherAnalytics.weekly_load(),
-            'subs': TeacherAnalytics.substitution_rate(),
-            'start_date': start_str,
-            'end_date': end_str,
-        }
-        return render(request, 'admin/analytics_teachers.html', context)
 
     def _message_templates(self, request):
         import os

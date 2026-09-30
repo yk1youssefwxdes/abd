@@ -5451,11 +5451,11 @@ from core.analytics import (
     ReportExporter,
 )
 
-@staff_member_required
-def analytics_dashboard(request):
-    """Main analytics hub dashboard."""
-    data = director_dashboard()
-    return render(request, 'core/analytics_dashboard.html', data)
+# @staff_member_required
+# def analytics_dashboard(request):
+#     """Main analytics hub dashboard."""
+#     data = director_dashboard()
+#     return render(request, 'core/analytics_dashboard.html', data)
 
 
 @staff_member_required
@@ -5476,175 +5476,175 @@ def analytics_revenue(request):
     return render(request, 'core/analytics_revenue.html', context)
 
 
-@staff_member_required
-def analytics_attendance(request):
-    """Weekly trends, daily absence heatmaps, student at-risk risk scoring and WhatsApp follow-up."""
-    today = date.today()
-    start_str = request.GET.get('start_date', today.replace(day=1).isoformat())
-    end_str = request.GET.get('end_date', today.isoformat())
-    from datetime import datetime
-    try:
-        start = datetime.strptime(start_str, '%Y-%m-%d').date()
-    except ValueError:
-        start = today.replace(day=1)
-    try:
-        end = datetime.strptime(end_str, '%Y-%m-%d').date()
-    except ValueError:
-        end = today
-    context = {
-        'students': AttendanceAnalytics.student_absence_summary(start, end),
-        'weekly': AttendanceAnalytics.weekly_trend(),
-        'groups': AttendanceAnalytics.group_attendance_matrix(start.replace(day=1)),
-        'heatmap': AttendanceAnalytics.daily_absence_heatmap(start.replace(day=1)),
-        'start_date': start_str,
-        'end_date': end_str,
-    }
-    return render(request, 'core/analytics_attendance.html', context)
+# @staff_member_required
+# def analytics_attendance(request):
+#     """Weekly trends, daily absence heatmaps, student at-risk risk scoring and WhatsApp follow-up."""
+#     today = date.today()
+#     start_str = request.GET.get('start_date', today.replace(day=1).isoformat())
+#     end_str = request.GET.get('end_date', today.isoformat())
+#     from datetime import datetime
+#     try:
+#         start = datetime.strptime(start_str, '%Y-%m-%d').date()
+#     except ValueError:
+#         start = today.replace(day=1)
+#     try:
+#         end = datetime.strptime(end_str, '%Y-%m-%d').date()
+#     except ValueError:
+#         end = today
+#     context = {
+#         'students': AttendanceAnalytics.student_absence_summary(start, end),
+#         'weekly': AttendanceAnalytics.weekly_trend(),
+#         'groups': AttendanceAnalytics.group_attendance_matrix(start.replace(day=1)),
+#         'heatmap': AttendanceAnalytics.daily_absence_heatmap(start.replace(day=1)),
+#         'start_date': start_str,
+#         'end_date': end_str,
+#     }
+#     return render(request, 'core/analytics_attendance.html', context)
 
 
-@staff_member_required
-def analytics_operational(request):
-    """Scheduled vs completed session rates, cancellation details, past planned sessions, scheduling conflicts and system health score."""
-    context = {
-        'completion': OperationalAnalytics.session_completion_rate(months=6),
-        'cancellations': OperationalAnalytics.cancellation_reasons_by_group(),
-        'uncompleted': OperationalAnalytics.uncompleted_sessions(),
-        'health': OperationalAnalytics.scheduling_health(),
-    }
-    return render(request, 'core/analytics_operational.html', context)
+# @staff_member_required
+# def analytics_operational(request):
+#     """Scheduled vs completed session rates, cancellation details, past planned sessions, scheduling conflicts and system health score."""
+#     context = {
+#         'completion': OperationalAnalytics.session_completion_rate(months=6),
+#         'cancellations': OperationalAnalytics.cancellation_reasons_by_group(),
+#         'uncompleted': OperationalAnalytics.uncompleted_sessions(),
+#         'health': OperationalAnalytics.scheduling_health(),
+#     }
+#     return render(request, 'core/analytics_operational.html', context)
 
 
-@staff_member_required
-def analytics_students(request):
-    """Enrollment trends, student levels distribution and active warning triggers/signals."""
-    context = {
-        'enrollment_trend': StudentAnalytics.enrollment_trend(),
-        'churn': StudentAnalytics.churn_signals(),
-        'level_dist': StudentAnalytics.level_distribution(),
-        'enroll_stats': StudentAnalytics.enrollment_stats(),
-        'multi_group': StudentAnalytics.multi_group_students(),
-    }
-    return render(request, 'core/analytics_students.html', context)
+# @staff_member_required
+# def analytics_students(request):
+#     """Enrollment trends, student levels distribution and active warning triggers/signals."""
+#     context = {
+#         'enrollment_trend': StudentAnalytics.enrollment_trend(),
+#         'churn': StudentAnalytics.churn_signals(),
+#         'level_dist': StudentAnalytics.level_distribution(),
+#         'enroll_stats': StudentAnalytics.enrollment_stats(),
+#         'multi_group': StudentAnalytics.multi_group_students(),
+#     }
+#     return render(request, 'core/analytics_students.html', context)
 
 
-@staff_member_required
-def analytics_rooms(request):
-    """Classroom occupancy, capacity utilization rates, and scheduling density."""
-    from core.analytics import RoomAnalytics
-    from core.models import Room
-    from datetime import date
-    from django.utils import timezone
+# @staff_member_required
+# def analytics_rooms(request):
+#     """Classroom occupancy, capacity utilization rates, and scheduling density."""
+#     from core.analytics import RoomAnalytics
+#     from core.models import Room
+#     from datetime import date
+#     from django.utils import timezone
     
-    today = timezone.now().date()
-    month_start = today.replace(day=1)
+#     today = timezone.now().date()
+#     month_start = today.replace(day=1)
     
-    start_str = request.GET.get('start_date', month_start.isoformat())
-    end_str = request.GET.get('end_date', today.isoformat())
+#     start_str = request.GET.get('start_date', month_start.isoformat())
+#     end_str = request.GET.get('end_date', today.isoformat())
     
-    from datetime import datetime
-    try:
-        start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
-    except ValueError:
-        start_date = month_start
-    try:
-        end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
-    except ValueError:
-        end_date = today
+#     from datetime import datetime
+#     try:
+#         start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+#     except ValueError:
+#         start_date = month_start
+#     try:
+#         end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+#     except ValueError:
+#         end_date = today
 
-    rooms_list = list(Room.objects.filter(is_active=True).order_by('name'))
-    selected_room_id = request.GET.get('room_id')
+#     rooms_list = list(Room.objects.filter(is_active=True).order_by('name'))
+#     selected_room_id = request.GET.get('room_id')
     
-    selected_room = None
-    if selected_room_id:
-        try:
-            selected_room = Room.objects.filter(id=int(selected_room_id)).first()
-        except ValueError:
-            pass
-    if not selected_room and rooms_list:
-        selected_room = rooms_list[0]
+#     selected_room = None
+#     if selected_room_id:
+#         try:
+#             selected_room = Room.objects.filter(id=int(selected_room_id)).first()
+#         except ValueError:
+#             pass
+#     if not selected_room and rooms_list:
+#         selected_room = rooms_list[0]
 
-    room_stats = {}
-    if selected_room:
-        room_stats = RoomAnalytics.utilization_dashboard_stats(selected_room, start_date, end_date)
+#     room_stats = {}
+#     if selected_room:
+#         room_stats = RoomAnalytics.utilization_dashboard_stats(selected_room, start_date, end_date)
 
-    day_names = {
-        'MON': 'Lundi', 'TUE': 'Mardi', 'WED': 'Mercredi', 'THU': 'Jeudi',
-        'FRI': 'Vendredi', 'SAT': 'Samedi', 'SUN': 'Dimanche'
-    }
+#     day_names = {
+#         'MON': 'Lundi', 'TUE': 'Mardi', 'WED': 'Mercredi', 'THU': 'Jeudi',
+#         'FRI': 'Vendredi', 'SAT': 'Samedi', 'SUN': 'Dimanche'
+#     }
 
-    context = {
-        'occupancy': RoomAnalytics.occupancy_summary(),
-        'peak_hours': RoomAnalytics.peak_hour_matrix(),
-        'class_sizes': RoomAnalytics.class_size_distribution(),
-        'class_usage': RoomAnalytics.class_usage_list(),
-        'start_date': start_str,
-        'end_date': end_str,
-        'rooms_list': rooms_list,
-        'selected_room': selected_room,
-        'room_stats': room_stats,
-        'day_names': day_names
-    }
-    return render(request, 'core/analytics_rooms.html', context)
+#     context = {
+#         'occupancy': RoomAnalytics.occupancy_summary(),
+#         'peak_hours': RoomAnalytics.peak_hour_matrix(),
+#         'class_sizes': RoomAnalytics.class_size_distribution(),
+#         'class_usage': RoomAnalytics.class_usage_list(),
+#         'start_date': start_str,
+#         'end_date': end_str,
+#         'rooms_list': rooms_list,
+#         'selected_room': selected_room,
+#         'room_stats': room_stats,
+#         'day_names': day_names
+#     }
+#     return render(request, 'core/analytics_rooms.html', context)
 
 
-@staff_member_required
-def analytics_teachers(request):
-    """Teacher payroll list, workload factors, and dashboards."""
-    from core.analytics import TeacherAnalytics
-    from core.models import Teacher
-    from datetime import date
-    from django.utils import timezone
+# @staff_member_required
+# def analytics_teachers(request):
+#     """Teacher payroll list, workload factors, and dashboards."""
+#     from core.analytics import TeacherAnalytics
+#     from core.models import Teacher
+#     from datetime import date
+#     from django.utils import timezone
     
-    today = timezone.now().date()
-    month_start = today.replace(day=1)
+#     today = timezone.now().date()
+#     month_start = today.replace(day=1)
     
-    start_str = request.GET.get('start_date', month_start.isoformat())
-    end_str = request.GET.get('end_date', today.isoformat())
+#     start_str = request.GET.get('start_date', month_start.isoformat())
+#     end_str = request.GET.get('end_date', today.isoformat())
     
-    from datetime import datetime
-    try:
-        start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
-    except ValueError:
-        start_date = month_start
-    try:
-        end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
-    except ValueError:
-        end_date = today
+#     from datetime import datetime
+#     try:
+#         start_date = datetime.strptime(start_str, '%Y-%m-%d').date()
+#     except ValueError:
+#         start_date = month_start
+#     try:
+#         end_date = datetime.strptime(end_str, '%Y-%m-%d').date()
+#     except ValueError:
+#         end_date = today
 
-    teachers_list = list(Teacher.objects.filter(is_active=True).order_by('name'))
-    selected_teacher_id = request.GET.get('teacher_id')
+#     teachers_list = list(Teacher.objects.filter(is_active=True).order_by('name'))
+#     selected_teacher_id = request.GET.get('teacher_id')
     
-    selected_teacher = None
-    if selected_teacher_id:
-        try:
-            selected_teacher = Teacher.objects.filter(id=int(selected_teacher_id)).first()
-        except ValueError:
-            pass
-    if not selected_teacher and teachers_list:
-        selected_teacher = teachers_list[0]
+#     selected_teacher = None
+#     if selected_teacher_id:
+#         try:
+#             selected_teacher = Teacher.objects.filter(id=int(selected_teacher_id)).first()
+#         except ValueError:
+#             pass
+#     if not selected_teacher and teachers_list:
+#         selected_teacher = teachers_list[0]
 
-    teacher_stats = {}
-    if selected_teacher:
-        teacher_stats = TeacherAnalytics.workload_dashboard_stats(selected_teacher, start_date, end_date)
+#     teacher_stats = {}
+#     if selected_teacher:
+#         teacher_stats = TeacherAnalytics.workload_dashboard_stats(selected_teacher, start_date, end_date)
 
-    day_names = {
-        'MON': 'Lundi', 'TUE': 'Mardi', 'WED': 'Mercredi', 'THU': 'Jeudi',
-        'FRI': 'Vendredi', 'SAT': 'Samedi', 'SUN': 'Dimanche'
-    }
+#     day_names = {
+#         'MON': 'Lundi', 'TUE': 'Mardi', 'WED': 'Mercredi', 'THU': 'Jeudi',
+#         'FRI': 'Vendredi', 'SAT': 'Samedi', 'SUN': 'Dimanche'
+#     }
 
-    context = {
-        'payroll': TeacherAnalytics.payroll_summary(start_date, end_date),
-        'load': TeacherAnalytics.weekly_load(),
-        'subs': TeacherAnalytics.substitution_rate(),
-        'start_date': start_str,
-        'end_date': end_str,
-        'teachers_list': teachers_list,
-        'selected_teacher': selected_teacher,
-        'teacher_stats': teacher_stats,
-        'day_names': day_names
-    }
+#     context = {
+#         'payroll': TeacherAnalytics.payroll_summary(start_date, end_date),
+#         'load': TeacherAnalytics.weekly_load(),
+#         'subs': TeacherAnalytics.substitution_rate(),
+#         'start_date': start_str,
+#         'end_date': end_str,
+#         'teachers_list': teachers_list,
+#         'selected_teacher': selected_teacher,
+#         'teacher_stats': teacher_stats,
+#         'day_names': day_names
+#     }
 
-    return render(request, 'core/analytics_teachers.html', context)
+#     return render(request, 'core/analytics_teachers.html', context)
 
 
 

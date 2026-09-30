@@ -186,13 +186,13 @@ urlpatterns = [
     path('analytics/attendance/', views.attendance_analytics, name='attendance_analytics'),
 
     # New Analytics & Reporting Dashboard views
-    path('analytics/dashboard/', views.analytics_dashboard, name='analytics_dashboard'),
+#     path('analytics/dashboard/', views.analytics_dashboard, name='analytics_dashboard'),
     path('analytics/revenue/', views.analytics_revenue, name='analytics_revenue'),
-    path('analytics/attendance-report/', views.analytics_attendance, name='analytics_attendance'),
-    path('analytics/operational/', views.analytics_operational, name='analytics_operational'),
-    path('analytics/students/', views.analytics_students, name='analytics_students'),
-    path('analytics/rooms/', views.analytics_rooms, name='analytics_rooms'),
-    path('analytics/teachers/', views.analytics_teachers, name='analytics_teachers'),
+#     path('analytics/attendance-report/', views.analytics_attendance, name='analytics_attendance'),
+#     path('analytics/operational/', views.analytics_operational, name='analytics_operational'),
+#     path('analytics/students/', views.analytics_students, name='analytics_students'),
+#     path('analytics/rooms/', views.analytics_rooms, name='analytics_rooms'),
+#     path('analytics/teachers/', views.analytics_teachers, name='analytics_teachers'),
 
     # PDF/CSV Dynamic Export URLs
     path('analytics/export/revenue/pdf/', views.export_revenue_pdf, name='export_revenue_pdf'),

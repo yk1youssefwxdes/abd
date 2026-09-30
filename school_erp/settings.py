@@ -316,47 +316,17 @@ UNFOLD = {
                     }
                 ],
             },
-            {
-                "title": "Analytiques & Rapports",
-                "separator": True,
-                "items": [
-                    {
-                        "title": "Cockpit Directeur",
-                        "icon": "dashboard",
-                        "link": reverse_lazy("admin:analytics_dashboard"),
-                    },
-                    {
-                        "title": "Analyse de Revenus",
-                        "icon": "payments",
-                        "link": reverse_lazy("admin:analytics_revenue"),
-                    },
-                    {
-                        "title": "Suivi des Absences",
-                        "icon": "fact_check",
-                        "link": reverse_lazy("admin:analytics_attendance"),
-                    },
-                    {
-                        "title": "Rétention & Départs",
-                        "icon": "trending_down",
-                        "link": reverse_lazy("admin:analytics_students"),
-                    },
-                    {
-                        "title": "Occupation des Salles",
-                        "icon": "meeting_room",
-                        "link": reverse_lazy("admin:analytics_rooms"),
-                    },
-                    {
-                        "title": "Paie Enseignants",
-                        "icon": "calculate",
-                        "link": reverse_lazy("admin:analytics_teachers"),
-                    },
-                    {
-                        "title": "Santé Opérationnelle",
-                        "icon": "analytics",
-                        "link": reverse_lazy("admin:analytics_operational"),
-                    }
-                ],
-            }
+            # {
+            #     "title": "Analytiques & Rapports",
+            #     "separator": True,
+            #     "items": [
+            #         # {
+            #         #     "title": "Analyse de Revenus",
+            #         #     "icon": "payments",
+            #         #     "link": reverse_lazy("admin:analytics_revenue"),
+            #         # }
+            #     ],
+            # }
         ],
     },
 }

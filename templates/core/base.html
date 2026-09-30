@@ -73,16 +73,11 @@
           <span class="nav-label-text">Caisse</span>
         </a>
 
-        <a class="nav-item-link {% active_if 'expense_list' %}"
-          href="{% url 'core:expense_list' %}" title="Dépenses">
-          <i class="bi bi-receipt" aria-hidden="true"></i>
-          <span class="nav-label-text">Dépenses</span>
-        </a>
 
         <a class="nav-item-link {% active_if 'sessions_today' 'session_attendance' %}"
           href="{% url 'core:sessions_today' %}" title="Sessions du jour" style="position:relative;">
           <i class="bi bi-calendar2-event-fill" aria-hidden="true"></i>
-          <span class="nav-label-text">Sessions du jour</span>
+          <span class="nav-label-text">Sessions</span>
           {% if past_uncompleted_count %}
           <span class="nav-badge-danger nav-badge-sm">{{ past_uncompleted_count }}</span>
           <span class="visually-hidden">séances passées non traitées</span>
@@ -98,7 +93,7 @@
             title="Planification" aria-haspopup="true" aria-expanded="false" aria-controls="planning-menu">
             <i class="bi bi-calendar3" aria-hidden="true"></i>
             <span class="nav-label-text">Planning</span>
-            <i class="bi bi-chevron-down" style="font-size: 0.9em;" aria-hidden="true"></i>
+            <i class="bi bi-chevron-down nav-chevron" aria-hidden="true"></i>
             {% if conflict_count > 0 %}
             <span class="nav-badge-danger nav-badge-sm">{{ conflict_count }}</span>
             <span class="visually-hidden">conflits en attente</span>
@@ -124,7 +119,6 @@
               href="{% url 'core:session_exceptions_list' %}">
               <i class="bi bi-slash-circle" style="color: var(--danger);" aria-hidden="true"></i> Exceptions de séances
             </a>
-
           </div>
         </div>
 
@@ -135,7 +129,7 @@
             title="Pédagogie" aria-haspopup="true" aria-expanded="false" aria-controls="pedagogie-menu">
             <i class="bi bi-mortarboard-fill" aria-hidden="true"></i>
             <span class="nav-label-text">Pédagogie</span>
-            <i class="bi bi-chevron-down" style="font-size: 0.9em;" aria-hidden="true"></i>
+            <i class="bi bi-chevron-down nav-chevron" aria-hidden="true"></i>
           </button>
           <div class="nav-dropdown-menu" id="pedagogie-menu">
             <a class="nav-dropdown-item {% active_if 'courses_list' %}" href="{% url 'core:courses_list' %}">
@@ -144,18 +138,11 @@
             <a class="nav-dropdown-item {% active_if 'levels_list' %}" href="{% url 'core:levels_list' %}">
               <i class="bi bi-layers-fill" style="color: var(--info);" aria-hidden="true"></i> Niveaux scolaires
             </a>
-            {% comment %} <a class="nav-dropdown-item {% active_if 'level_categories_list' %}"
-              href="{% url 'core:level_categories_list' %}">
-              <i class="bi bi-diagram-3-fill" style="color: #6366f1;" aria-hidden="true"></i> Catégories de niveaux
-            </a> {% endcomment %}
             <div class="dropdown-divider"></div>
             <a class="nav-dropdown-item {% active_if 'teachers_list' 'teacher_detail' %}"
               href="{% url 'core:teachers_list' %}">
               <i class="bi bi-person-workspace" style="color: var(--success);" aria-hidden="true"></i> Professeurs
             </a>
-            {% comment %} <a class="nav-dropdown-item {% active_if 'rooms_list' %}" href="{% url 'core:rooms_list' %}">
-              <i class="bi bi-door-open-fill" style="color: var(--warning);" aria-hidden="true"></i> Salles
-            </a> {% endcomment %}
             <a class="nav-dropdown-item {% active_if 'teacher_payroll' %}" href="{% url 'core:teacher_payroll' %}">
               <i class="bi bi-calculator-fill" style="color: var(--danger);" aria-hidden="true"></i> Paie professeurs
             </a>
@@ -169,9 +156,58 @@
           </div>
         </div>
 
-        <!-- WhatsApp Dropdown -->
-        <!-- WhatsApp Dashboard Button -->
-        <a class="nav-item-link {% active_if 'whatsapp_dashboard' 'whatsapp_payment_reminders' 'whatsapp_absence_notifications' 'whatsapp_bulk_announcements' %}"
+        <!-- Finances Dropdown (Revenus, Caisse, Dépenses, Paie) -->
+        <div class="nav-dropdown">
+          <button type="button"
+            class="nav-item-link nav-finances-btn {% active_if 'analytics_revenue' 'expense_list' %}"
+            title="Finances" aria-haspopup="true" aria-expanded="false" aria-controls="finances-menu">
+            <i class="bi bi-coin" aria-hidden="true"></i>
+            <span class="nav-label-text">Finances</span>
+            <i class="bi bi-chevron-down nav-chevron" aria-hidden="true"></i>
+          </button>
+          <div class="nav-dropdown-menu nav-dropdown-menu--wide" id="finances-menu">
+
+            <!-- Section: Encaissements -->
+            <div class="nav-dropdown-section-label">Encaissements</div>
+            <a class="nav-dropdown-item {% active_if 'payment_create' %}" href="{% url 'core:payment_create' %}">
+              <span class="nav-dropdown-icon" style="background:#d1fae5;"><i class="bi bi-cash-coin" style="color:#059669;"></i></span>
+              <span>
+                <span class="nav-dropdown-item-title">Caisse</span>
+                <span class="nav-dropdown-item-sub">Enregistrer un paiement</span>
+              </span>
+            </a>
+            <a class="nav-dropdown-item {% active_if 'analytics_revenue' %}" href="{% url 'core:analytics_revenue' %}">
+              <span class="nav-dropdown-icon" style="background:#e0e7ff;"><i class="bi bi-bar-chart-line-fill" style="color:#4f46e5;"></i></span>
+              <span>
+                <span class="nav-dropdown-item-title">Analyse des revenus</span>
+                <span class="nav-dropdown-item-sub">Résultat net, marges, recouvrement</span>
+              </span>
+            </a>
+
+            <div class="dropdown-divider"></div>
+
+            <!-- Section: Charges -->
+            <div class="nav-dropdown-section-label">Charges</div>
+            <a class="nav-dropdown-item {% active_if 'expense_list' %}" href="{% url 'core:expense_list' %}">
+              <span class="nav-dropdown-icon" style="background:#fee2e2;"><i class="bi bi-receipt-cutoff" style="color:#dc2626;"></i></span>
+              <span>
+                <span class="nav-dropdown-item-title">Dépenses</span>
+                <span class="nav-dropdown-item-sub">Charges, loyer, fournitures…</span>
+              </span>
+            </a>
+            <a class="nav-dropdown-item {% active_if 'teacher_payroll' %}" href="{% url 'core:teacher_payroll' %}">
+              <span class="nav-dropdown-icon" style="background:#ede9fe;"><i class="bi bi-person-check-fill" style="color:#7c3aed;"></i></span>
+              <span>
+                <span class="nav-dropdown-item-title">Paie enseignants</span>
+                <span class="nav-dropdown-item-sub">Salaires &amp; versements</span>
+              </span>
+            </a>
+
+          </div>
+        </div>
+
+        <!-- WhatsApp Button -->
+        <a class="nav-item-link nav-item-whatsapp {% active_if 'whatsapp_dashboard' 'whatsapp_payment_reminders' 'whatsapp_absence_notifications' 'whatsapp_bulk_announcements' %}"
           href="{% url 'core:whatsapp_dashboard' %}" title="WhatsApp Dashboard" id="whatsappBtn">
           <i class="bi bi-whatsapp" style="position: relative;" aria-hidden="true">
             {% if whatsapp_connected %}
@@ -187,58 +223,12 @@
         </a>
 
         {% if user.is_staff %}
-        <a class="nav-item-link {% active_if 'system_settings' %}" href="{% url 'core:system_settings' %}"
+        <a class="nav-item-link nav-item-settings {% active_if 'system_settings' %}" href="{% url 'core:system_settings' %}"
           title="Paramètres du système">
           <i class="bi bi-sliders" aria-hidden="true"></i>
           <span class="nav-label-text">Paramètres</span>
         </a>
         {% endif %}
-
-
-        <!-- Analytiques & Rapports Dropdown -->
-        <div class="nav-dropdown">
-          <button type="button"
-            class="nav-item-link {% active_if 'analytics_dashboard' 'analytics_revenue' 'analytics_attendance' 'analytics_students' 'analytics_rooms' 'analytics_teachers' 'analytics_operational' 'admin_statistics' %}"
-            title="Analytiques & Rapports" aria-haspopup="true" aria-expanded="false" aria-controls="analytics-menu">
-            <i class="bi bi-bar-chart-line-fill" aria-hidden="true"></i>
-            <span class="nav-label-text">Analytiques</span>
-            <i class="bi bi-chevron-down" style="font-size: 0.9em;" aria-hidden="true"></i>
-          </button>
-          <div class="nav-dropdown-menu" id="analytics-menu">
-            <a class="nav-dropdown-item {% active_if 'analytics_dashboard' %}"
-              href="{% url 'core:analytics_dashboard' %}">
-              <i class="bi bi-speedometer2" style="color: var(--primary);" aria-hidden="true"></i> Cockpit Directeur
-            </a>
-            <a class="nav-dropdown-item {% active_if 'analytics_revenue' %}" href="{% url 'core:analytics_revenue' %}">
-              <i class="bi bi-cash-stack" style="color: var(--success);" aria-hidden="true"></i> Analyse de revenus
-            </a>
-            <a class="nav-dropdown-item {% active_if 'analytics_attendance' %}"
-              href="{% url 'core:analytics_attendance' %}">
-              <i class="bi bi-person-x-fill" style="color: var(--danger);" aria-hidden="true"></i> Suivi des absences
-            </a>
-            <a class="nav-dropdown-item {% active_if 'analytics_students' %}"
-              href="{% url 'core:analytics_students' %}">
-              <i class="bi bi-person-bounding-box" style="color: var(--info);" aria-hidden="true"></i> Rétention &
-              départs
-            </a>
-            <a class="nav-dropdown-item {% active_if 'analytics_rooms' %}" href="{% url 'core:analytics_rooms' %}">
-              <i class="bi bi-house-door" style="color: #6366f1;" aria-hidden="true"></i> Occupation des salles
-            </a>
-            <a class="nav-dropdown-item {% active_if 'analytics_teachers' %}"
-              href="{% url 'core:analytics_teachers' %}">
-              <i class="bi bi-calculator" style="color: #10b981;" aria-hidden="true"></i> Paie enseignants
-            </a>
-            <a class="nav-dropdown-item {% active_if 'analytics_operational' %}"
-              href="{% url 'core:analytics_operational' %}">
-              <i class="bi bi-activity" style="color: var(--warning);" aria-hidden="true"></i> Santé opérationnelle
-            </a>
-            <div class="dropdown-divider"></div>
-            <a class="nav-dropdown-item {% active_if 'admin_statistics' %}" href="{% url 'core:admin_statistics' %}">
-              <i class="bi bi-graph-up" style="color: var(--text-secondary);" aria-hidden="true"></i> Statistiques
-              générales
-            </a>
-          </div>
-        </div>
 
       </nav>
 
@@ -248,9 +238,10 @@
         <div class="navbar-search">
           <i class="bi bi-search navbar-search-icon" aria-hidden="true"></i>
           <label for="global-search" class="visually-hidden">Rechercher un élève</label>
-          <input type="text" id="global-search" class="navbar-search-input" placeholder="Ctrl+K — Rechercher…"
+          <input type="text" id="global-search" class="navbar-search-input" placeholder="Rechercher…"
             autocomplete="off" role="combobox" aria-expanded="false" aria-controls="global-search-results"
             aria-autocomplete="list">
+          <kbd class="navbar-search-kbd">Ctrl K</kbd>
           <div id="global-search-results" class="navbar-search-results" role="listbox"></div>
         </div>
 
@@ -288,10 +279,6 @@
       <a class="mobile-nav-link {% active_if 'payment_create' 'student_search' 'student_detail' %}"
         href="{% url 'core:payment_create' %}">
         <i class="bi bi-cash-coin" aria-hidden="true"></i> Caisse
-      </a>
-      <a class="mobile-nav-link {% active_if 'expense_list' %}"
-        href="{% url 'core:expense_list' %}">
-        <i class="bi bi-receipt" aria-hidden="true"></i> Dépenses
       </a>
       <a class="mobile-nav-link {% active_if 'sessions_today' 'session_attendance' %}"
         href="{% url 'core:sessions_today' %}">
@@ -335,11 +322,19 @@
       <a class="mobile-nav-link {% active_if 'teachers_list' 'teacher_detail' %}" href="{% url 'core:teachers_list' %}">
         <i class="bi bi-person-workspace" aria-hidden="true"></i> Professeurs
       </a>
-      {% comment %} <a class="mobile-nav-link {% active_if 'rooms_list' %}" href="{% url 'core:rooms_list' %}">
-        <i class="bi bi-door-open-fill" aria-hidden="true"></i> Salles
-      </a> {% endcomment %}
       <a class="mobile-nav-link {% active_if 'teacher_payroll' %}" href="{% url 'core:teacher_payroll' %}">
         <i class="bi bi-calculator-fill" aria-hidden="true"></i> Paie professeurs
+      </a>
+
+      <div class="mobile-nav-section-label">Finances</div>
+      <a class="mobile-nav-link {% active_if 'payment_create' %}" href="{% url 'core:payment_create' %}">
+        <i class="bi bi-cash-coin" aria-hidden="true"></i> Caisse
+      </a>
+      <a class="mobile-nav-link {% active_if 'analytics_revenue' %}" href="{% url 'core:analytics_revenue' %}">
+        <i class="bi bi-bar-chart-line-fill" aria-hidden="true"></i> Analyse des revenus
+      </a>
+      <a class="mobile-nav-link {% active_if 'expense_list' %}" href="{% url 'core:expense_list' %}">
+        <i class="bi bi-receipt-cutoff" aria-hidden="true"></i> Dépenses
       </a>
 
       <div class="mobile-nav-section-label">Communication</div>
@@ -359,34 +354,11 @@
         <i class="bi bi-megaphone-fill" aria-hidden="true"></i> Annonces groupées
       </a>
 
-      <div class="mobile-nav-section-label">Analytiques</div>
-      <a class="mobile-nav-link {% active_if 'analytics_dashboard' %}" href="{% url 'core:analytics_dashboard' %}">
-        <i class="bi bi-speedometer2" aria-hidden="true"></i> Cockpit Directeur
-      </a>
-      <a class="mobile-nav-link {% active_if 'analytics_revenue' %}" href="{% url 'core:analytics_revenue' %}">
-        <i class="bi bi-cash-stack" aria-hidden="true"></i> Analyse de revenus
-      </a>
-      <a class="mobile-nav-link {% active_if 'analytics_attendance' %}" href="{% url 'core:analytics_attendance' %}">
-        <i class="bi bi-person-x-fill" aria-hidden="true"></i> Suivi des absences
-      </a>
-      <a class="mobile-nav-link {% active_if 'analytics_students' %}" href="{% url 'core:analytics_students' %}">
-        <i class="bi bi-person-bounding-box" aria-hidden="true"></i> Rétention & départs
-      </a>
-      <a class="mobile-nav-link {% active_if 'analytics_rooms' %}" href="{% url 'core:analytics_rooms' %}">
-        <i class="bi bi-house-door" aria-hidden="true"></i> Occupation des salles
-      </a>
-      <a class="mobile-nav-link {% active_if 'analytics_teachers' %}" href="{% url 'core:analytics_teachers' %}">
-        <i class="bi bi-calculator" aria-hidden="true"></i> Paie enseignants
-      </a>
-      <a class="mobile-nav-link {% active_if 'analytics_operational' %}" href="{% url 'core:analytics_operational' %}">
-        <i class="bi bi-activity" aria-hidden="true"></i> Santé opérationnelle
-      </a>
-      <a class="mobile-nav-link {% active_if 'admin_statistics' %}" href="{% url 'core:admin_statistics' %}">
-        <i class="bi bi-graph-up" aria-hidden="true"></i> Statistiques générales
-      </a>
-
       <div class="mobile-nav-section-label">Système</div>
       {% if user.is_staff %}
+      <a class="mobile-nav-link {% active_if 'system_settings' %}" href="{% url 'core:system_settings' %}">
+        <i class="bi bi-sliders" aria-hidden="true"></i> Paramètres
+      </a>
       <a class="mobile-nav-link" href="/admin/" target="_blank" rel="noopener noreferrer">
         <i class="bi bi-gear-fill" aria-hidden="true"></i> Administration
       </a>
@@ -847,7 +819,8 @@
         { title: 'Groupes de cours', subtitle: 'Matières, niveaux et effectifs', icon: 'bi-book-fill', url: '{% url "core:courses_list" %}', category: 'nav', shortcut: '' },
         { title: 'Professeurs', subtitle: 'Corps enseignant et affectations', icon: 'bi-person-workspace', url: '{% url "core:teachers_list" %}', category: 'nav', shortcut: '' },
         { title: 'Paie professeurs', subtitle: 'Décompte des heures et rémunérations', icon: 'bi-calculator-fill', url: '{% url "core:teacher_payroll" %}', category: 'nav', shortcut: '' },
-        { title: 'Cockpit Directeur Analytique', subtitle: 'Analyses stratégiques et statistiques', icon: 'bi-graph-up-arrow', url: '{% url "core:analytics_dashboard" %}', category: 'nav', shortcut: '' }
+        { title: 'Analyse des revenus', subtitle: 'Résultat net, marges, recouvrement', icon: 'bi-bar-chart-line-fill', url: '{% url "core:analytics_revenue" %}', category: 'nav', shortcut: '' },
+        { title: 'Dépenses', subtitle: 'Gestion des charges et dépenses', icon: 'bi-receipt-cutoff', url: '{% url "core:expense_list" %}', category: 'nav', shortcut: '' },
       ];
 
       const actionItems = [
