@@ -71,9 +71,44 @@ else:
 _raw_hosts = os.environ.get('DJANGO_ALLOWED_HOSTS') or os.environ.get('ALLOWED_HOSTS', '*')
 ALLOWED_HOSTS = [h.strip() for h in _raw_hosts.split(',') if h.strip()]
 
-# Trusted origins for CSRF (required when served behind a proxy / on HTTPS).
+# Auto-detect local IP and hostname for seamless LAN access across devices
+try:
+    import socket
+    _hostname = socket.gethostname()
+    _local_ip = socket.gethostbyname(_hostname)
+    _discovered_hosts = {_hostname, _local_ip, '127.0.0.1', 'localhost', '0.0.0.0'}
+    try:
+        _, _, _all_ips = socket.gethostbyname_ex(_hostname)
+        _discovered_hosts.update(_all_ips)
+    except Exception:
+        pass
+    for _dh in _discovered_hosts:
+        if _dh and _dh not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_dh)
+except Exception:
+    pass
+
+# For local / desktop installations (non-cloud), ensure all LAN hosts work with wildcard
+_is_cloud = bool(os.environ.get('RAILWAY_PUBLIC_DOMAIN') or os.environ.get('RAILWAY_STATIC_URL'))
+if not _is_cloud and '*' not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append('*')
+
+# Trusted origins for CSRF (required when served behind a proxy / on HTTPS / LAN devices).
 _raw_csrf = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS') or os.environ.get('CSRF_TRUSTED_ORIGINS', '')
 CSRF_TRUSTED_ORIGINS = [o.strip() for o in _raw_csrf.split(',') if o.strip()]
+
+# Auto-add local LAN origins to CSRF trusted origins so all devices can log in smoothly
+try:
+    for _host in list(ALLOWED_HOSTS):
+        if _host and _host != '*':
+            for _scheme in ('http', 'https'):
+                for _port_suffix in (':8000', '', ':80', ':3000', ':8080'):
+                    _origin = f"{_scheme}://{_host}{_port_suffix}"
+                    if _origin not in CSRF_TRUSTED_ORIGINS:
+                        CSRF_TRUSTED_ORIGINS.append(_origin)
+except Exception:
+    pass
+
 
 # ── Railway / Cloud Automatic Host & CSRF Configuration ─────────────────────
 _railway_domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN') or os.environ.get('RAILWAY_STATIC_URL')
@@ -514,13 +549,16 @@ SITE_ID = 1
 # ever connect over HTTPS (HSTS).  Leave them here; your hosting env controls
 # whether they are active via the DJANGO_DEBUG env variable.
 if not DEBUG:
-    SECURE_SSL_REDIRECT = True          # redirect all HTTP → HTTPS
+    SECURE_SSL_REDIRECT = False          # redirect all HTTP → HTTPS
     SECURE_HSTS_SECONDS = 31536000      # 1 year HSTS header
-    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    SECURE_HSTS_PRELOAD = True
-    SESSION_COOKIE_SECURE = True        # session cookie over HTTPS only
-    CSRF_COOKIE_SECURE = True           # CSRF cookie over HTTPS only
-    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
+    SESSION_COOKIE_SECURE = False        # session cookie over HTTPS only
+    CSRF_COOKIE_SECURE = False           # CSRF cookie over HTTPS only
+    # SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'http')
+
+
+
 
 # Production Logging Configuration
 LOGGING = {

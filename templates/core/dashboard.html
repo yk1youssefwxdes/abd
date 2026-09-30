@@ -263,9 +263,16 @@
   }
 
   /* ── Responsive ──────────────────────────────────────────── */
+  @media (max-width: 1200px) {
+    .kpi-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+  }
+
   @media (max-width: 992px) {
     .kpi-grid {
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 16px;
     }
 
@@ -445,7 +452,7 @@
   <i class="bi bi-bar-chart-fill"></i> Statistiques du mois
 </div>
 
-<div class="kpi-grid">
+<div class="kpi-grid" style="grid-template-columns: repeat(4, 1fr);">
 
   <!-- Revenue this month -->
   <div class="kpi-card" style="--kpi-accent: #6366f1;">
@@ -472,10 +479,29 @@
     </div>
     <div class="kpi-value">{{ stats.counts.students }}</div>
     <div class="kpi-footer">
-      <i class="bi bi-book"></i>
-      <strong>{{ stats.counts.courses }}</strong> groupes&nbsp;&nbsp;
       <i class="bi bi-person-badge"></i>
-      <strong>{{ stats.counts.teachers }}</strong> professeurs
+      <strong>{{ stats.counts.teachers }}</strong> professeurs&nbsp;&nbsp;
+      <i class="bi bi-book"></i>
+      <strong>{{ stats.counts.courses }}</strong> groupes
+    </div>
+  </div>
+
+  <!-- Total active enrollments -->
+  <div class="kpi-card" style="--kpi-accent: #8b5cf6;">
+    <div class="kpi-top">
+      <div class="kpi-label">Inscriptions actives</div>
+      <div class="kpi-icon" style="background:#ede9fe;">
+        <i class="bi bi-journal-check" style="color:#8b5cf6;"></i>
+      </div>
+    </div>
+    <div class="kpi-value">{{ stats.counts.enrollments }}</div>
+    <div class="kpi-footer">
+      <i class="bi bi-graph-up"></i>
+      Moy.&nbsp;<strong>
+        {% if stats.counts.students %}
+          {% widthratio stats.counts.enrollments stats.counts.students 100 %}%&nbsp;inscrip./élève
+        {% else %}—{% endif %}
+      </strong>
     </div>
   </div>
 
@@ -496,6 +522,7 @@
   </a>
 
 </div>
+
 
 
 <!-- ── Red List ────────────────────────────────────────────────── -->

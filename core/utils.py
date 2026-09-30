@@ -7,7 +7,8 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.conf import settings
 from decimal import Decimal
-from datetime import date
+from datetime import date, timedelta, datetime
+from dateutil.relativedelta import relativedelta
 from typing import List, Dict, Tuple, Optional
 import calendar
 from io import BytesIO
@@ -280,14 +281,24 @@ def get_student_payment_status(student, month_date: Optional[date] = None) -> Di
         status__in=PAID_STATUSES
     ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
     
-    remaining = required - paid
+    has_completed_payment = Payment.objects.filter(
+        student=student,
+        month_covered=month_date,
+        status__in=PAID_STATUSES,
+        is_completed=True
+    ).exists()
     
-    if required > 0:
-        percentage = float((paid / required) * 100)
+    if has_completed_payment:
+        status = 'OK'
+        remaining = Decimal('0.00')
+        percentage = 100.0
     else:
-        percentage = 0.0
-    
-    status = calculate_payment_status(required, paid)
+        remaining = max(Decimal('0.00'), required - paid)
+        status = calculate_payment_status(required, paid)
+        if required > 0:
+            percentage = float((paid / required) * 100)
+        else:
+            percentage = 100.0
     
     return {
         'required': required,
@@ -351,17 +362,32 @@ def get_unpaid_students(month_date: Optional[date] = None) -> List[dict]:
     
     paid_map = {p['student_id']: p['total_paid'] for p in payments_summary}
 
+    completed_student_ids = set(
+        Payment.objects.filter(
+            month_covered=month_date,
+            status__in=PAID_STATUSES,
+            is_completed=True
+        ).values_list('student_id', flat=True)
+    )
+
     unpaid_students = []
 
     for student in students:
+        if student.id in completed_student_ids:
+            continue
+
         required = Decimal('0.00')
         for enrollment in student.active_enrollments:
             required += calculate_enrollment_expected_fee(enrollment, month_date)
 
+        # Students with no active enrollments or zero fees are not "impayés"
+        if required == Decimal('0.00'):
+            continue
+
         paid = paid_map.get(student.id, Decimal('0.00'))
         remaining = max(required - paid, Decimal('0'))
 
-        if paid >= required and required > 0:
+        if paid >= required:
             status = 'OK'
         elif paid > 0:
             status = 'PARTIAL'
@@ -413,6 +439,15 @@ def populate_student_payment_and_fee_info(students_list, month_date=None):
     ).values('student_id').annotate(total_paid=Sum('amount'))
     
     paid_map = {p['student_id']: p['total_paid'] for p in payments_summary}
+
+    completed_student_ids = set(
+        Payment.objects.filter(
+            student_id__in=student_ids,
+            month_covered=month_date,
+            status__in=PAID_STATUSES,
+            is_completed=True
+        ).values_list('student_id', flat=True)
+    )
     
     for student in students_list:
         active_enrollments = enrollments_by_student.get(student.id, [])
@@ -430,12 +465,17 @@ def populate_student_payment_and_fee_info(students_list, month_date=None):
             
         paid = paid_map.get(student.id, Decimal('0.00'))
         
-        status = calculate_payment_status(required, paid)
+        if student.id in completed_student_ids:
+            status = 'OK'
+            remaining = Decimal('0.00')
+        else:
+            status = calculate_payment_status(required, paid)
+            remaining = max(required - paid, Decimal('0.00'))
             
         student.computed_payment_status = status
         student.computed_paid = paid
         student.computed_required = required
-        student.computed_remaining = max(required - paid, Decimal('0.00'))
+        student.computed_remaining = remaining
 
 
 # ==================== CALCULS PROFESSEURS ====================
@@ -1521,7 +1561,7 @@ def get_dashboard_stats() -> Dict:
     """
     Génère toutes les statistiques pour le dashboard principal
     """
-    from .models import Student, Teacher, CourseGroup, Payment, Room, CourseGroupSchedule
+    from .models import Student, Teacher, CourseGroup, Payment, Room, CourseGroupSchedule, Enrollment
     
     today = timezone.now().date()
     current_month = today.replace(day=1)
@@ -1531,12 +1571,26 @@ def get_dashboard_stats() -> Dict:
     active_teachers = Teacher.objects.filter(is_active=True).count()
     active_courses = CourseGroup.objects.filter(is_active=True).count()
     active_rooms = Room.objects.filter(is_active=True).count()
+
+    # Total inscriptions actives (somme des inscriptions de tous les élèves actifs)
+    total_enrollments = Enrollment.objects.filter(
+        is_active=True,
+        student__is_active=True,
+    ).count()
     
     # Statistiques financières
     today_revenue = get_daily_revenue(today)
     month_revenue = get_monthly_revenue(today.year, today.month)
+
+    # Statistiques dépenses & résultat net
+    from .models import Expense
+    month_start = today.replace(day=1)
+    num_days = calendar.monthrange(today.year, today.month)[1]
+    month_end = today.replace(day=num_days)
+    month_expenses = Expense.objects.filter(expense_date__range=[month_start, month_end]).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+    today_expenses = Expense.objects.filter(expense_date=today).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
     
-    # Élèves impayés
+    # Élèves impayés (exclut les élèves sans frais et les dérogations is_completed)
     unpaid = get_unpaid_students(current_month)
     unpaid_count = len(unpaid)
     unpaid_amount = sum([u['remaining'] for u in unpaid])
@@ -1553,11 +1607,20 @@ def get_dashboard_stats() -> Dict:
             'students': active_students,
             'teachers': active_teachers,
             'courses': active_courses,
-            'rooms': active_rooms
+            'rooms': active_rooms,
+            'enrollments': total_enrollments,
         },
         'revenue': {
             'today': today_revenue,
             'month': month_revenue,
+        },
+        'expenses': {
+            'today': today_expenses,
+            'month': month_expenses,
+        },
+        'net_profit': {
+            'today': today_revenue - today_expenses,
+            'month': month_revenue - month_expenses,
         },
         'alerts': {
             'unpaid_count': unpaid_count,

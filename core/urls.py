@@ -81,6 +81,7 @@ urlpatterns = [
     path('schedule/conflicts/', views.schedule_conflicts, name='schedule_conflicts'),
     path('schedule/check-conflict/', views.check_conflict_ajax, name='check_conflict_ajax'),
     path('sessions/today/', views.sessions_today, name='sessions_today'),
+    path('sessions/complete-all-uncompleted/', views.sessions_complete_all_uncompleted, name='sessions_complete_all_uncompleted'),
     path('sessions/<int:session_id>/attendance/', views.session_attendance, name='session_attendance'),
     path('sessions/create/', views.session_create, name='session_create'),
     path('sessions/<int:session_id>/edit/', views.session_edit, name='session_edit'),
@@ -109,6 +110,13 @@ urlpatterns = [
     path('cashier/student-search/', views.student_search, name='student_search'),
     path('cashier/student-unpaid-search/', views.student_unpaid_search, name='student_unpaid_search'),
     path('cashier/student-detail/', views.student_detail, name='student_detail'),
+
+    # Expenses (Dépenses)
+    path('expenses/', views.expense_list, name='expense_list'),
+    path('expenses/create/', views.expense_create, name='expense_create'),
+    path('expenses/<int:expense_id>/update/', views.expense_update, name='expense_update'),
+    path('expenses/<int:expense_id>/delete/', views.expense_delete, name='expense_delete'),
+    path('expenses/export/csv/', views.expense_export_csv, name='expense_export_csv'),
     
     # Payroll
     path('payroll/teacher/', views.teacher_payroll, name='teacher_payroll'),

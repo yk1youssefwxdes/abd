@@ -837,6 +837,13 @@ class Payment(models.Model):
     # Verrou numérique : empêcher modification
     is_locked = models.BooleanField(default=False, verbose_name="Verrouillé")
     
+    # Exception : paiement considéré comme soldé pour ce mois même si partiel
+    is_completed = models.BooleanField(
+        default=False,
+        verbose_name="Soldé par exception",
+        help_text="Marqué comme soldé pour ce mois même si le montant perçu est inférieur au montant requis"
+    )
+    
     class Meta:
         verbose_name = "Paiement"
         verbose_name_plural = "Paiements"
@@ -1607,6 +1614,61 @@ class SystemSetting(models.Model):
 
     def __str__(self):
         return f"{self.label or self.key}: {self.value}"
+
+
+class ExpenseCategory(models.TextChoices):
+    RENT = 'RENT', 'Loyer & Charges'
+    UTILITIES = 'UTILITIES', 'Eau, Électricité & Internet'
+    SALARY = 'SALARY', 'Salaires & Primes du personnel'
+    SUPPLIES = 'SUPPLIES', 'Fournitures & Matériel pédagogique'
+    MAINTENANCE = 'MAINTENANCE', 'Entretien & Réparations'
+    MARKETING = 'MARKETING', 'Marketing & Publicité'
+    TEACHER_PAY = 'TEACHER_PAY', 'Frais & Avances professeurs'
+    REFUND = 'REFUND', 'Remboursement'
+    OTHER = 'OTHER', 'Autre dépense'
+
+
+class Expense(models.Model):
+    """Dépenses et charges de l'établissement"""
+    title = models.CharField(max_length=255, verbose_name="Libellé / Titre")
+    category = models.CharField(
+        max_length=30,
+        choices=ExpenseCategory.choices,
+        default=ExpenseCategory.OTHER,
+        verbose_name="Catégorie"
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        verbose_name="Montant (DH)"
+    )
+    expense_date = models.DateField(default=timezone.now, verbose_name="Date de dépense")
+    payment_method = models.CharField(
+        max_length=10,
+        choices=PaymentMethod.choices,
+        default=PaymentMethod.CASH,
+        verbose_name="Mode de règlement"
+    )
+    beneficiary = models.CharField(max_length=200, blank=True, verbose_name="Bénéficiaire / Fournisseur")
+    invoice_number = models.CharField(max_length=100, blank=True, verbose_name="N° Facture / Réf")
+    notes = models.TextField(blank=True, verbose_name="Remarques / Justificatif")
+    created_by = models.CharField(max_length=100, blank=True, verbose_name="Enregistré par")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Dépense"
+        verbose_name_plural = "Dépenses"
+        ordering = ['-expense_date', '-created_at']
+        indexes = [
+            models.Index(fields=['expense_date']),
+            models.Index(fields=['category']),
+            models.Index(fields=['payment_method']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} - {self.amount} DH ({self.expense_date})"
 
 
 

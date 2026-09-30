@@ -82,8 +82,11 @@ class RevenueAnalytics:
         today = date.today()
         rows = []
 
+        from core.models import Expense, TeacherPayment
+
         for i in range(months - 1, -1, -1):
             month_start = (today - relativedelta(months=i)).replace(day=1)
+            month_end = month_start + relativedelta(months=1) - timedelta(days=1)
 
             agg = Payment.objects.filter(
                 month_covered=month_start, status='PAID'
@@ -98,11 +101,10 @@ class RevenueAnalytics:
             unique_payers = agg['unique_payers'] or 0
 
             # Expected = enrolled students × price at that month
-            # Approximation: active enrollments as of today (good enough for trend)
             expected = (
                 Enrollment.objects.filter(
                     is_active=True,
-                    enrolled_date__lte=month_start + relativedelta(months=1) - timedelta(days=1),
+                    enrolled_date__lte=month_end,
                 ).aggregate(
                     total=Sum('course_group__monthly_price')
                 )['total'] or Decimal('0')
@@ -113,6 +115,21 @@ class RevenueAnalytics:
                 if expected > 0 else 0.0
             )
 
+            # Monthly general expenses
+            month_expenses = Expense.objects.filter(
+                expense_date__range=[month_start, month_end]
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+            # Monthly teacher payments
+            month_teacher_pay = TeacherPayment.objects.filter(
+                Q(period_year=month_start.year, period_month=month_start.month) |
+                Q(payment_date__range=[month_start, month_end])
+            ).distinct().aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+            total_charges = month_expenses + month_teacher_pay
+            net_profit = revenue_paid - total_charges
+            profit_margin = round(float(net_profit / revenue_paid) * 100, 1) if revenue_paid > 0 else 0.0
+
             rows.append({
                 'month_label': f"{month_name_fr(month_start.month)} {month_start.year}",
                 'month_str': month_start.strftime('%Y-%m'),
@@ -122,6 +139,11 @@ class RevenueAnalytics:
                 'collection_rate': collection_rate,
                 'payment_count': payment_count,
                 'unique_payers': unique_payers,
+                'expenses': month_expenses,
+                'teacher_payments': month_teacher_pay,
+                'total_charges': total_charges,
+                'net_profit': net_profit,
+                'profit_margin': profit_margin,
             })
 
         return rows
@@ -130,17 +152,38 @@ class RevenueAnalytics:
     @staticmethod
     def current_month_summary() -> dict:
         """
-        Snapshot for the current month: collected, outstanding, overdue students.
+        Snapshot for the current month: collected, expenses, teacher payments, net profit, outstanding, overdue students.
         """
         Attendance, CourseGroup, _, Enrollment, Payment, _, _, Student, _ = _models()
         from core.utils import calculate_student_monthly_total
+        from core.models import Expense, TeacherPayment
 
         today = date.today()
         month_start = today.replace(day=1)
+        month_end = month_start + relativedelta(months=1) - timedelta(days=1)
 
         collected = Payment.objects.filter(
             month_covered=month_start, status='PAID'
         ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+
+        # Month general expenses
+        exp_agg = Expense.objects.filter(
+            expense_date__range=[month_start, month_end]
+        ).aggregate(total=Sum('amount'), count=Count('id'))
+        month_expenses = exp_agg['total'] or Decimal('0')
+        expenses_count = exp_agg['count'] or 0
+
+        # Month teacher payments
+        tp_agg = TeacherPayment.objects.filter(
+            Q(period_year=month_start.year, period_month=month_start.month) |
+            Q(payment_date__range=[month_start, month_end])
+        ).distinct().aggregate(total=Sum('amount'), count=Count('id'))
+        month_teacher_pay = tp_agg['total'] or Decimal('0')
+        teacher_payments_count = tp_agg['count'] or 0
+
+        total_charges = month_expenses + month_teacher_pay
+        net_profit = collected - total_charges
+        profit_margin = round(float(net_profit / collected) * 100, 1) if collected > 0 else 0.0
 
         active_students = Student.objects.filter(is_active=True).prefetch_related(
             'enrollment_set__course_group'
@@ -151,6 +194,15 @@ class RevenueAnalytics:
         unpaid_count = 0
         partial_count = 0
 
+        # Check completed exceptions set for current month
+        completed_exceptions = set(
+            Payment.objects.filter(
+                month_covered=month_start,
+                status='PAID',
+                is_completed=True
+            ).values_list('student_id', flat=True)
+        )
+
         for student in active_students:
             required = calculate_student_monthly_total(student)
             if required == 0:
@@ -159,6 +211,10 @@ class RevenueAnalytics:
                 student=student, month_covered=month_start, status='PAID'
             ).aggregate(t=Sum('amount'))['t'] or Decimal('0')
             total_expected += required
+            
+            if student.id in completed_exceptions:
+                continue
+
             outstanding = max(required - paid, Decimal('0'))
             total_outstanding += outstanding
             if paid == 0:
@@ -171,6 +227,13 @@ class RevenueAnalytics:
             'collected': collected,
             'expected': total_expected,
             'outstanding': total_outstanding,
+            'expenses': month_expenses,
+            'expenses_count': expenses_count,
+            'teacher_payments': month_teacher_pay,
+            'teacher_payments_count': teacher_payments_count,
+            'total_charges': total_charges,
+            'net_profit': net_profit,
+            'profit_margin': profit_margin,
             'collection_rate': (
                 round(float(collected / total_expected) * 100, 1)
                 if total_expected > 0 else 0.0
@@ -276,13 +339,164 @@ class RevenueAnalytics:
             round(float((ytd - ly) / ly) * 100, 1) if ly > 0 else None
         )
 
+        from core.models import Expense, TeacherPayment
+        ytd_expenses = Expense.objects.filter(
+            expense_date__range=[ytd_start, today]
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        ytd_teacher_payments = TeacherPayment.objects.filter(
+            payment_date__range=[ytd_start, today]
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        ytd_total_charges = ytd_expenses + ytd_teacher_payments
+        ytd_net_profit = ytd - ytd_total_charges
+        ytd_margin = round(float(ytd_net_profit / ytd) * 100, 1) if ytd > 0 else 0.0
+
         return {
             'ytd': ytd,
+            'ytd_expenses': ytd_expenses,
+            'ytd_teacher_payments': ytd_teacher_payments,
+            'ytd_total_charges': ytd_total_charges,
+            'ytd_net_profit': ytd_net_profit,
+            'ytd_margin': ytd_margin,
             'last_year_same_period': ly,
             'growth_pct': growth,
             'ytd_start': ytd_start,
             'today': today,
         }
+
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def teacher_payments_summary(month_start: date | None = None) -> dict:
+        """Overview of teacher payroll payments for the selected month."""
+        from core.models import TeacherPayment
+        if month_start is None:
+            month_start = date.today().replace(day=1)
+        month_end = month_start + relativedelta(months=1) - timedelta(days=1)
+
+        payments = TeacherPayment.objects.filter(
+            Q(period_year=month_start.year, period_month=month_start.month) |
+            Q(payment_date__range=[month_start, month_end])
+        ).distinct().select_related('teacher').order_by('-payment_date', '-id')
+
+        total = sum((p.amount for p in payments), Decimal('0.00'))
+
+        teacher_totals = defaultdict(lambda: {'total': Decimal('0.00'), 'count': 0})
+        for p in payments:
+            teacher_totals[p.teacher.name]['total'] += p.amount
+            teacher_totals[p.teacher.name]['count'] += 1
+
+        return {
+            'count': len(payments),
+            'total': total,
+            'items': [
+                {
+                    'id': p.id,
+                    'teacher_name': p.teacher.name,
+                    'teacher_phone': p.teacher.phone,
+                    'amount': p.amount,
+                    'payment_date': p.payment_date,
+                    'payment_method': p.get_payment_method_display(),
+                    'payment_type': p.get_payment_type_display(),
+                    'period': f"{p.period_month:02d}/{p.period_year}",
+                    'notes': p.notes,
+                }
+                for p in payments
+            ],
+            'by_teacher': [
+                {'teacher_name': k, 'total': v['total'], 'count': v['count']}
+                for k, v in sorted(teacher_totals.items(), key=lambda x: x[1]['total'], reverse=True)
+            ]
+        }
+
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def exceptions_summary(month_start: date | None = None) -> dict:
+        """Overview of payments completed by exception (discount/waiver granted)."""
+        Attendance, CourseGroup, _, Enrollment, Payment, _, _, Student, _ = _models()
+        from core.utils import calculate_student_expected_fees_for_month
+
+        if month_start is None:
+            month_start = date.today().replace(day=1)
+
+        exception_payments = Payment.objects.filter(
+            month_covered=month_start,
+            status='PAID',
+            is_completed=True
+        ).select_related('student')
+
+        items = []
+        total_collected = Decimal('0.00')
+        total_expected = Decimal('0.00')
+
+        for p in exception_payments:
+            exp_fees = calculate_student_expected_fees_for_month(p.student, month_start)
+            discount = max(Decimal('0.00'), exp_fees - p.amount)
+            total_collected += p.amount
+            total_expected += exp_fees
+            items.append({
+                'payment_id': p.id,
+                'receipt_number': p.receipt_number,
+                'student_id': p.student.id,
+                'student_name': p.student.name,
+                'student_matricule': p.student.matricule,
+                'amount_collected': p.amount,
+                'expected_fees': exp_fees,
+                'discount_granted': discount,
+                'payment_date': p.payment_date,
+                'payment_method': p.get_payment_method_display(),
+                'notes': p.notes,
+                'created_by': p.created_by,
+            })
+
+        total_discount = max(Decimal('0.00'), total_expected - total_collected)
+
+        return {
+            'count': len(items),
+            'total_collected': total_collected,
+            'total_expected': total_expected,
+            'total_discount': total_discount,
+            'items': items,
+        }
+
+    # ------------------------------------------------------------------ #
+    @staticmethod
+    def expenses_by_category(months: int = 1) -> list[dict]:
+        """Expenses categorized breakdown for given period."""
+        from core.models import Expense, ExpenseCategory
+        today = date.today()
+        start = (today - relativedelta(months=months - 1)).replace(day=1)
+
+        qs = (
+            Expense.objects.filter(expense_date__gte=start)
+            .values('category')
+            .annotate(total=Sum('amount'), count=Count('id'))
+            .order_by('-total')
+        )
+        cat_dict = dict(ExpenseCategory.choices)
+        grand_total = sum(r['total'] for r in qs) or Decimal('1')
+
+        colors = {
+            'RENT': '#6366f1',
+            'UTILITIES': '#3b82f6',
+            'SALARY': '#10b981',
+            'SUPPLIES': '#f59e0b',
+            'MAINTENANCE': '#ec4899',
+            'MARKETING': '#8b5cf6',
+            'TEACHER_PAY': '#06b6d4',
+            'REFUND': '#ef4444',
+            'OTHER': '#64748b',
+        }
+
+        return [
+            {
+                'category': r['category'],
+                'label': cat_dict.get(r['category'], r['category']),
+                'total': r['total'],
+                'count': r['count'],
+                'pct': round(float(r['total'] / grand_total) * 100, 1),
+                'color': colors.get(r['category'], '#64748b'),
+            }
+            for r in qs
+        ]
 
 
 # ===========================================================================
@@ -1452,8 +1666,56 @@ def director_dashboard() -> dict:
 
 
 # ===========================================================================
-# 8. REPORT EXPORTER  (PDF + CSV)
+# 8. REPORT EXPORTER (PDF + CSV)
 # ===========================================================================
+
+from reportlab.pdfgen import canvas
+
+class NumberedCanvas(canvas.Canvas):
+    """
+    Two-pass canvas that adds running headers, running footers,
+    and accurate 'Page X sur Y' numbering across all document pages.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._saved_page_states = []
+
+    def showPage(self):
+        self._saved_page_states.append(dict(self.__dict__))
+        self._startPage()
+
+    def save(self):
+        num_pages = len(self._saved_page_states)
+        for state in self._saved_page_states:
+            self.__dict__.update(state)
+            self.draw_decorations(num_pages)
+            super().showPage()
+        super().save()
+
+    def draw_decorations(self, page_count):
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        self.saveState()
+        self.setFont('Helvetica', 8)
+        self.setFillColor(colors.HexColor('#64748b'))
+        page_w, page_h = self._pagesize
+
+        # Running header on pages > 1
+        if self._pageNumber > 1:
+            self.setStrokeColor(colors.HexColor('#e2e8f0'))
+            self.setLineWidth(0.6)
+            self.line(14 * mm, page_h - 10 * mm, page_w - 14 * mm, page_h - 10 * mm)
+            self.drawString(14 * mm, page_h - 8 * mm, "Rapport d'Analyse & Gestion — Document de Synthèse")
+            self.drawRightString(page_w - 14 * mm, page_h - 8 * mm, "Direction & Administration")
+
+        # Running footer on all pages
+        self.setStrokeColor(colors.HexColor('#e2e8f0'))
+        self.setLineWidth(0.6)
+        self.line(14 * mm, 12 * mm, page_w - 14 * mm, 12 * mm)
+        self.drawString(14 * mm, 7 * mm, "Document Confidentiel — Usage Interne")
+        self.drawRightString(page_w - 14 * mm, 7 * mm, f"Page {self._pageNumber} sur {page_count}")
+        self.restoreState()
+
 
 class ReportExporter:
     """
@@ -1461,59 +1723,66 @@ class ReportExporter:
     HttpResponse content. Uses ReportLab for PDF, stdlib csv for CSV.
     """
 
-    # ── Shared ReportLab styles ───────────────────────────────────────────
     @staticmethod
     def _base_styles():
         from reportlab.lib import colors
         from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
         styles = getSampleStyleSheet()
-        DARK = colors.HexColor('#1a1a2e')
-        ACCENT = colors.HexColor('#0f3460')
-        LIGHT_ACCENT = colors.HexColor('#e94560')
-        MUTED = colors.HexColor('#718096')
-        BG_ROW_ALT = colors.HexColor('#f7fafc')
+        DARK = colors.HexColor('#0f172a')
+        ACCENT = colors.HexColor('#1e3a8a')
+        PRIMARY = colors.HexColor('#2563eb')
+        SUCCESS = colors.HexColor('#059669')
+        DANGER = colors.HexColor('#dc2626')
+        WARNING = colors.HexColor('#d97706')
+        MUTED = colors.HexColor('#64748b')
+        BG_ROW_ALT = colors.HexColor('#f8fafc')
 
         title_style = ParagraphStyle(
             'ReportTitle',
             parent=styles['Heading1'],
-            fontSize=20,
+            fontSize=17,
             textColor=DARK,
             fontName='Helvetica-Bold',
-            spaceAfter=4,
-            leading=24,
+            spaceAfter=3,
+            leading=21,
         )
         subtitle_style = ParagraphStyle(
             'ReportSubtitle',
             parent=styles['Normal'],
-            fontSize=10,
+            fontSize=9,
             textColor=MUTED,
             fontName='Helvetica',
-            spaceAfter=16,
+            spaceAfter=12,
+            leading=12,
         )
         section_style = ParagraphStyle(
             'SectionHeader',
             parent=styles['Heading2'],
-            fontSize=13,
+            fontSize=11,
             textColor=ACCENT,
             fontName='Helvetica-Bold',
-            spaceBefore=14,
-            spaceAfter=6,
-            borderPad=4,
+            spaceBefore=12,
+            spaceAfter=5,
+            borderPad=3,
         )
         body_style = ParagraphStyle(
             'Body',
             parent=styles['Normal'],
-            fontSize=9,
+            fontSize=8,
             textColor=DARK,
             fontName='Helvetica',
+            leading=11,
         )
 
         return {
             'styles': styles,
             'DARK': DARK,
             'ACCENT': ACCENT,
-            'LIGHT_ACCENT': LIGHT_ACCENT,
+            'PRIMARY': PRIMARY,
+            'SUCCESS': SUCCESS,
+            'DANGER': DANGER,
+            'WARNING': WARNING,
             'MUTED': MUTED,
             'BG_ROW_ALT': BG_ROW_ALT,
             'title': title_style,
@@ -1527,292 +1796,414 @@ class ReportExporter:
         from reportlab.lib import colors
         from reportlab.platypus import TableStyle
 
-        TC = text_color or colors.HexColor('#1a1a2e')
+        TC = text_color or colors.HexColor('#0f172a')
 
         return TableStyle([
             ('BACKGROUND', (0, 0), (-1, 0), accent_color),
             ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
             ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE', (0, 0), (-1, 0), 9),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
-            ('TOPPADDING', (0, 0), (-1, 0), 8),
+            ('FONTSIZE', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 6),
+            ('TOPPADDING', (0, 0), (-1, 0), 6),
             ('ALIGN', (0, 0), (-1, 0), 'CENTER'),
             ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, alt_row_color]),
             ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('FONTSIZE', (0, 1), (-1, -1), 7.5),
             ('TEXTCOLOR', (0, 1), (-1, -1), TC),
-            ('TOPPADDING', (0, 1), (-1, -1), 5),
-            ('BOTTOMPADDING', (0, 1), (-1, -1), 5),
+            ('TOPPADDING', (0, 1), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 1), (-1, -1), 4),
             ('GRID', (0, 0), (-1, -1), 0.4, colors.HexColor('#e2e8f0')),
             ('LINEBELOW', (0, 0), (-1, 0), 1.2, accent_color),
             ('ALIGN', (1, 1), (-1, -1), 'CENTER'),
             ('ALIGN', (0, 1), (0, -1), 'LEFT'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 8),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 8),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ])
 
-    # ------------------------------------------------------------------ #
     @staticmethod
-    def revenue_report_pdf(months: int = 12) -> io.BytesIO:
-        """Full revenue report PDF."""
+    def revenue_report_pdf(months: int = 12):
+        """
+        Full financial & profitability report PDF in landscape format.
+        Features P&L statement, general expenses, teacher payroll, waivers/exceptions,
+        and course group performance.
+        """
+        import io
+        from datetime import date
+        from decimal import Decimal
         from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import inch, mm
+        from reportlab.lib.pagesizes import A4, landscape
+        from reportlab.lib.units import mm
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table,
+            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
         )
+        from core.utils import get_setting
 
         S = ReportExporter._base_styles()
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
-            buf, pagesize=A4,
-            topMargin=18*mm, bottomMargin=18*mm,
-            leftMargin=18*mm, rightMargin=18*mm,
+            buf, pagesize=landscape(A4),
+            topMargin=12*mm, bottomMargin=16*mm,
+            leftMargin=14*mm, rightMargin=14*mm,
         )
 
         monthly = RevenueAnalytics.monthly_series(months=months)
         ytd = RevenueAnalytics.ytd_summary()
+        current = RevenueAnalytics.current_month_summary()
         by_group = RevenueAnalytics.revenue_by_course_group()
         methods = RevenueAnalytics.payment_method_breakdown()
+        exceptions = RevenueAnalytics.exceptions_summary()
+        cat_expenses = RevenueAnalytics.expenses_by_category(months=months)
+        teachers_summary = RevenueAnalytics.teacher_payments_summary()
 
         today = date.today()
+        school_name = get_setting('CENTER_NAME') or get_setting('SCHOOL_NAME', 'Établissement')
         elems = []
 
-        # Header
-        elems.append(Paragraph("Rapport de Revenus", S['title']))
-        elems.append(Paragraph(
-            f"Généré le {today.strftime('%d/%m/%Y')}  •  {months} derniers mois",
-            S['subtitle']
-        ))
-        elems.append(HRFlowable(width='100%', thickness=2, color=S['ACCENT']))
-        elems.append(Spacer(1, 10))
-
-        # YTD summary boxes (as a 3-col table)
-        growth_str = (
-            f"{'+' if ytd['growth_pct'] > 0 else ''}{ytd['growth_pct']}%"
-            if ytd['growth_pct'] is not None else "N/A"
-        )
-        summary_data = [
-            ['Revenus YTD', 'Même période an dernier', 'Croissance'],
+        # Document Header
+        header_table = Table([
             [
-                f"{ytd['ytd']:,.0f} DH",
-                f"{ytd['last_year_same_period']:,.0f} DH",
-                growth_str,
-            ],
+                Paragraph(f"<font size=9 color='#64748b'><b>{school_name.upper()}</b></font><br/><font size=16 color='#0f172a'><b>Rapport Financier &amp; Compte de Résultat Consolidé</b></font>", S['title']),
+                Paragraph(f"<font color='#64748b'>Édité le : <b>{today.strftime('%d/%m/%Y')}</b><br/>Période d'analyse : <b>{months} derniers mois</b><br/>Devise : <b>MAD (DH)</b></font>", S['body']),
+            ]
+        ], colWidths=[185*mm, 84*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elems.append(header_table)
+        elems.append(Spacer(1, 3))
+        elems.append(HRFlowable(width='100%', thickness=1.5, color=S['ACCENT']))
+        elems.append(Spacer(1, 7))
+
+        # Executive KPI Summary Grid (6 Cards)
+        tot_rev = sum((r['revenue_paid'] for r in monthly), Decimal('0'))
+        tot_exp = sum((r['expenses'] for r in monthly), Decimal('0'))
+        tot_teach = sum((r['teacher_payments'] for r in monthly), Decimal('0'))
+        tot_charges = tot_exp + tot_teach
+        tot_net = tot_rev - tot_charges
+        tot_margin = round(float(tot_net / tot_rev) * 100, 1) if tot_rev > 0 else 0.0
+
+        kpi_cells = [
+            [
+                Paragraph(f"<font size=7 color='#64748b'><b>REVENUS ENCAISSÉS</b></font><br/><font size=12 color='#059669'><b>{tot_rev:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Sur {months} mois</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>DÉPENSES GÉNÉRALES</b></font><br/><font size=12 color='#dc2626'><b>{tot_exp:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Charges fixes &amp; matériel</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>PAIE ENSEIGNANTS</b></font><br/><font size=12 color='#d97706'><b>{tot_teach:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Rémunérations versées</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>CHARGES TOTALES</b></font><br/><font size=12 color='#4b5563'><b>{tot_charges:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Dépenses + Paie profs</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>RÉSULTAT NET RÉEL</b></font><br/><font size=12 color='{'#059669' if tot_net >= 0 else '#dc2626'}'><b>{tot_net:,.0f} DH</b></font><br/><font size=7 color='#64748b'>{'Bénéfice net' if tot_net >= 0 else 'Déficit d\'exploitation'}</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>MARGE NETTE MOYENNE</b></font><br/><font size=12 color='{'#059669' if tot_margin >= 0 else '#dc2626'}'><b>{tot_margin}%</b></font><br/><font size=7 color='#64748b'>Rentabilité globale</font>", S['body']),
+            ]
         ]
-        summary_table = Table(summary_data, colWidths=[55*mm, 65*mm, 45*mm])
-        summary_table.setStyle(ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT']))
-        elems.append(summary_table)
-        elems.append(Spacer(1, 14))
+        kpi_table = Table(kpi_cells, colWidths=[44.8*mm]*6)
+        kpi_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ]))
+        elems.append(kpi_table)
+        elems.append(Spacer(1, 9))
 
-        # Monthly series
-        elems.append(Paragraph("Évolution mensuelle", S['section']))
-        header = ['Mois', 'Encaissé (DH)', 'Attendu (DH)', 'Taux (%)', 'Paiements', 'Payeurs']
-        rows = [[
-            r['month_label'],
-            f"{r['revenue_paid']:,.0f}",
-            f"{r['revenue_expected']:,.0f}",
-            f"{r['collection_rate']}%",
-            str(r['payment_count']),
-            str(r['unique_payers']),
-        ] for r in monthly]
-        col_w = [40*mm, 32*mm, 32*mm, 22*mm, 24*mm, 24*mm]
-        t = Table([header] + rows, colWidths=col_w)
-        t.setStyle(ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT']))
-        elems.append(t)
-        elems.append(Spacer(1, 14))
+        # 1. Compte de Résultat Consolidé (Évolution Mensuelle P&L)
+        elems.append(Paragraph("1. Compte de Résultat Consolidé (Évolution Mensuelle)", S['section']))
+        pnl_header = [
+            'Mois', 'Encaissé (DH)', 'Attendu (DH)', 'Recouvr.',
+            'Dépenses Gén.', 'Paie Profs', 'Total Charges', 'Résultat Net', 'Marge %', 'Paiements'
+        ]
+        pnl_rows = []
+        for r in monthly:
+            pnl_rows.append([
+                r['month_label'],
+                f"{r['revenue_paid']:,.0f}",
+                f"{r['revenue_expected']:,.0f}",
+                f"{r['collection_rate']}%",
+                f"{r['expenses']:,.0f}",
+                f"{r['teacher_payments']:,.0f}",
+                f"{r['total_charges']:,.0f}",
+                f"{r['net_profit']:,.0f}",
+                f"{r['profit_margin']}%",
+                f"{r['payment_count']} ({r['unique_payers']} p.)",
+            ])
 
-        # By group (current month)
-        elems.append(Paragraph(
-            f"Revenus par groupe — {today.strftime('%B %Y')}", S['section']
-        ))
-        g_header = ['Groupe', 'Matière', 'Élèves', 'Attendu', 'Encaissé', 'Reste', 'Taux']
-        g_rows = [[
-            r['group_name'],
-            r['subject'],
-            str(r['enrolled_count']),
-            f"{r['expected']:,.0f}",
-            f"{r['collected']:,.0f}",
-            f"{r['outstanding']:,.0f}",
-            f"{r['collection_rate']}%",
-        ] for r in by_group]
-        g_col_w = [40*mm, 28*mm, 16*mm, 26*mm, 26*mm, 22*mm, 18*mm]
-        gt = Table([g_header] + g_rows, colWidths=g_col_w)
-        gt.setStyle(ReportExporter._table_style(colors.HexColor('#0f3460'), S['BG_ROW_ALT']))
-        elems.append(gt)
-        elems.append(Spacer(1, 14))
+        tot_exp_calc = sum(r['revenue_expected'] for r in monthly)
+        tot_coll_rate = round(float(tot_rev / tot_exp_calc) * 100, 1) if tot_exp_calc > 0 else 0.0
+        tot_payments = sum(r['payment_count'] for r in monthly)
+        pnl_rows.append([
+            'TOTAL PÉRIODE',
+            f"{tot_rev:,.0f}",
+            f"{tot_exp_calc:,.0f}",
+            f"{tot_coll_rate}%",
+            f"{tot_exp:,.0f}",
+            f"{tot_teach:,.0f}",
+            f"{tot_charges:,.0f}",
+            f"{tot_net:,.0f}",
+            f"{tot_margin}%",
+            f"{tot_payments}",
+        ])
 
-        # Payment methods
-        elems.append(Paragraph("Répartition des modes de paiement", S['section']))
-        m_header = ['Mode', 'Total (DH)', 'Transactions', '% du total']
-        m_rows = [[
-            r['label'],
-            f"{r['total']:,.0f}",
-            str(r['count']),
-            f"{r['pct']}%",
-        ] for r in methods]
-        mt = Table([m_header] + m_rows, colWidths=[45*mm, 40*mm, 40*mm, 40*mm])
-        mt.setStyle(ReportExporter._table_style(colors.HexColor('#2d6a4f'), S['BG_ROW_ALT']))
-        elems.append(mt)
-
-        doc.build(elems)
-        buf.seek(0)
-        return buf
-
-    # ------------------------------------------------------------------ #
-    @staticmethod
-    def attendance_report_pdf(start_date: date, end_date: date) -> io.BytesIO:
-        """Absence analytics PDF."""
-        from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.units import mm
-        from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table,
-        )
-
-        S = ReportExporter._base_styles()
-        buf = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buf, pagesize=A4,
-            topMargin=18*mm, bottomMargin=18*mm,
-            leftMargin=18*mm, rightMargin=18*mm,
-        )
-
-        students = AttendanceAnalytics.student_absence_summary(start_date, end_date)
-        weekly = AttendanceAnalytics.weekly_trend(weeks=8)
-        groups = AttendanceAnalytics.group_attendance_matrix(start_date.replace(day=1))
-
-        elems = []
-        elems.append(Paragraph("Rapport de Présences & Absences", S['title']))
-        elems.append(Paragraph(
-            f"Période : {start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}",
-            S['subtitle']
-        ))
-        elems.append(HRFlowable(width='100%', thickness=2, color=S['ACCENT']))
+        col_w = [34*mm, 28*mm, 28*mm, 18*mm, 27*mm, 27*mm, 28*mm, 29*mm, 18*mm, 32*mm]
+        pnl_table = Table([pnl_header] + pnl_rows, colWidths=col_w)
+        ts = ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT'])
+        tot_idx = len(pnl_rows)
+        ts.add('FONTNAME', (0, tot_idx), (-1, tot_idx), 'Helvetica-Bold')
+        ts.add('BACKGROUND', (0, tot_idx), (-1, tot_idx), colors.HexColor('#e2e8f0'))
+        ts.add('LINEABOVE', (0, tot_idx), (-1, tot_idx), 1.2, S['ACCENT'])
+        pnl_table.setStyle(ts)
+        elems.append(pnl_table)
         elems.append(Spacer(1, 10))
 
-        # Summary KPIs
-        total_students = len(students)
-        at_risk = sum(1 for s in students if s['is_at_risk'])
-        high_risk = sum(1 for s in students if s['risk_level'] == 'HIGH_RISK')
-        kpi_data = [
-            ['Élèves analysés', 'À risque (>20%)', 'Critique (>35%)', 'Seuil d\'alerte'],
-            [str(total_students), str(at_risk), str(high_risk), '20%'],
-        ]
-        kt = Table(kpi_data, colWidths=[45*mm, 42*mm, 42*mm, 42*mm])
-        kt.setStyle(ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT']))
-        elems.append(kt)
-        elems.append(Spacer(1, 14))
+        # 2. Répartition des Dépenses Générales & Modes de Paiement (2 colonnes)
+        exp_header = ['Catégorie de Dépense', 'Montant (DH)', 'Nb', '% Charges']
+        exp_rows = []
+        for c in cat_expenses:
+            exp_rows.append([
+                c['label'],
+                f"{c['total']:,.0f}",
+                str(c['count']),
+                f"{c['pct']}%",
+            ])
+        if not exp_rows:
+            exp_rows = [['Aucune dépense enregistrée sur la période', '0', '0', '0%']]
+        
+        t_exp = Table([exp_header] + exp_rows, colWidths=[55*mm, 30*mm, 18*mm, 27*mm])
+        t_exp.setStyle(ReportExporter._table_style(colors.HexColor('#991b1b'), S['BG_ROW_ALT']))
 
-        # At-risk students
-        elems.append(Paragraph("Élèves à risque", S['section']))
-        at_risk_students = [s for s in students if s['is_at_risk']]
-        if at_risk_students:
-            s_header = ['Élève', 'Séances', 'Absences', 'Taux', 'Niveau de risque', 'Absences consécutives']
-            s_rows = [[
-                s['student_name'],
-                str(s['total_sessions']),
-                str(s['absences']),
-                f"{s['absence_rate']}%",
-                {'HIGH_RISK': '🔴 Critique', 'AT_RISK': '🟠 À risque'}.get(s['risk_level'], ''),
-                str(s['consecutive_absences']),
-            ] for s in at_risk_students]
-            st = Table([s_header] + s_rows, colWidths=[42*mm, 20*mm, 22*mm, 16*mm, 34*mm, 40*mm])
-            st.setStyle(ReportExporter._table_style(colors.HexColor('#c0392b'), S['BG_ROW_ALT']))
-            elems.append(st)
+        meth_header = ['Mode d\'Encaissement', 'Total (DH)', 'Transactions', '% du Total']
+        meth_rows = [[
+            m['label'],
+            f"{m['total']:,.0f}",
+            str(m['count']),
+            f"{m['pct']}%",
+        ] for m in methods] if methods else [['Aucun paiement', '0', '0', '0%']]
+        t_meth = Table([meth_header] + meth_rows, colWidths=[55*mm, 30*mm, 25*mm, 20*mm])
+        t_meth.setStyle(ReportExporter._table_style(colors.HexColor('#166534'), S['BG_ROW_ALT']))
+
+        side_by_side = Table([
+            [
+                Paragraph("<b>2. Répartition des Dépenses Générales</b>", S['body']),
+                Paragraph("<b>3. Encaissements par Mode de Règlement</b>", S['body']),
+            ],
+            [t_exp, t_meth]
+        ], colWidths=[134*mm, 135*mm])
+        side_by_side.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elems.append(side_by_side)
+        elems.append(Spacer(1, 10))
+
+        # 4. Rémunérations & Paie des Enseignants
+        elems.append(Paragraph("4. Synthèse des Rémunérations &amp; Règlements Enseignants", S['section']))
+        tp_header = ['Enseignant', 'Période', 'Montant Réglé (DH)', 'Mode de Paiement', 'Type / Objet', 'Date']
+        tp_rows = []
+        if teachers_summary and teachers_summary.get('items'):
+            for item in teachers_summary['items'][:15]:
+                tp_rows.append([
+                    item['teacher_name'],
+                    item['period'],
+                    f"{item['amount']:,.0f}",
+                    item['payment_method'],
+                    item['payment_type'],
+                    item['payment_date'].strftime('%d/%m/%Y') if item['payment_date'] else '—',
+                ])
+            tp_tot = teachers_summary.get('total', Decimal('0'))
+            tp_rows.append(['TOTAL RÈGLEMENTS ENSEIGNANTS', '', f"{tp_tot:,.0f} DH", '', '', f"{len(teachers_summary['items'])} versement(s)"])
         else:
-            elems.append(Paragraph("Aucun élève à risque sur cette période. ✓", S['body']))
-        elems.append(Spacer(1, 14))
+            tp_rows = [['Aucun règlement enseignant enregistré pour ce mois', '', '0', '', '', '']]
 
-        # Weekly trend
-        elems.append(Paragraph("Tendance hebdomadaire des absences", S['section']))
-        w_header = ['Semaine', 'Total séances', 'Absences', 'Taux d\'absence']
-        w_rows = [[
-            r['week_label'],
-            str(r['total']),
-            str(r['absences']),
-            f"{r['absence_rate']}%",
-        ] for r in weekly]
-        wt = Table([w_header] + w_rows, colWidths=[55*mm, 40*mm, 35*mm, 40*mm])
-        wt.setStyle(ReportExporter._table_style(colors.HexColor('#2980b9'), S['BG_ROW_ALT']))
-        elems.append(wt)
-        elems.append(Spacer(1, 14))
+        t_teach = Table([tp_header] + tp_rows, colWidths=[55*mm, 28*mm, 35*mm, 42*mm, 65*mm, 44*mm])
+        ts_teach = ReportExporter._table_style(colors.HexColor('#b45309'), S['BG_ROW_ALT'])
+        if teachers_summary and teachers_summary.get('items'):
+            last_idx = len(tp_rows)
+            ts_teach.add('FONTNAME', (0, last_idx), (-1, last_idx), 'Helvetica-Bold')
+            ts_teach.add('BACKGROUND', (0, last_idx), (-1, last_idx), colors.HexColor('#fef3c7'))
+        t_teach.setStyle(ts_teach)
+        elems.append(t_teach)
+        elems.append(Spacer(1, 10))
 
-        # By group
-        elems.append(Paragraph("Absences par groupe de cours", S['section']))
-        g_header = ['Groupe', 'Matière', 'Séances', 'Absences', 'Taux']
-        g_rows = [[
-            r['group_name'],
-            r['subject'],
-            str(r['total_records']),
-            str(r['absences']),
-            f"{r['absence_rate']}%",
-        ] for r in groups if r['total_records'] > 0]
-        if g_rows:
-            gt = Table([g_header] + g_rows, colWidths=[48*mm, 35*mm, 28*mm, 28*mm, 28*mm])
-            gt.setStyle(ReportExporter._table_style(colors.HexColor('#8e44ad'), S['BG_ROW_ALT']))
+        # 5. Paiements Soldés par Dérogation & Exceptions
+        if exceptions and exceptions.get('items'):
+            elems.append(Paragraph(f"5. Dérogations &amp; Paiements Soldés par Exception ({exceptions['count']} cas — Total remises : {exceptions['total_discount']:,.0f} DH)", S['section']))
+            exc_header = ['N° Reçu', 'Élève', 'Matricule', 'Montant Perçu (DH)', 'Attendu Normal (DH)', 'Remise Accordée (DH)', 'Date & Mode']
+            exc_rows = []
+            for it in exceptions['items'][:12]:
+                exc_rows.append([
+                    it['receipt_number'] or f"REC-{it['payment_id']}",
+                    it['student_name'],
+                    it['student_matricule'] or '—',
+                    f"{it['amount_collected']:,.0f}",
+                    f"{it['expected_fees']:,.0f}",
+                    f"{it['discount_granted']:,.0f}",
+                    f"{it['payment_date'].strftime('%d/%m/%Y') if it['payment_date'] else '—'} ({it['payment_method']})",
+                ])
+            exc_rows.append([
+                'TOTAL REMISES CONSENTIES', '', '',
+                f"{exceptions['total_collected']:,.0f}",
+                f"{exceptions['total_expected']:,.0f}",
+                f"{exceptions['total_discount']:,.0f} DH",
+                f"{exceptions['count']} élève(s)",
+            ])
+            t_exc = Table([exc_header] + exc_rows, colWidths=[35*mm, 52*mm, 28*mm, 35*mm, 35*mm, 38*mm, 46*mm])
+            ts_exc = ReportExporter._table_style(colors.HexColor('#c2410c'), S['BG_ROW_ALT'])
+            last_e = len(exc_rows)
+            ts_exc.add('FONTNAME', (0, last_e), (-1, last_e), 'Helvetica-Bold')
+            ts_exc.add('BACKGROUND', (0, last_e), (-1, last_e), colors.HexColor('#ffedd5'))
+            t_exc.setStyle(ts_exc)
+            elems.append(t_exc)
+            elems.append(Spacer(1, 10))
+
+        # 6. Revenus par Groupe de Cours
+        if by_group:
+            elems.append(Paragraph(f"6. Performance &amp; Chiffre d'Affaires par Groupe — {today.strftime('%B %Y')}", S['section']))
+            g_header = ['Groupe de Cours', 'Matière', 'Élèves', 'Attendu (DH)', 'Encaissé (DH)', 'Reste à Percevoir (DH)', 'Taux Recouvr.']
+            g_rows = []
+            for r in by_group[:15]:
+                g_rows.append([
+                    r['group_name'],
+                    r['subject'],
+                    str(r['enrolled_count']),
+                    f"{r['expected']:,.0f}",
+                    f"{r['collected']:,.0f}",
+                    f"{r['outstanding']:,.0f}",
+                    f"{r['collection_rate']}%",
+                ])
+            gt = Table([g_header] + g_rows, colWidths=[55*mm, 42*mm, 22*mm, 38*mm, 38*mm, 44*mm, 30*mm])
+            gt.setStyle(ReportExporter._table_style(colors.HexColor('#0f3460'), S['BG_ROW_ALT']))
             elems.append(gt)
 
-        doc.build(elems)
+        doc.build(elems, canvasmaker=NumberedCanvas)
         buf.seek(0)
         return buf
 
-    # ------------------------------------------------------------------ #
     @staticmethod
-    def teacher_payroll_pdf(start_date: date, end_date: date) -> io.BytesIO:
-        """Teacher payroll summary PDF."""
+    def teacher_payroll_pdf(start_date, end_date):
+        """
+        Teacher payroll summary PDF in landscape format with hours, remuneration,
+        payments made, and outstanding balances.
+        """
+        import io
+        from datetime import date
+        from decimal import Decimal
         from reportlab.lib import colors
-        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.pagesizes import A4, landscape
         from reportlab.lib.units import mm
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table,
+            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
         )
+        from core.utils import get_setting
 
         S = ReportExporter._base_styles()
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
-            buf, pagesize=A4,
-            topMargin=18*mm, bottomMargin=18*mm,
-            leftMargin=18*mm, rightMargin=18*mm,
+            buf, pagesize=landscape(A4),
+            topMargin=12*mm, bottomMargin=16*mm,
+            leftMargin=14*mm, rightMargin=14*mm,
         )
 
         payroll = TeacherAnalytics.payroll_summary(start_date, end_date)
         load = TeacherAnalytics.weekly_load()
         subs = TeacherAnalytics.substitution_rate()
 
+        school_name = get_setting('CENTER_NAME') or get_setting('SCHOOL_NAME', 'Établissement')
         elems = []
-        elems.append(Paragraph("Rapport de Paie Enseignants", S['title']))
-        elems.append(Paragraph(
-            f"Période : {start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}",
-            S['subtitle']
-        ))
-        elems.append(HRFlowable(width='100%', thickness=2, color=S['ACCENT']))
+
+        header_table = Table([
+            [
+                Paragraph(f"<font size=9 color='#64748b'><b>{school_name.upper()}</b></font><br/><font size=16 color='#0f172a'><b>Bordereau Récapitulatif de Paie Enseignants</b></font>", S['title']),
+                Paragraph(f"<font color='#64748b'>Période : <b>{start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}</b><br/>Édité le : <b>{date.today().strftime('%d/%m/%Y')}</b><br/>Devise : <b>MAD (DH)</b></font>", S['body']),
+            ]
+        ], colWidths=[185*mm, 84*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elems.append(header_table)
+        elems.append(Spacer(1, 3))
+        elems.append(HRFlowable(width='100%', thickness=1.5, color=S['ACCENT']))
+        elems.append(Spacer(1, 7))
+
+        total_due = sum((r.get('salary_taught') or r.get('earnings') or Decimal('0')) for r in payroll)
+        total_paid = sum((r.get('total_paid') or Decimal('0')) for r in payroll)
+        total_balance = sum((r.get('balance') or Decimal('0')) for r in payroll)
+        total_hours = sum((r.get('total_hours') or 0.0) for r in payroll)
+        total_sessions = sum((r.get('total_sessions') or 0) for r in payroll)
+
+        kpi_cells = [
+            [
+                Paragraph(f"<font size=7 color='#64748b'><b>ENSEIGNANTS ACTIFS</b></font><br/><font size=13 color='#0f172a'><b>{len(payroll)}</b></font><br/><font size=7 color='#64748b'>{total_sessions} séances ({total_hours:.1f}h)</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>MASSE SALARIALE DUE</b></font><br/><font size=13 color='#1e3a8a'><b>{total_due:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Rémunération calculée</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>MONTANT DÉJÀ VERSÉ</b></font><br/><font size=13 color='#059669'><b>{total_paid:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Règlements effectués</font>", S['body']),
+                Paragraph(f"<font size=7 color='#64748b'><b>RESTE TOTAL À PAYER</b></font><br/><font size=13 color='{'#dc2626' if total_balance > 0 else '#059669'}'><b>{total_balance:,.0f} DH</b></font><br/><font size=7 color='#64748b'>Solde restant à solder</font>", S['body']),
+            ]
+        ]
+        kpi_t = Table(kpi_cells, colWidths=[67.2*mm]*4)
+        kpi_t.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#f8fafc')),
+            ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#cbd5e1')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
+            ('TOPPADDING', (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ]))
+        elems.append(kpi_t)
         elems.append(Spacer(1, 10))
 
+        elems.append(Paragraph("1. État Détaillé de la Paie par Enseignant", S['section']))
         METHOD_LABEL = {'HOURLY': 'Horaire', 'PERCENTAGE': 'Pourcentage', 'SESSION': 'Par séance'}
-        p_header = ['Enseignant', 'Mode', 'Séances', 'Heures', 'Rémunération (DH)']
-        p_rows = [[
-            r['teacher_name'],
-            METHOD_LABEL.get(r['payment_method'], r['payment_method']),
-            str(r['total_sessions']),
-            f"{r.get('total_hours', 0):.1f}h",
-            f"{r.get('earnings', 0) or 0:,.0f}",
-        ] for r in payroll]
+        p_header = ['Enseignant', 'Mode', 'Séances', 'Heures', 'Rémunération Due (DH)', 'Déjà Versé (DH)', 'Solde Restant (DH)', 'Statut']
+        p_rows = []
+        for r in payroll:
+            bal = r.get('balance', Decimal('0'))
+            paid = r.get('total_paid', Decimal('0'))
+            due = r.get('salary_taught') or r.get('earnings') or Decimal('0')
+            if bal <= 0 and due > 0:
+                statut = '✓ Soldé'
+            elif paid > 0:
+                statut = '⚡ Partiel'
+            elif due > 0:
+                statut = '⏳ En attente'
+            else:
+                statut = '—'
+            p_rows.append([
+                r['teacher_name'],
+                METHOD_LABEL.get(r['payment_method'], r['payment_method']),
+                f"{r['total_sessions']} ({r['session_count']}+{r['substitute_count']}r)",
+                f"{r.get('total_hours', 0):.1f}h",
+                f"{due:,.0f}",
+                f"{paid:,.0f}",
+                f"{bal:,.0f}",
+                statut,
+            ])
 
-        total_earnings = sum(r.get('earnings', 0) or 0 for r in payroll)
-        p_rows.append(['TOTAL', '', '', '', f"{total_earnings:,.0f}"])
+        p_rows.append([
+            'TOTAL GÉNÉRAL', '', f"{total_sessions}", f"{total_hours:.1f}h",
+            f"{total_due:,.0f}", f"{total_paid:,.0f}", f"{total_balance:,.0f}",
+            '—'
+        ])
 
-        pt = Table([p_header] + p_rows, colWidths=[50*mm, 32*mm, 28*mm, 28*mm, 40*mm])
+        pt = Table([p_header] + p_rows, colWidths=[52*mm, 26*mm, 28*mm, 22*mm, 38*mm, 36*mm, 36*mm, 31*mm])
         ts = ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT'])
-        ts.add('FONTNAME', (0, len(p_rows)), (-1, len(p_rows)), 'Helvetica-Bold')
-        ts.add('BACKGROUND', (0, len(p_rows)), (-1, len(p_rows)), colors.HexColor('#edf2f7'))
+        last_p = len(p_rows)
+        ts.add('FONTNAME', (0, last_p), (-1, last_p), 'Helvetica-Bold')
+        ts.add('BACKGROUND', (0, last_p), (-1, last_p), colors.HexColor('#e2e8f0'))
         pt.setStyle(ts)
-        elems.append(Paragraph("Résumé de paie", S['section']))
         elems.append(pt)
-        elems.append(Spacer(1, 14))
+        elems.append(Spacer(1, 10))
 
-        # Weekly load
-        elems.append(Paragraph("Charge hebdomadaire planifiée", S['section']))
         l_header = ['Enseignant', 'Heures/semaine', 'Séances', 'Statut']
         FLAG_LABEL = {'OVERLOADED': '⚠ Surchargé', 'UNDERUTILISED': '↓ Sous-utilisé', 'NORMAL': '✓ Normal'}
         l_rows = [[
@@ -1821,138 +2212,287 @@ class ReportExporter:
             str(r['session_count']),
             FLAG_LABEL.get(r['load_flag'], r['load_flag']),
         ] for r in load]
-        lt = Table([l_header] + l_rows, colWidths=[55*mm, 40*mm, 32*mm, 45*mm])
-        lt.setStyle(ReportExporter._table_style(colors.HexColor('#2d6a4f'), S['BG_ROW_ALT']))
-        elems.append(lt)
-        elems.append(Spacer(1, 14))
+        lt = Table([l_header] + l_rows, colWidths=[48*mm, 30*mm, 22*mm, 34*mm])
+        lt.setStyle(ReportExporter._table_style(colors.HexColor('#166534'), S['BG_ROW_ALT']))
 
-        # Substitution rates
-        elems.append(Paragraph("Taux de remplacement (3 derniers mois)", S['section']))
         sub_data = [s for s in subs if s['total_sessions'] > 0]
-        su_header = ['Enseignant', 'Séances totales', 'Remplacé', 'Taux de remplacement']
+        su_header = ['Enseignant', 'Séances', 'Remplacé', 'Taux Remplacement']
         su_rows = [[
             r['teacher_name'],
             str(r['total_sessions']),
             str(r['substituted_sessions']),
             f"{r['substitution_rate']}%",
-        ] for r in sub_data]
-        sut = Table([su_header] + su_rows, colWidths=[55*mm, 38*mm, 32*mm, 48*mm])
-        sut.setStyle(ReportExporter._table_style(colors.HexColor('#8e44ad'), S['BG_ROW_ALT']))
-        elems.append(sut)
+        ] for r in sub_data] if sub_data else [['Aucun remplacement enregistré', '—', '—', '0%']]
+        sut = Table([su_header] + su_rows, colWidths=[48*mm, 24*mm, 24*mm, 38*mm])
+        sut.setStyle(ReportExporter._table_style(colors.HexColor('#7e22ce'), S['BG_ROW_ALT']))
 
-        doc.build(elems)
+        split_table = Table([
+            [Paragraph("<b>2. Charge Hebdomadaire Planifiée</b>", S['body']), Paragraph("<b>3. Taux de Remplacement</b>", S['body'])],
+            [lt, sut]
+        ], colWidths=[134*mm, 135*mm])
+        split_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        elems.append(split_table)
+
+        doc.build(elems, canvasmaker=NumberedCanvas)
         buf.seek(0)
         return buf
 
-    # ------------------------------------------------------------------ #
     @staticmethod
-    def churn_report_pdf() -> io.BytesIO:
-        """At-risk / churn signals PDF report."""
+    def attendance_report_pdf(start_date, end_date):
+        """Absence & attendance analytics PDF report."""
+        import io
+        from datetime import date
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.units import mm
         from reportlab.platypus import (
-            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table,
+            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
         )
+        from core.utils import get_setting
 
         S = ReportExporter._base_styles()
         buf = io.BytesIO()
         doc = SimpleDocTemplate(
             buf, pagesize=A4,
-            topMargin=18*mm, bottomMargin=18*mm,
-            leftMargin=18*mm, rightMargin=18*mm,
+            topMargin=15*mm, bottomMargin=16*mm,
+            leftMargin=15*mm, rightMargin=15*mm,
+        )
+
+        students = AttendanceAnalytics.student_absence_summary(start_date, end_date)
+        weekly = AttendanceAnalytics.weekly_trend(weeks=8)
+        groups = AttendanceAnalytics.group_attendance_matrix(start_date.replace(day=1))
+
+        school_name = get_setting('CENTER_NAME') or get_setting('SCHOOL_NAME', 'Établissement')
+        elems = []
+
+        header_table = Table([
+            [
+                Paragraph(f"<font size=9 color='#64748b'><b>{school_name.upper()}</b></font><br/><font size=16 color='#0f172a'><b>Rapport de Présences &amp; Absences</b></font>", S['title']),
+                Paragraph(f"<font color='#64748b'>Période : <b>{start_date.strftime('%d/%m/%Y')} → {end_date.strftime('%d/%m/%Y')}</b><br/>Édité le : <b>{date.today().strftime('%d/%m/%Y')}</b></font>", S['body']),
+            ]
+        ], colWidths=[115*mm, 65*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elems.append(header_table)
+        elems.append(Spacer(1, 3))
+        elems.append(HRFlowable(width='100%', thickness=1.5, color=S['ACCENT']))
+        elems.append(Spacer(1, 8))
+
+        total_students = len(students)
+        at_risk = sum(1 for s in students if s['is_at_risk'])
+        high_risk = sum(1 for s in students if s['risk_level'] == 'HIGH_RISK')
+        kpi_data = [
+            ['Élèves analysés', 'À risque (>20%)', 'Critique (>35%)', "Seuil d'alerte"],
+            [str(total_students), str(at_risk), str(high_risk), '20%'],
+        ]
+        kt = Table(kpi_data, colWidths=[45*mm, 45*mm, 45*mm, 45*mm])
+        kt.setStyle(ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT']))
+        elems.append(kt)
+        elems.append(Spacer(1, 10))
+
+        elems.append(Paragraph("1. Élèves à Risque d'Échec ou d'Abandon", S['section']))
+        at_risk_students = [s for s in students if s['is_at_risk']]
+        if at_risk_students:
+            s_header = ['Élève', 'Séances', 'Absences', 'Taux', 'Risque', 'Abs. Conséc.']
+            s_rows = [[
+                s['student_name'],
+                str(s['total_sessions']),
+                str(s['absences']),
+                f"{s['absence_rate']}%",
+                {'HIGH_RISK': '🔴 Critique', 'AT_RISK': '🟠 À risque'}.get(s['risk_level'], ''),
+                str(s['consecutive_absences']),
+            ] for s in at_risk_students[:25]]
+            st = Table([s_header] + s_rows, colWidths=[55*mm, 22*mm, 22*mm, 22*mm, 32*mm, 27*mm])
+            st.setStyle(ReportExporter._table_style(colors.HexColor('#dc2626'), S['BG_ROW_ALT']))
+            elems.append(st)
+        else:
+            elems.append(Paragraph("Aucun élève en situation d'alerte sur cette période. ✓", S['body']))
+        elems.append(Spacer(1, 10))
+
+        elems.append(Paragraph("2. Tendance Hebdomadaire des Absences", S['section']))
+        w_header = ['Semaine', 'Total Séances', 'Absences', "Taux d'Absence"]
+        w_rows = [[
+            r['week_label'],
+            str(r['total']),
+            str(r['absences']),
+            f"{r['absence_rate']}%",
+        ] for r in weekly]
+        wt = Table([w_header] + w_rows, colWidths=[60*mm, 40*mm, 40*mm, 40*mm])
+        wt.setStyle(ReportExporter._table_style(colors.HexColor('#2563eb'), S['BG_ROW_ALT']))
+        elems.append(wt)
+        elems.append(Spacer(1, 10))
+
+        elems.append(Paragraph("3. Assiduité par Groupe de Cours", S['section']))
+        g_header = ['Groupe', 'Matière', 'Séances', 'Absences', "Taux d'Absence"]
+        g_rows = [[
+            r['group_name'],
+            r['subject_name'],
+            str(r['total']),
+            str(r['absences']),
+            f"{r['absence_rate']}%",
+        ] for r in weekly]
+        wt = Table([w_header] + w_rows, colWidths=[60*mm, 40*mm, 40*mm, 40*mm])
+        wt.setStyle(ReportExporter._table_style(colors.HexColor('#2563eb'), S['BG_ROW_ALT']))
+        elems.append(wt)
+        elems.append(Spacer(1, 10))
+
+        elems.append(Paragraph("3. Assiduité par Groupe de Cours", S['section']))
+        g_header = ['Groupe', 'Matière', 'Séances', 'Absences', "Taux d'Absence"]
+        g_rows = [[
+            r['group_name'],
+            r['subject'],
+            str(r['total_records']),
+            str(r['absences']),
+            f"{r['absence_rate']}%",
+        ] for r in groups if r['total_records'] > 0][:15]
+        if g_rows:
+            gt = Table([g_header] + g_rows, colWidths=[55*mm, 40*mm, 25*mm, 25*mm, 35*mm])
+            gt.setStyle(ReportExporter._table_style(colors.HexColor('#7c3aed'), S['BG_ROW_ALT']))
+            elems.append(gt)
+
+        doc.build(elems, canvasmaker=NumberedCanvas)
+        buf.seek(0)
+        return buf
+
+    @staticmethod
+    def churn_report_pdf():
+        """At-risk / churn signals PDF report."""
+        import io
+        from datetime import date
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.units import mm
+        from reportlab.platypus import (
+            HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+        )
+        from core.utils import get_setting
+
+        S = ReportExporter._base_styles()
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buf, pagesize=A4,
+            topMargin=15*mm, bottomMargin=16*mm,
+            leftMargin=15*mm, rightMargin=15*mm,
         )
 
         churn = StudentAnalytics.churn_signals()
         ltv = StudentAnalytics.lifetime_value()
         multi = StudentAnalytics.multi_group_students()
 
+        school_name = get_setting('CENTER_NAME') or get_setting('SCHOOL_NAME', 'Établissement')
         elems = []
-        elems.append(Paragraph("Rapport Rétention Élèves", S['title']))
-        elems.append(Paragraph(
-            f"Généré le {date.today().strftime('%d/%m/%Y')}",
-            S['subtitle']
-        ))
-        elems.append(HRFlowable(width='100%', thickness=2, color=S['LIGHT_ACCENT']))
-        elems.append(Spacer(1, 10))
 
-        # Churn signals
-        elems.append(Paragraph(f"Signaux de départ ({len(churn)} élèves)", S['section']))
+        header_table = Table([
+            [
+                Paragraph(f"<font size=9 color='#64748b'><b>{school_name.upper()}</b></font><br/><font size=16 color='#0f172a'><b>Rapport Rétention Élèves &amp; Signaux d'Alerte</b></font>", S['title']),
+                Paragraph(f"<font color='#64748b'>Édité le : <b>{date.today().strftime('%d/%m/%Y')}</b><br/>Module : <b>Fidélisation &amp; Rétention</b></font>", S['body']),
+            ]
+        ], colWidths=[115*mm, 65*mm])
+        header_table.setStyle(TableStyle([
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('ALIGN', (1, 0), (1, 0), 'RIGHT'),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 0),
+            ('TOPPADDING', (0, 0), (-1, -1), 0),
+            ('LEFTPADDING', (0, 0), (-1, -1), 0),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+        ]))
+        elems.append(header_table)
+        elems.append(Spacer(1, 3))
+        elems.append(HRFlowable(width='100%', thickness=1.5, color=S['LIGHT_ACCENT']))
+        elems.append(Spacer(1, 8))
+
+        elems.append(Paragraph(f"1. Signaux de Départ Détectés ({len(churn)} élèves)", S['section']))
         if churn:
-            c_header = ['Élève', 'Groupes', 'Signaux détectés']
+            c_header = ['Élève', 'Groupes Inscrits', "Signaux d'Alerte"]
             c_rows = [[
                 r['student_name'],
                 ', '.join(r['groups'][:2]) + ('…' if len(r['groups']) > 2 else ''),
                 ' | '.join(r['signals']),
-            ] for r in churn]
-            ct = Table([c_header] + c_rows, colWidths=[40*mm, 45*mm, 85*mm])
+            ] for r in churn[:25]]
+            ct = Table([c_header] + c_rows, colWidths=[45*mm, 45*mm, 90*mm])
             ct.setStyle(ReportExporter._table_style(S['LIGHT_ACCENT'], S['BG_ROW_ALT']))
             elems.append(ct)
         else:
-            elems.append(Paragraph("Aucun signal de départ détecté. ✓", S['body']))
-        elems.append(Spacer(1, 14))
+            elems.append(Paragraph("Aucun signal de désengagement critique détecté. ✓", S['body']))
+        elems.append(Spacer(1, 10))
 
-        # Lifetime value top 20
-        elems.append(Paragraph("Valeur vie client – Top 20", S['section']))
-        l_header = ['Élève', 'Total payé (DH)', 'Mois actif', 'Moy./mois', 'Dernier paiement']
+        elems.append(Paragraph("2. Top 20 Valeur Vie Client (LTV)", S['section']))
+        l_header = ['Élève', 'Total Payé (DH)', 'Mois Actifs', 'Moy./Mois', 'Dernier Paiement']
         l_rows = [[
             r['student_name'],
             f"{r['total_paid']:,.0f}",
             str(r['months_active']),
             f"{r['avg_per_month']:,.0f}",
-            r['last_payment'].strftime('%d/%m/%Y') if r['last_payment'] else '',
-        ] for r in ltv]
-        lt = Table([l_header] + l_rows, colWidths=[45*mm, 35*mm, 25*mm, 30*mm, 33*mm])
-        lt.setStyle(ReportExporter._table_style(colors.HexColor('#2d6a4f'), S['BG_ROW_ALT']))
+            r['last_payment'].strftime('%d/%m/%Y') if r['last_payment'] else '—',
+        ] for r in ltv[:20]]
+        lt = Table([l_header] + l_rows, colWidths=[55*mm, 35*mm, 25*mm, 30*mm, 35*mm])
+        lt.setStyle(ReportExporter._table_style(colors.HexColor('#059669'), S['BG_ROW_ALT']))
         elems.append(lt)
-        elems.append(Spacer(1, 14))
+        elems.append(Spacer(1, 10))
 
-        # Multi-group students
-        elems.append(Paragraph("Élèves multi-groupes (fidèles)", S['section']))
-        m_header = ['Élève', 'Nombre de groupes']
+        elems.append(Paragraph("3. Élèves Multi-Groupes (Fidélisés)", S['section']))
+        m_header = ['Élève', 'Nombre de Groupes Inscrits']
         m_rows = [[r['student_name'], str(r['group_count'])] for r in multi[:20]]
         if m_rows:
-            mt = Table([m_header] + m_rows, colWidths=[100*mm, 70*mm])
+            mt = Table([m_header] + m_rows, colWidths=[110*mm, 70*mm])
             mt.setStyle(ReportExporter._table_style(S['ACCENT'], S['BG_ROW_ALT']))
             elems.append(mt)
 
-        doc.build(elems)
+        doc.build(elems, canvasmaker=NumberedCanvas)
         buf.seek(0)
         return buf
 
-    # ------------------------------------------------------------------ #
     @staticmethod
-    def export_csv(data: list[dict], filename_hint: str = 'export') -> io.StringIO:
+    def export_csv(data: list[dict], filename_hint: str = 'export'):
         """
-        Generic CSV export. Pass any list of flat dicts.
-        Returns a StringIO object.
+        Generic CSV export with UTF-8 BOM encoding for seamless Microsoft Excel compatibility.
+        Returns a BytesIO object ready for HTTP transmission.
         """
+        import io, csv, codecs
+        from decimal import Decimal
+        from datetime import date
+
+        buf = io.BytesIO()
+        buf.write(codecs.BOM_UTF8)
+
         if not data:
-            buf = io.StringIO()
-            buf.write("No data\n")
+            buf.write("Aucune donnée disponible\n".encode('utf-8'))
             buf.seek(0)
             return buf
 
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=list(data[0].keys()))
+        text_wrapper = io.TextIOWrapper(buf, encoding='utf-8', newline='')
+        writer = csv.DictWriter(text_wrapper, fieldnames=list(data[0].keys()))
         writer.writeheader()
+
         for row in data:
-            # Coerce Decimal / date to str for CSV
             clean = {}
             for k, v in row.items():
                 if isinstance(v, Decimal):
-                    clean[k] = str(v)
+                    clean[k] = f"{float(v):.2f}"
                 elif isinstance(v, date):
                     clean[k] = v.strftime('%Y-%m-%d')
                 elif isinstance(v, list):
                     clean[k] = '; '.join(str(x) for x in v)
+                elif v is None:
+                    clean[k] = ''
                 else:
                     clean[k] = v
             writer.writerow(clean)
 
+        text_wrapper.flush()
         buf.seek(0)
         return buf
-
 
 # ===========================================================================
 # CONVENIENCE VIEW HELPERS

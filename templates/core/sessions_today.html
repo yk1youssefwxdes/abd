@@ -187,11 +187,22 @@
       {% endif %}
     {% endif %}
   </div>
-  {% if mode == 'uncompleted' %}
-    <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary flex-shrink-0">
-      <i class="bi bi-arrow-left"></i> Retour
-    </a>
-  {% endif %}
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    {% if past_uncompleted_count and past_uncompleted_count > 0 %}
+      <form method="post" action="{% url 'core:sessions_complete_all_uncompleted' %}" class="d-inline"
+            onsubmit="return confirm('Confirmez-vous vouloir marquer toutes les {{ past_uncompleted_count }} séances en retard comme terminées ?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-success d-flex align-items-center gap-1 shadow-sm" style="min-height:38px;">
+          <i class="bi bi-check2-all"></i> Tout marquer comme terminé ({{ past_uncompleted_count }})
+        </button>
+      </form>
+    {% endif %}
+    {% if mode == 'uncompleted' %}
+      <a href="{% url 'core:sessions_today' %}" class="btn btn-outline-secondary flex-shrink-0" style="min-height:38px; display:inline-flex; align-items:center;">
+        <i class="bi bi-arrow-left me-1"></i> Retour
+      </a>
+    {% endif %}
+  </div>
 </div>
 
 <!-- ── Date nav (only in normal mode) ────────────────────────────── -->
@@ -232,6 +243,15 @@
       <span class="badge bg-danger ms-1" style="background:#ef4444!important;">{{ past_uncompleted_count }}</span>
     {% endif %}
   </a>
+  {% if past_uncompleted_count and past_uncompleted_count > 0 and mode != 'uncompleted' %}
+    <form method="post" action="{% url 'core:sessions_complete_all_uncompleted' %}" class="d-inline"
+          onsubmit="return confirm('Confirmez-vous vouloir marquer toutes les {{ past_uncompleted_count }} séances en retard comme terminées ?');">
+      {% csrf_token %}
+      <button type="submit" class="btn btn-sm btn-outline-success d-flex align-items-center gap-1" title="Marquer toutes les séances en retard comme terminées">
+        <i class="bi bi-check2-all"></i> Tout valider ({{ past_uncompleted_count }})
+      </button>
+    </form>
+  {% endif %}
   <!-- Quick-add session buttons -->
   <div class="d-flex align-items-center gap-2 ms-auto">
     <a href="{% url 'core:session_create' %}" class="btn btn-sm btn-primary d-flex align-items-center gap-1"
@@ -288,7 +308,24 @@
 
 <!-- ── Session cards ──────────────────────────────────────────────── -->
 {% if sessions %}
-  {% if stats.done == stats.total and stats.total > 0 %}
+  {% if mode == 'uncompleted' %}
+    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-3 mb-4" style="border-left:5px solid #f59e0b; background:#fffbeb;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-exclamation-triangle-fill text-warning fs-4"></i>
+        <div>
+          <div class="fw-bold" style="color:#92400e;">{{ sessions|length }} séance{{ sessions|length|pluralize }} en retard</div>
+          <div class="text-secondary small">Ces séances passées n'ont pas encore de présences validées.</div>
+        </div>
+      </div>
+      <form method="post" action="{% url 'core:sessions_complete_all_uncompleted' %}"
+            onsubmit="return confirm('Confirmez-vous vouloir marquer toutes les séances en retard comme terminées ?');">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-sm btn-success d-flex align-items-center gap-1 shadow-sm">
+          <i class="bi bi-check2-all"></i> Tout marquer comme terminé
+        </button>
+      </form>
+    </div>
+  {% elif stats.done == stats.total and stats.total > 0 %}
     <div class="alert alert-success d-flex align-items-center gap-2 mb-4" style="border-left:5px solid #10b981;">
       <i class="bi bi-check-circle-fill" style="font-size:1.3rem;color:#10b981;"></i>
       <strong>Toutes les sessions sont terminées !</strong> Excellent travail pour aujourd'hui.
@@ -382,9 +419,19 @@
     <div class="card-body empty-state">
       <div class="empty-state-icon"><i class="bi bi-calendar-x"></i></div>
       <div class="empty-state-title">
-        {% if filters_active %}Aucune session avec ces filtres{% else %}Aucune session programmée{% endif %}
+        {% if mode == 'uncompleted' %}
+          Toutes les séances passées sont à jour !
+        {% elif filters_active %}
+          Aucune session avec ces filtres
+        {% else %}
+          Aucune session programmée
+        {% endif %}
       </div>
-      {% if filters_active %}
+      {% if mode == 'uncompleted' %}
+        <div class="empty-state-text text-success">
+          <i class="bi bi-check-circle-fill me-1"></i> Aucune séance en retard à régulariser.
+        </div>
+      {% elif filters_active %}
         <div class="empty-state-text">
           <a href="?date={{ view_date|date:'Y-m-d' }}">Effacer les filtres</a>
         </div>

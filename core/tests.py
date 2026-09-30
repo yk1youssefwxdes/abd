@@ -1351,6 +1351,88 @@ class GroupPdfPrintTestCase(TestCase):
         self.assertEqual(response.status_code, 404)
 
 
+class PaymentExceptionAndExpenseTrackingTestCase(TestCase):
+    def setUp(self):
+        self.teacher = Teacher.objects.create(name="Professeur Samir", phone="0611223344")
+        self.course = CourseGroup.objects.create(
+            name="Groupe Physique Bac",
+            subject="Physique",
+            monthly_price=Decimal('500.00'),
+            teacher=self.teacher
+        )
+        self.student = Student.objects.create(name="Élève Youssef", parent_contact="0622334455")
+        self.enrollment = Enrollment.objects.create(
+            student=self.student,
+            course_group=self.course,
+            enrolled_date=date(2026, 1, 1),
+            is_active=True
+        )
+        self.current_month = date(2026, 9, 1)
+
+    def test_payment_exception_checkbox_preserves_amount_and_completes_status(self):
+        """When payment is created with make_completed=on, amount is NOT auto-raised to remaining fees,
+        and student status becomes OK with remaining=0."""
+        from core.utils import get_student_payment_status, get_unpaid_students
+
+        # Initial status: student owes 500 DH
+        status_before = get_student_payment_status(self.student, self.current_month)
+        self.assertEqual(status_before['required'], Decimal('500.00'))
+        self.assertEqual(status_before['remaining'], Decimal('500.00'))
+        self.assertEqual(status_before['status'], 'UNPAID')
+
+        # Create payment of only 300 DH with make_completed=on
+        response = self.client.post(reverse('core:payment_create'), {
+            'student_id': self.student.id,
+            'amount': '300.00',
+            'month_covered': self.current_month.strftime('%Y-%m-%d'),
+            'payment_method': 'CASH',
+            'make_completed': 'on'
+        })
+        self.assertIn(response.status_code, [200, 302])
+
+        # Verify payment was stored with EXACT amount 300.00 DH (NOT auto-raised to 500.00)
+        payment = Payment.objects.filter(student=self.student, month_covered=self.current_month).first()
+        self.assertIsNotNone(payment)
+        self.assertEqual(payment.amount, Decimal('300.00'))
+        self.assertTrue(payment.is_completed)
+
+        # Verify status is now OK with remaining 0
+        status_after = get_student_payment_status(self.student, self.current_month)
+        self.assertEqual(status_after['status'], 'OK')
+        self.assertEqual(status_after['remaining'], Decimal('0.00'))
+
+        # Verify student does NOT appear in unpaid students list
+        unpaid = get_unpaid_students(self.current_month)
+        unpaid_student_ids = [u['student'].id for u in unpaid]
+        self.assertNotIn(self.student.id, unpaid_student_ids)
+
+    def test_expense_crud_and_analytics(self):
+        """Verify expense creation and integration into RevenueAnalytics."""
+        from core.models import Expense, ExpenseCategory
+        from core.analytics import RevenueAnalytics
+
+        # Create an expense
+        expense = Expense.objects.create(
+            title="Achat Papier & Fournitures",
+            category=ExpenseCategory.SUPPLIES,
+            amount=Decimal('450.00'),
+            expense_date=date(2026, 9, 15),
+            payment_method='CASH',
+            beneficiary="Papeterie Centrale"
+        )
+        self.assertEqual(Expense.objects.count(), 1)
+
+        # Check RevenueAnalytics includes expense and net profit
+        cats = RevenueAnalytics.expenses_by_category()
+        self.assertTrue(any(c['category'] == 'SUPPLIES' for c in cats))
+
+        summary = RevenueAnalytics.current_month_summary()
+        self.assertIn('expenses', summary)
+        self.assertIn('net_profit', summary)
+        self.assertIn('profit_margin', summary)
+
+
+
 
 
 

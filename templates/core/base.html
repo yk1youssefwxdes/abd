@@ -73,6 +73,12 @@
           <span class="nav-label-text">Caisse</span>
         </a>
 
+        <a class="nav-item-link {% active_if 'expense_list' %}"
+          href="{% url 'core:expense_list' %}" title="Dépenses">
+          <i class="bi bi-receipt" aria-hidden="true"></i>
+          <span class="nav-label-text">Dépenses</span>
+        </a>
+
         <a class="nav-item-link {% active_if 'sessions_today' 'session_attendance' %}"
           href="{% url 'core:sessions_today' %}" title="Sessions du jour" style="position:relative;">
           <i class="bi bi-calendar2-event-fill" aria-hidden="true"></i>
@@ -190,7 +196,7 @@
 
 
         <!-- Analytiques & Rapports Dropdown -->
-        {% comment %} <div class="nav-dropdown">
+        <div class="nav-dropdown">
           <button type="button"
             class="nav-item-link {% active_if 'analytics_dashboard' 'analytics_revenue' 'analytics_attendance' 'analytics_students' 'analytics_rooms' 'analytics_teachers' 'analytics_operational' 'admin_statistics' %}"
             title="Analytiques & Rapports" aria-haspopup="true" aria-expanded="false" aria-controls="analytics-menu">
@@ -232,7 +238,7 @@
               générales
             </a>
           </div>
-        </div> {% endcomment %}
+        </div>
 
       </nav>
 
@@ -282,6 +288,10 @@
       <a class="mobile-nav-link {% active_if 'payment_create' 'student_search' 'student_detail' %}"
         href="{% url 'core:payment_create' %}">
         <i class="bi bi-cash-coin" aria-hidden="true"></i> Caisse
+      </a>
+      <a class="mobile-nav-link {% active_if 'expense_list' %}"
+        href="{% url 'core:expense_list' %}">
+        <i class="bi bi-receipt" aria-hidden="true"></i> Dépenses
       </a>
       <a class="mobile-nav-link {% active_if 'sessions_today' 'session_attendance' %}"
         href="{% url 'core:sessions_today' %}">

@@ -72,14 +72,15 @@ def payment_create(request):
         payment_method = request.POST.get('payment_method', 'CASH')
         month_covered = request.POST.get('month_covered')
         send_whatsapp = request.POST.get('send_whatsapp') == 'on'
+        make_completed = request.POST.get('make_completed') == 'on'
 
-        if not student_id or not amount:
+        if not student_id or (not amount and not make_completed):
             return HttpResponseBadRequest('Missing student or amount')
 
         student = get_object_or_404(Student, pk=student_id)
 
         try:
-            amount_dec = Decimal(amount)
+            amount_dec = Decimal(amount) if amount else Decimal('0.00')
         except Exception:
             return HttpResponseBadRequest('Montant invalide')
 
@@ -93,6 +94,29 @@ def payment_create(request):
             except Exception:
                 month_covered = timezone.now().date().replace(day=1)
 
+        from .utils import calculate_student_expected_fees_for_month, PAID_STATUSES
+        expected_fees = calculate_student_expected_fees_for_month(student, month_covered)
+        already_paid = (
+            Payment.objects.filter(
+                student=student,
+                month_covered=month_covered,
+                status__in=PAID_STATUSES
+            ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+        )
+        remaining_fees = max(Decimal('0.00'), expected_fees - already_paid)
+
+        # Exception flag: if make_completed is checked, this payment settles the month as an exception
+        # Do NOT raise amount_dec to remaining_fees! Keep the exact money collected!
+        if amount_dec <= Decimal('0.00'):
+            if make_completed:
+                amount_dec = Decimal('0.01')
+            else:
+                return HttpResponseBadRequest('Montant invalide')
+
+        payment_notes = ''
+        if make_completed and remaining_fees > amount_dec:
+            payment_notes = f"Dérogation : Mois soldé par exception (Perçu : {amount_dec} DH, Reste remisé : {remaining_fees - amount_dec} DH)"
+
         payment = Payment.objects.create(
             student=student,
             amount=amount_dec,
@@ -100,6 +124,8 @@ def payment_create(request):
             month_covered=month_covered,
             status='PAID',
             payment_method=payment_method,
+            is_completed=make_completed,
+            notes=payment_notes,
             created_by=request.user.get_username() if hasattr(request, 'user') and request.user.is_authenticated else ''
         )
 
@@ -138,6 +164,298 @@ def receipt_download(request, payment_id):
     pdf_buffer = generate_receipt_pdf(payment)
     response = HttpResponse(pdf_buffer.read(), content_type='application/pdf')
     response['Content-Disposition'] = f'attachment; filename="receipt_{payment.receipt_number}.pdf"'
+    return response
+
+
+# ==================== GESTION DES DÉPENSES (EXPENSES) ====================
+
+@login_required
+def expense_list(request):
+    """Liste et gestion des dépenses de l'établissement avec KPIs et filtres."""
+    from .models import Expense, ExpenseCategory, PaymentMethod
+    from django.core.paginator import Paginator
+
+    today = timezone.now().date()
+    month_param = request.GET.get('month', today.strftime('%Y-%m'))
+    cat_param = request.GET.get('category', '')
+    method_param = request.GET.get('payment_method', '')
+    q = request.GET.get('q', '').strip()
+
+    qs = Expense.objects.all()
+
+    # Filter by month (if not 'all')
+    selected_month_date = None
+    if month_param and month_param != 'all':
+        try:
+            selected_month_date = datetime.strptime(month_param + '-01', '%Y-%m-%d').date()
+            m_start = selected_month_date.replace(day=1)
+            m_end = (m_start + relativedelta(months=1)) - timedelta(days=1)
+            qs = qs.filter(expense_date__range=[m_start, m_end])
+        except Exception:
+            month_param = today.strftime('%Y-%m')
+            m_start = today.replace(day=1)
+            m_end = (m_start + relativedelta(months=1)) - timedelta(days=1)
+            qs = qs.filter(expense_date__range=[m_start, m_end])
+    else:
+        m_start = today.replace(day=1)
+        m_end = (m_start + relativedelta(months=1)) - timedelta(days=1)
+
+    if cat_param:
+        qs = qs.filter(category=cat_param)
+
+    if method_param:
+        qs = qs.filter(payment_method=method_param)
+
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) |
+            Q(beneficiary__icontains=q) |
+            Q(invoice_number__icontains=q) |
+            Q(notes__icontains=q)
+        )
+
+    # Monthly total for selected month
+    month_total = Expense.objects.filter(
+        expense_date__range=[m_start, m_end]
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    year_start = today.replace(month=1, day=1)
+    year_total = Expense.objects.filter(
+        expense_date__range=[year_start, today]
+    ).aggregate(t=Sum('amount'))['t'] or Decimal('0.00')
+
+    # Categories breakdown for selected period
+    cat_breakdown = (
+        Expense.objects.filter(expense_date__range=[m_start, m_end])
+        .values('category')
+        .annotate(total=Sum('amount'), count=Count('id'))
+        .order_by('-total')
+    )
+    cat_dict = dict(ExpenseCategory.choices)
+    cat_stats = []
+    top_cat_name = '—'
+    top_cat_total = Decimal('0.00')
+    if cat_breakdown:
+        top_cat_name = cat_dict.get(cat_breakdown[0]['category'], cat_breakdown[0]['category'])
+        top_cat_total = cat_breakdown[0]['total']
+
+    for c in cat_breakdown:
+        cat_stats.append({
+            'code': c['category'],
+            'label': cat_dict.get(c['category'], c['category']),
+            'total': c['total'],
+            'count': c['count'],
+            'pct': round(float(c['total'] / month_total * 100), 1) if month_total > 0 else 0.0
+        })
+
+    # Available months choices (last 12 months + current)
+    months_choices = []
+    for i in range(12):
+        m_dt = (today - relativedelta(months=i)).replace(day=1)
+        val = m_dt.strftime('%Y-%m')
+        from .utils import month_name_fr
+        label = f"{month_name_fr(m_dt.month).capitalize()} {m_dt.year}"
+        months_choices.append({'value': val, 'label': label})
+
+    paginator = Paginator(qs, 25)
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        'expenses': page_obj,
+        'page_obj': page_obj,
+        'total_count': qs.count(),
+        'month_total': month_total,
+        'year_total': year_total,
+        'top_cat_name': top_cat_name,
+        'top_cat_total': top_cat_total,
+        'cat_stats': cat_stats,
+        'categories': ExpenseCategory.choices,
+        'payment_methods': PaymentMethod.choices,
+        'months_choices': months_choices,
+        'selected_month': month_param,
+        'selected_category': cat_param,
+        'selected_method': method_param,
+        'search_query': q,
+        'today': today,
+    }
+    return render(request, 'core/expenses_list.html', context)
+
+
+@login_required
+@require_POST
+def expense_create(request):
+    """Enregistrement d'une nouvelle dépense."""
+    from .models import Expense
+    title = request.POST.get('title', '').strip()
+    category = request.POST.get('category', 'OTHER')
+    amount = request.POST.get('amount')
+    expense_date = request.POST.get('expense_date')
+    payment_method = request.POST.get('payment_method', 'CASH')
+    beneficiary = request.POST.get('beneficiary', '').strip()
+    invoice_number = request.POST.get('invoice_number', '').strip()
+    notes = request.POST.get('notes', '').strip()
+
+    if not title or not amount:
+        messages.error(request, 'Veuillez saisir un libellé et un montant valide.')
+        return redirect('core:expense_list')
+
+    try:
+        amount_dec = Decimal(amount)
+        if amount_dec <= Decimal('0.00'):
+            raise ValueError()
+    except Exception:
+        messages.error(request, 'Montant de dépense invalide.')
+        return redirect('core:expense_list')
+
+    if not expense_date:
+        expense_date_val = timezone.now().date()
+    else:
+        try:
+            expense_date_val = datetime.strptime(expense_date, '%Y-%m-%d').date()
+        except Exception:
+            expense_date_val = timezone.now().date()
+
+    created_by = request.user.get_username() if request.user.is_authenticated else ''
+
+    expense = Expense.objects.create(
+        title=title,
+        category=category,
+        amount=amount_dec,
+        expense_date=expense_date_val,
+        payment_method=payment_method,
+        beneficiary=beneficiary,
+        invoice_number=invoice_number,
+        notes=notes,
+        created_by=created_by
+    )
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'id': expense.id, 'message': 'Dépense enregistrée avec succès.'})
+
+    messages.success(request, f'Dépense « {expense.title} » ({expense.amount} DH) enregistrée avec succès.')
+    return redirect('core:expense_list')
+
+
+@login_required
+@require_POST
+def expense_update(request, expense_id):
+    """Mise à jour d'une dépense."""
+    from .models import Expense
+    expense = get_object_or_404(Expense, pk=expense_id)
+    title = request.POST.get('title', '').strip()
+    category = request.POST.get('category')
+    amount = request.POST.get('amount')
+    expense_date = request.POST.get('expense_date')
+    payment_method = request.POST.get('payment_method')
+    beneficiary = request.POST.get('beneficiary', '').strip()
+    invoice_number = request.POST.get('invoice_number', '').strip()
+    notes = request.POST.get('notes', '').strip()
+
+    if not title or not amount:
+        messages.error(request, 'Libellé ou montant manquant.')
+        return redirect('core:expense_list')
+
+    try:
+        amount_dec = Decimal(amount)
+        if amount_dec <= Decimal('0.00'):
+            raise ValueError()
+        expense.amount = amount_dec
+    except Exception:
+        messages.error(request, 'Montant de dépense invalide.')
+        return redirect('core:expense_list')
+
+    if expense_date:
+        try:
+            expense.expense_date = datetime.strptime(expense_date, '%Y-%m-%d').date()
+        except Exception:
+            pass
+
+    expense.title = title
+    if category:
+        expense.category = category
+    if payment_method:
+        expense.payment_method = payment_method
+    expense.beneficiary = beneficiary
+    expense.invoice_number = invoice_number
+    expense.notes = notes
+    expense.save()
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'message': 'Dépense mise à jour.'})
+
+    messages.success(request, 'Dépense mise à jour avec succès.')
+    return redirect('core:expense_list')
+
+
+@login_required
+@require_POST
+def expense_delete(request, expense_id):
+    """Suppression d'une dépense."""
+    from .models import Expense
+    expense = get_object_or_404(Expense, pk=expense_id)
+    title = expense.title
+    amount = expense.amount
+    expense.delete()
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        return JsonResponse({'status': 'ok', 'message': 'Dépense supprimée.'})
+
+    messages.success(request, f'Dépense « {title} » ({amount} DH) supprimée.')
+    return redirect('core:expense_list')
+
+
+@login_required
+def expense_export_csv(request):
+    """Exportation des dépenses filtrées en CSV avec encodage UTF-8 BOM."""
+    from .models import Expense
+    import csv
+    today = timezone.now().date()
+    month_param = request.GET.get('month', today.strftime('%Y-%m'))
+    cat_param = request.GET.get('category', '')
+    method_param = request.GET.get('payment_method', '')
+    q = request.GET.get('q', '').strip()
+
+    qs = Expense.objects.all()
+    if month_param and month_param != 'all':
+        try:
+            dt = datetime.strptime(month_param + '-01', '%Y-%m-%d').date()
+            m_start = dt.replace(day=1)
+            m_end = (m_start + relativedelta(months=1)) - timedelta(days=1)
+            qs = qs.filter(expense_date__range=[m_start, m_end])
+        except Exception:
+            pass
+
+    if cat_param:
+        qs = qs.filter(category=cat_param)
+    if method_param:
+        qs = qs.filter(payment_method=method_param)
+    if q:
+        qs = qs.filter(
+            Q(title__icontains=q) | Q(beneficiary__icontains=q) |
+            Q(invoice_number__icontains=q) | Q(notes__icontains=q)
+        )
+
+    response = HttpResponse(content_type='text/csv; charset=utf-8')
+    response['Content-Disposition'] = f'attachment; filename="depenses_{month_param or "export"}.csv"'
+    response.write('\ufeff'.encode('utf8'))
+
+    writer = csv.writer(response)
+    writer.writerow(['Date', 'Libellé', 'Catégorie', 'Montant (DH)', 'Mode de règlement', 'Bénéficiaire', 'N° Facture', 'Remarques', 'Enregistré par'])
+
+    for exp in qs:
+        writer.writerow([
+            exp.expense_date.strftime('%d/%m/%Y'),
+            exp.title,
+            exp.get_category_display(),
+            str(exp.amount),
+            exp.get_payment_method_display(),
+            exp.beneficiary,
+            exp.invoice_number,
+            exp.notes,
+            exp.created_by,
+        ])
+
     return response
 
 
@@ -210,6 +528,10 @@ def student_unpaid_search(request):
     # Filter to unpaid students only
     unpaid_students = []
     for s in students:
+        # Check if already completed by exception
+        if Payment.objects.filter(student=s, month_covered=current_month, status='PAID', is_completed=True).exists():
+            continue
+
         required = calculate_student_monthly_total(s)
         paid = Payment.objects.filter(
             student=s,
@@ -248,17 +570,27 @@ def student_detail(request):
     
     from .utils import calculate_student_expected_fees_for_month, count_scheduled_sessions_in_month, count_remaining_sessions_in_month
     
-    required = calculate_student_expected_fees_for_month(student, current_month)
+    # Check if settled as exception
+    is_settled_exception = Payment.objects.filter(
+        student=student,
+        month_covered=current_month,
+        status='PAID',
+        is_completed=True
+    ).exists()
+
     enrollments = student.enrollment_set.filter(is_active=True).select_related('course_group')
     groups = []
     
-    paid = Payment.objects.filter(
-        student=student,
-        month_covered=current_month,
-        status='PAID'
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
-    
-    required = max(required - paid, Decimal('0'))
+    if is_settled_exception:
+        required = Decimal('0')
+    else:
+        required = calculate_student_expected_fees_for_month(student, current_month)
+        paid = Payment.objects.filter(
+            student=student,
+            month_covered=current_month,
+            status='PAID'
+        ).aggregate(total=Sum('amount'))['total'] or Decimal('0')
+        required = max(required - paid, Decimal('0'))
     
     for e in enrollments:
         is_prorated = False
@@ -736,6 +1068,46 @@ def sessions_today(request):
     }
     
     return render(request, 'core/sessions_today.html', context)
+
+
+@require_http_methods(['GET', 'POST'])
+def sessions_complete_all_uncompleted(request):
+    """
+    Marquer toutes les séances en retard (date < aujourd'hui et statut PLANNED) comme terminées (DONE).
+    Crée également les fiches de présence pour les élèves actifs du groupe si non existantes.
+    """
+    today = timezone.now().date()
+    past_uncompleted = Session.objects.filter(date__lt=today, status='PLANNED').select_related('group')
+    count = past_uncompleted.count()
+    
+    if count > 0:
+        with transaction.atomic():
+            for session in past_uncompleted:
+                session.status = 'DONE'
+                session.is_manually_edited = True
+                session.save(update_fields=['status', 'is_manually_edited'])
+                
+                # Create attendance records for active students in the group if not already present
+                active_students = session.group.students.filter(is_active=True)
+                for student in active_students:
+                    Attendance.objects.get_or_create(
+                        student=student,
+                        course_group=session.group,
+                        date=session.date,
+                        defaults={
+                            'is_present': True,
+                            'session': session,
+                        }
+                    )
+        messages.success(request, f"Toutes les {count} séances en retard ont été marquées comme terminées.")
+    else:
+        messages.info(request, "Aucune séance en retard à marquer comme terminée.")
+    
+    redirect_url = request.META.get('HTTP_REFERER')
+    if not redirect_url:
+        redirect_url = reverse('core:sessions_today') + '?mode=uncompleted'
+    return redirect(redirect_url)
+
 
 @require_http_methods(['GET', 'POST'])
 def session_create(request):
@@ -5088,7 +5460,7 @@ def analytics_dashboard(request):
 
 @staff_member_required
 def analytics_revenue(request):
-    """Monthly revenue details, forecast, expected vs paid, and collection rate."""
+    """Monthly revenue details, forecast, expected vs paid, expenses, and collection rate."""
     months = int(request.GET.get('months', 3))
     context = {
         'monthly_series': RevenueAnalytics.monthly_series(months),
@@ -5096,6 +5468,9 @@ def analytics_revenue(request):
         'by_group': RevenueAnalytics.revenue_by_course_group(),
         'methods': RevenueAnalytics.payment_method_breakdown(),
         'current_month': RevenueAnalytics.current_month_summary(),
+        'exceptions_summary': RevenueAnalytics.exceptions_summary(),
+        'expense_categories': RevenueAnalytics.expenses_by_category(months),
+        'teacher_payments': RevenueAnalytics.teacher_payments_summary(),
         'months': months,
     }
     return render(request, 'core/analytics_revenue.html', context)

@@ -82,6 +82,15 @@ class StudentFilter(django_filters.FilterSet):
 
         current_month = timezone.now().date().replace(day=1)
 
+        # Students with is_completed=True are always considered PAID (exception payments)
+        completed_ids = set(
+            Payment.objects.filter(
+                month_covered=current_month,
+                status__in=PAID_STATUSES,
+                is_completed=True,
+            ).values_list('student_id', flat=True)
+        )
+
         enrollments_qs = (
             Enrollment.objects.filter(is_active=True)
             .select_related('course_group')
@@ -92,46 +101,43 @@ class StudentFilter(django_filters.FilterSet):
             Prefetch(
                 'enrollment_set',
                 queryset=enrollments_qs,
-                to_attr='active_enrollments'
+                to_attr='active_enrollments',
             )
-        )
-
-        payments_summary = (
-            Payment.objects.filter(
-                month_covered=current_month,
-                status__in=PAID_STATUSES
-            )
-            .values('student_id')
-            .annotate(total_paid=Sum('amount'))
         )
 
         paid_map = {
             p['student_id']: p['total_paid'] or Decimal('0.00')
-            for p in payments_summary
+            for p in Payment.objects.filter(
+                month_covered=current_month,
+                status__in=PAID_STATUSES,
+            ).values('student_id').annotate(total_paid=Sum('amount'))
         }
 
-        student_ids = []
+        paid_ids = []
+        unpaid_ids = []
 
         for student in students:
-            required = Decimal('0.00')
+            # Exception: marked completed by staff → always paid
+            if student.id in completed_ids:
+                paid_ids.append(student.id)
+                continue
 
+            required = Decimal('0.00')
             for enrollment in student.active_enrollments:
-                required += calculate_enrollment_expected_fee(
-                    enrollment,
-                    current_month
-                )
+                required += calculate_enrollment_expected_fee(enrollment, current_month)
 
             paid = paid_map.get(student.id, Decimal('0.00'))
+            is_paid = (required == Decimal('0.00')) or (paid >= required)
 
-            is_paid = (required == 0) or (paid >= required)
+            if is_paid:
+                paid_ids.append(student.id)
+            else:
+                unpaid_ids.append(student.id)
 
-            if value == "paid" and is_paid:
-                student_ids.append(student.id)
-            elif value == "unpaid" and not is_paid:
-                # Includes both partial and completely unpaid
-                student_ids.append(student.id)
-
-        return queryset.filter(id__in=student_ids)
+        if value == 'paid':
+            return queryset.filter(id__in=paid_ids)
+        else:  # 'unpaid' — partial + fully unpaid
+            return queryset.filter(id__in=unpaid_ids)
 
 
 class CourseGroupFilter(django_filters.FilterSet):

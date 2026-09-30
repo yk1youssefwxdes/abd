@@ -17,7 +17,7 @@ from .models import (
     Room, Teacher, CourseGroup, Student, Enrollment, Payment, Attendance, Session,
     CourseGroupSchedule, Level, LevelCategory, WhatsAppSendLog, Holiday,
     TeacherLeave, TeacherAvailability, MakeupSession, Announcement, TeacherPayment,
-    SessionChangeHistory, ScheduleLock, StudentLevelHistory
+    SessionChangeHistory, ScheduleLock, StudentLevelHistory, Expense
 )
 from django.core.exceptions import ValidationError
 
@@ -697,8 +697,8 @@ class PaymentAdmin(ModelAdmin, ImportExportModelAdmin):
     import_form_class = ImportForm
     export_form_class = ExportForm
     list_display = ('receipt_number', 'student', 'amount_display', 'payment_date', 
-                    'month_covered', 'status_badge', 'payment_method', 'locked_status')
-    list_filter = ('status', 'payment_method', CurrentMonthPaymentFilter, 'is_locked', 'payment_date')
+                    'month_covered', 'status_badge', 'is_completed_badge', 'payment_method', 'locked_status')
+    list_filter = ('status', 'is_completed', 'payment_method', CurrentMonthPaymentFilter, 'is_locked', 'payment_date')
     search_fields = ('receipt_number', 'student__name', 'notes')
     autocomplete_fields = ['student']
     date_hierarchy = 'payment_date'
@@ -706,7 +706,7 @@ class PaymentAdmin(ModelAdmin, ImportExportModelAdmin):
     
     fieldsets = (
         ('Paiement', {
-            'fields': ('student', 'amount', 'payment_date', 'month_covered')
+            'fields': ('student', 'amount', 'payment_date', 'month_covered', 'is_completed')
         }),
         ('Détails', {
             'fields': ('status', 'payment_method', 'notes')
@@ -740,6 +740,28 @@ class PaymentAdmin(ModelAdmin, ImportExportModelAdmin):
         if obj.is_locked:
             return mark_safe('<span style="color: red; font-size: 16px;">🔒 Verrouillé</span>')
         return mark_safe('<span style="color: green;">🔓 Modifiable</span>')
+
+    def is_completed_badge(self, obj):
+        if obj.is_completed:
+            return format_html('<span class="badge" style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:4px;font-weight:600;">⚠️ Soldé (exception)</span>')
+        return format_html('<span style="color:gray;">—</span>')
+    is_completed_badge.short_description = 'Exception'
+
+
+@admin.register(Expense)
+class ExpenseAdmin(ModelAdmin, ImportExportModelAdmin):
+    list_display = ('title', 'category_badge', 'amount_display', 'expense_date', 'payment_method', 'beneficiary', 'created_by')
+    list_filter = ('category', 'payment_method', 'expense_date')
+    search_fields = ('title', 'beneficiary', 'invoice_number', 'notes')
+    date_hierarchy = 'expense_date'
+    
+    def amount_display(self, obj):
+        return format_html('<strong style="font-size: 14px; color: #dc3545;">-{} DH</strong>', obj.amount)
+    amount_display.short_description = 'Montant'
+
+    def category_badge(self, obj):
+        return format_html('<span class="badge" style="background:#e0e7ff;color:#3730a3;font-size:12px;padding:3px 8px;border-radius:4px;">{}</span>', obj.get_category_display())
+    category_badge.short_description = 'Catégorie'
 
 
 @admin.register(Attendance)
